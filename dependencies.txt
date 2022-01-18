@@ -1,0 +1,2 @@
+https://github.com/Ezandora/Voting-Booth/trunk/Release/
+https://github.com/Ezandora/Bastille/branches/Release/
