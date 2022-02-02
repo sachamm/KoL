@@ -1,3 +1,7 @@
+script "dc";
+notify TQuilla;
+since r26135;
+
 import <smmUtils.ash>
 string __dc_version = "0.5";
 
@@ -6,11 +10,13 @@ CLI display case utilities centered around maintaining top 10 collections.
 
 "dc help" in the CLI for help
 
-TODO save the top 10 of each item in the daily env vars _smmDCTop10 <item>
+TODO save the top 10 of each item in the daily env vars _smm.DCTop10 <item>
+
+@author Sacha Mallais (TQuilla #2771003)
 */
 
-int gOvershootAmount = get_property("smmDCOvershootAmount") == "" ? 11 : get_property("smmDCOvershootAmount").to_int(); // amount to overshoot the next highest top 10 item
-int gSaveAmount = get_property("smmDCSaveAmount") == "" ? 1 : get_property("smmDCSaveAmount").to_int(); // amount to save from going into the display case
+int gOvershootAmount = get_property("smm.DCOvershootAmount") == "" ? 11 : get_property("smm.DCOvershootAmount").to_int(); // amount to overshoot the next highest top 10 item
+int gSaveAmount = get_property("smm.DCSaveAmount") == "" ? 1 : get_property("smm.DCSaveAmount").to_int(); // amount to save from going into the display case
 
 record IntRange {
 	int top;
@@ -18,6 +24,9 @@ record IntRange {
 };
 
 
+
+// dc will call these functions (is_hatchling, is_gift, etc) on each item. if that function returns true for the item, dc will save
+// the associated number in this map instead of the default gSaveAmount
 int [string] gTypeSaveMap = {
 	"is_hatchling" : 0, // hatchlings
 	"is_gift" : 0, // gifts
@@ -44,21 +53,50 @@ void printHelp() {
 	print_html("<h3>Item saving rules:</h3>");
 	print_html("<br/>All keywords (including 'addall') follow this convention. If the item is not one or more of:");
 	print_html("<ul><li style='text-align: left;'>gift</li><li style='text-align: left;'>familiar hatchling</li></ul>");
-	print_html("then at least smmDCSaveAmount (default 1) of the items will be saved from going into the display case.");
+	print_html("then at least smm.DCSaveAmount (default 1) of the items will be saved from going into the display case.");
 
 	print_html("<br/>All commands will raid Hagnk's and/or your closet if required to achieve a top 10 spot or 'all' of an item.<br/><br/>To add a specific number of items to the display case, use the built-in 'display' command: display put|take [x] item");
 }
 
 
-void printTop10List(int [int, string] top10List) {
-	for i from 1 to 10 {
-		foreach name in top10List[i]
-			print(i + ". " + name + ": " + top10List[i, name]);
+// ensure there are 10 or 11 entries and that the ranks go sequentially from 1
+boolean isValidTop10List(int [int, string] top10List) {
+	int idx = 1;
+	int totalCount = 0;
+	foreach rank, name, num in top10List {
+		if (rank == idx) {
+			totalCount++;
+			idx++;
+			continue;
+		}
+		if (rank == idx - 1) { // same rank as last, i.e. a tie
+			totalCount++;
+			continue;
+		}
+		return false;
 	}
+
+	if (totalCount != 10 && totalCount != 11)
+		return false;
+
+	return true;
 }
 
 
-int top(int [int, string] collection) {
+string toString(int [int, string] top10List) {
+	string rval;
+	foreach rank, name, num in top10List {
+		rval += rank + ". " + name + ": " + num + "</br>\n";
+	}
+	return rval;
+}
+
+void printTop10List(int [int, string] top10List) {
+	print_html(toString(top10List));
+}
+
+
+int rank1Amount(int [int, string] collection) {
 	foreach s in collection[1] {
 		return collection[1, s];
 	}
@@ -66,9 +104,12 @@ int top(int [int, string] collection) {
 	return 0;
 }
 
-int bottom(int [int, string] collection) {
-	foreach s in collection[10] {
-		return collection[10, s];
+int rank10Amount(int [int, string] collection) {
+	int totalCount = 0;
+	foreach rank, name, num in collection {
+		totalCount++;
+		if (totalCount == 10)
+			return num;
 	}
 	abort("could not find bottom");
 	return 0;
@@ -76,8 +117,8 @@ int bottom(int [int, string] collection) {
 
 IntRange collectionRange(int [int, string] collection) {
 	IntRange rval;
-	rval.top = top(collection);
-	rval.bottom = bottom(collection);
+	rval.top = rank1Amount(collection);
+	rval.bottom = rank10Amount(collection);
 	return rval;
 }
 
@@ -88,28 +129,36 @@ void dcPrintItemDetails(item anItem, int [int, string] top10List) {
 	int storageAmount = storage_amount(anItem);
 	int closetAmount = closet_amount(anItem);
 	int displayAmount = display_amount(anItem);
-	int total = equippedAmount + itemAmount + storageAmount + closetAmount + displayAmount;
-
 	int shopAmount = shop_amount(anItem);
+	int total = equippedAmount + itemAmount + storageAmount + closetAmount + shopAmount + displayAmount;
 
 	int availableAmount = available_amount(anItem);
-	if ((availableAmount + displayAmount) != total)
-		print("WARNING: inconsistent amount! available + display: " + (availableAmount + displayAmount) + ", calculated: " + total + " -- check Left-Hand Man!", "red");
+	if ((availableAmount + displayAmount + shopAmount) != total)
+		print("WARNING: inconsistent amount! available + display + shop: " + (availableAmount + displayAmount + shopAmount) + ", calculated: " + total + " -- check Left-Hand Man!", "red");
 
 	string top10RangeString;
 	IntRange top_10_range;
 	if (count(top10List) > 0) {
-		string mySpotString;
+		string myRankString;
+		string myNewRankString;
 		IntRange top_10_range = collectionRange(top10List);
-		foreach i in top10List
-			if (top10List[i] contains my_name()) {
-				mySpotString = " (my spot: " + i + ")";
-				break;
-			}
-		top10RangeString = " Top 10 range: " + top_10_range.top + "-" + top_10_range.bottom + mySpotString;
+		foreach rank, name, num in top10List {
+			if (name.contains_text(my_name()) && myRankString == "")
+				myRankString = " (my rank now: " + rank + ", ";
+			if (displayAmount >= num && myNewRankString == "")
+				myNewRankString = "will be: " + rank + ")";
+		}
+
+		if (myNewRankString == "")
+			myNewRankString = ", will be: unranked)";
+		if (myRankString == "")
+			myRankString = " (my rank: unranked" + myNewRankString;
+		else
+			myRankString += myNewRankString;
+		top10RangeString = " Top 10 range: " + top_10_range.top + "-" + top_10_range.bottom + myRankString;
 	}
 
-	print(anItem + ": " + equippedAmount + " equipped and " + itemAmount
+	print(equippedAmount + " equipped and " + itemAmount
 		+ " in inv (+" + storageAmount + " stored +" + closetAmount + " in closet +" + shopAmount + " in the shop) and "
 		+ displayAmount + " in case, total available: " + total + "." + top10RangeString);
 }
@@ -140,27 +189,37 @@ string name(int an_index, int [int, string] the_collection) {
 
 // returns true if the given item is in the top 10
 boolean in_top10(item anItem, int [int, string] collection) {
-	return display_amount(anItem) >= bottom(collection);
+	return display_amount(anItem) >= rank10Amount(collection);
 }
 
 
 
-// returns the top 10 list -- from Jicken Wings and from the wiki if that doesn't work -- indexed by user name and the number of items
+// returns the top 10 list -- value is the number of items, indexed by user name and the top 10 spot number
+// tries Jicken Wings first, then the wiki if that doesn't work
 int [int, string] lookupCollection(item anItem) {
 	int [int, string] top10List;
 	string pageString = visit_url("http://dcdb.coldfront.net/collections/index.cgi?query_value=" + to_int(anItem) + "&query_type=item", true, false);
 
-	matcher range_matcher = create_matcher("<tr><td bgcolor=\"white\" align=\"center\" valign=\"center\"><b>[0-9]+</b></td>.*?<b>([^<]*)</b>.*?<b>([0-9,]+)</b></td></tr>", pageString);
-	for i from 1 to 10 {
-		if (!find(range_matcher)) {
+	matcher itemMatcher = create_matcher("<tr><td bgcolor=\"blue\" align=\"center\" valign=\"center\"><font color=\"white\"><b>(.*) \\(#([0-9]+)\\)</b></font></td></tr>", pageString);
+	assert(find(itemMatcher), "lookupCollection: could not find the item name in Jicken Wings");
+	print("[" + group(itemMatcher, 2) + "]" + group(itemMatcher, 1));
+
+	matcher range_matcher = create_matcher("<tr><td bgcolor=\"white\" align=\"center\" valign=\"center\"><b>([0-9]+)</b></td>.*?<b>([^<]*)</b>.*?<b>([0-9,]+)</b></td></tr>", pageString);
+	for i from 1 to 11 {
+		boolean found = find(range_matcher);
+		if (!found && i < 11) {
 			if (i > 1) abort("unexpected error");
 			print("problem matching the Top 10 list from coldfront, trying wiki");
 			pageString = visit_url("https://kol.coldfront.net/thekolwiki/index.php/" + anItem.replace_string(" ", "_"), true, false);
 			range_matcher = create_matcher("[0-9]+\. <a href=.*?player'>(.*?) - ([0-9]+)</a>", pageString);
 			if (!find(range_matcher)) abort("wiki didn't work either");
+		} else if (!found && i == 11) { // the wiki doesn't have entry #11
+			continue;
 		}
-		top10List[i, group(range_matcher, 1)] = to_int(group(range_matcher, 2));
+		top10List[group(range_matcher, 1).to_int(), group(range_matcher, 2)] = to_int(group(range_matcher, 3));
 	}
+
+	assert(isValidTop10List(top10List), "lookupCollection: something wrong with the top 10 list:\n" + toString(top10List));
 
 	return top10List;
 }
@@ -192,7 +251,7 @@ int calcMoveUpOneSpot(item anItem, int [int, string] top10List) {
 	int goalAmount;
 	int goalIndex = 10;
 	if (!in_top10(anItem, top10List)) {
-		goalAmount = bottom(top10List) + gOvershootAmount;
+		goalAmount = rank10Amount(top10List) + gOvershootAmount;
 	} else {
 		for i from 10 to 1 by -1
 			if (amount(i, top10List) == displayAmount)
@@ -214,20 +273,22 @@ int calcMoveUpOneSpot(item anItem, int [int, string] top10List) {
 
 // returns the number of items in the display case that would put us at the highest position
 // in the Top 10 list that we can reach, trying to be +11 over the next highest
-// (though will be less than +11 if there aren't enough items)
+// (will be less than +11 if there aren't enough items)
 int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
 	int invAmount = item_amount(anItem);
 
-	int availableAmount = available_amount(anItem) - saveAmount(anItem);
+	int availableAmount = available_amount(anItem) + shop_amount(anItem) - saveAmount(anItem);
 
 	int displayAmount = display_amount(anItem);
 
 	int goalAmount = availableAmount + displayAmount;
-	if (goalAmount < bottom(top10List))
+	if (goalAmount < rank10Amount(top10List)) {
+		print("goal amount of " + goalAmount + " isn't enough to beat #10 @ " + rank10Amount(top10List), "blue");
 		return 0;
+	}
 
 	int goalIndex;
-	for i from 1 to 10 {
+	for i from 1 to count(top10List) {
 		if (amount(i, top10List) < goalAmount) {
 			goalIndex = i;
 			break;
@@ -257,27 +318,34 @@ int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
 // always keeps one item out of the display case for use
 // returns the delta of items put in/taken out of the case
 int top10Item(item anItem, int [int, string] top10List) {
-	int invAmount = item_amount(anItem);
 	int displayAmount = display_amount(anItem);
-
 	int goalAmount = calcHighestGoalAmount(anItem, top10List);
-
 	int putAmount = goalAmount - displayAmount;
+
 	if (putAmount > 0) {
+		int invAmount = item_amount(anItem);
 		if (putAmount > invAmount) {
-			take_storage(putAmount - invAmount, anItem);
+			take_storage(min(storage_amount(anItem), putAmount - invAmount), anItem);
 			invAmount = item_amount(anItem);
 		}
-		if (putAmount > invAmount) take_closet(putAmount - invAmount, anItem);
-		print("putting " + putAmount + " " + anItem + " into display case", "green");
+		if (putAmount > invAmount) {
+			take_closet(min(closet_amount(anItem), putAmount - invAmount), anItem);
+			invAmount = item_amount(anItem);
+		}
+		if (putAmount > invAmount) {
+			take_shop(min(shop_amount(anItem), putAmount - invAmount), anItem);
+			invAmount = item_amount(anItem);
+		}
+
+		print("dc: putting " + putAmount + " " + anItem + " into display case", "green");
 		put_display(putAmount, anItem);
 	} else if (putAmount < 0) {
 		string logColour = "orange";
 		if (-putAmount == displayAmount) logColour = "red"; // we're taking everything out of the dc (will affect future shelf operations)
-		print("taking " + -putAmount + " " + anItem + " from display case", logColour);
+		print("dc: taking " + -putAmount + " " + anItem + " from display case", logColour);
 		take_display(-putAmount, anItem);
 	} else
-		print("nothing to do");
+		print("dc: nothing to do");
 
 	return putAmount;
 }

@@ -239,10 +239,18 @@ string dressForPickpocket(location advLocation, string existingMaxString) {
 }
 
 
+void setDefaultMoodForLocation(location advLocation) {
+	if (advLocation == $location[Infernal Rackets Backstage]) {
+		setCurrentMood("-combat");
+	}
+}
+
+
+
 // appends to existingMaxString a maximizer string that will enable adventuring in the given location and returns it.
 // most locations will require nothing. Prototypical example is the pirate fledges required for adventuring in the Obligatory Pirate Cove
 // since these are required items only, will not check if the existing maxString allows dressing with the returned item(s)
-string dressForLocation(location advLocation, string maxString) {
+string maxStringForLocation(location advLocation, string maxString) { // #dressForLocation
 	if (advLocation == $location[Barrrney's Barrr] || advLocation == $location[The F'c'le] || advLocation == $location[The Poop Deck] || advLocation == $location[Belowdecks]) {
 		if (have_item($item[pirate fledges]))
 			maxString = maxStringAppend(maxString, "equip pirate fledges");
@@ -256,6 +264,10 @@ string dressForLocation(location advLocation, string maxString) {
 			maxString = maxStringAppend(maxString, "equip Talisman o' Namsilat");
 		else
 			abort("can't dress for location: " + advLocation);
+
+	} else if (advLocation == $location[infernal Rackets Backstage]) {
+		if ( !(get_property("questM10Azazel") == "finished" || have_item($item[Azazel's unicorn])))
+			maxString = maxStringAppend(maxString, "-10 combat");
 
 	} else if (advLocation == $location[8-Bit Realm]) {
 		if (have_item($item[continuum transfunctioner]))
@@ -284,7 +296,7 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 	string maxString = maxStringAppend(selector, additionalMaxString);
 
 	// LOCATION-SPECIFIC items
-	maxString = dressForLocation(advLocation, maxString);
+	maxString = maxStringForLocation(advLocation, maxString);
 
 	// IN RONIN
 	if (inRonin()) {
@@ -387,7 +399,7 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 // 				if (have_effect($effect[Iron Palms]) > 0)
 // 					maxString = maxStringAppend(maxString, "type club, type sword");
 // 				else					
-				maxString = maxStringAppend(maxString, "type club");
+// 				maxString = maxStringAppend(maxString, "type club");
 			} else
 				maxString = maxStringAppend(maxString, "melee");
 		} else if (my_primestat() == $stat[moxie] && !wantsToEquipMelee(maxString)) {
@@ -403,7 +415,7 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 
 // if selector is empty, doesn't make any changes to the max string (other than the tweak string when dressup(string tweak) calls this)
 void dressup(location advLocation, string selector, string familiarSelector, string additionalMaxString) {
-	string kDressupOutfitPrefixKey = "_smmDressupTmp: ";
+	string kDressupOutfitPrefixKey = "_smm.DressupTmp: ";
 	if (advLocation != $location[none])
 		set_location(advLocation);
 
@@ -424,24 +436,28 @@ void dressup(location advLocation, string selector, string familiarSelector, str
 
 	if (maxString == get_property(kDressupLastFullMaxStringKey) && !get_property(kForceDressupKey).to_boolean()) {
 		print("skipping maximize for same max string, restoring existing dressup instead", "blue");
-		restoreOutfit(true, kDressupSavedEquipSetKey);
+		restoreOutfit(true, kDressupOutfitPrefixKey + maxString);
 	} else {
 		set_property(kDressupLastFullMaxStringKey, maxString);
-
-		// first see if have an outfit saved for this maxString, and switch to it if we do.
-		// if not, do an initial maximize and unequip and retry if that fails.
-		if (haveOutfit(kDressupOutfitPrefixKey + maxString)) {
-			restoreOutfit(true, kDressupOutfitPrefixKey + maxString);
-		} else if (!maximize(maxString, false)) {
-			unequipAll(false); // don't need to unequip familiar
-			maximize(maxString, false);
+		saveAndSetProperty("maximizerMRUSize", 0); // TODO try to avoid log spam with this shit
+		try {
+			// first see if have an outfit saved for this maxString, and switch to it if we do.
+			// if not, do an initial maximize and unequip and retry if that fails.
+			if (haveOutfit(kDressupOutfitPrefixKey + maxString)) {
+				restoreOutfit(true, kDressupOutfitPrefixKey + maxString);
+			} else if (!maximize(maxString, false)) {
+				unequipAll(false); // don't need to unequip familiar
+				maximize(maxString, false);
+			}
+			// finally, do a maximize with a close-to-right outfit and see if there's a tweak
+			if (!maximize(maxString, false))
+				abort("dressup: maximizer failed");
+			saveOutfit(kDressupSavedEquipSetKey);
+			saveOutfit(kDressupOutfitPrefixKey + maxString);
+			set_property(kForceDressupKey, "false");
+		} finally {
+			restoreSavedProperty("maximizerMRUSize");
 		}
-		// finally, do a maximize with a close-to-right outfit and see if there's a tweak
-		if (!maximize(maxString, false))
-			abort("dressup: maximizer failed");
-		saveOutfit(kDressupSavedEquipSetKey);
-		saveOutfit(kDressupOutfitPrefixKey + maxString);
-		set_property(kForceDressupKey, "false");
 	}
 
 	// ensure any valuable items we took off are stowed safely
@@ -511,6 +527,8 @@ void backupAutomatedDressup(string backupKey) {
 	set_property(backupKeyToUse + kDressupMaxStringKey, get_property(kDressupMaxStringKey));
 	set_property(backupKeyToUse + kDressupLastFullMaxStringKey, get_property(kDressupLastFullMaxStringKey));
 	set_property(backupKeyToUse + kDressupTweakStringKey, get_property(kDressupTweakStringKey));
+
+	saveOutfit(backupKeyToUse + "_outfit");
 }
 
 void restoreAutomatedDressup(string backupKey) {
@@ -523,6 +541,8 @@ void restoreAutomatedDressup(string backupKey) {
 	set_property(kDressupMaxStringKey, get_property(backupKeyToUse + kDressupMaxStringKey));
 	set_property(kDressupTweakStringKey, get_property(backupKeyToUse + kDressupTweakStringKey));
 	set_property(kDressupLastFullMaxStringKey, get_property(backupKeyToUse + kDressupLastFullMaxStringKey));
+
+	saveOutfit(backupKeyToUse, get_property(backupKeyToUse + "_outfit"));
 }
 
 
@@ -573,22 +593,68 @@ void automate_dressup(location aLocation, string item_selector, string familiar_
 
 // returns the location we should go when we do a wandering-monster redirect
 // this should be the most important place to burn delay
-location redirectionDelayLocation() {
+location redirectionDelayLocation() { // locationfordelay
+	// AZAZEL we need non-combats, don't do if we finished, have the unicorn or we have all 4 items
+	if ( !(get_property("questM10Azazel") == "finished" || have_item($item[Azazel's unicorn])
+		|| (have_item($item[comfy pillow]) && have_item($item[giant marshmallow]) && have_item($item[beer-scented teddy bear]) && have_item($item[booze-soaked cherry])) )) {
+		return $location[infernal rackets backstage];
+	}
+
+	// GUILD
+	if (get_property("questG07Myst") == "started")
+		return $location[The Haunted Pantry];
+	if (get_property("questG08Moxie") == "started")
+		return $location[The Sleazy Back Alley];
+	if (get_property("questG09Muscle") == "started")
+		return $location[The Outskirts of Cobb's Knob];
+
+	if (get_property("questG04Nemesis") == "started")
+		return $location[The Unquiet Garves];
+
+	if (get_property("questG04Nemesis") == "step5" && $location[The "Fun" House].turns_spent < 10)
+		return $location[The "Fun" House];
+
+	// TODO add latte unlock locs
+
+	// PAGODA -- hey deze map is a superlikely, so adventure there until we get it
+	if ( !(have_item($item[hey deze map]) || (get_campground() contains $item[pagoda plans])))
+		return $location[pandamonium slums];
+	// Pagoda -- elf farm raffle ticket, want -combat
+	if ( !(have_item($item[elf farm raffle ticket]) || (get_campground() contains $item[pagoda plans])) && have_item($item[Talisman o' Namsilat]))
+		return $location[inside the palindome];
+
+	// TODO poop deck
+
+	// TODO zap wand
+
+	// GUZZLR gold or platinum quest -- gold and platinum get precedence, see below for bronze
 	item guzItem = to_item(get_property("guzzlrQuestBooze"));
 	location guzLoc = to_location(get_property("guzzlrQuestLocation"));
+	string guzTier = get_property("guzzlrQuestTier");
+	if (guzItem != $item[none] && guzLoc != $location[none] && (guzTier == "gold" || guzTier == "platinum")) {
+		if (isUnlocked(guzLoc)) {
+			fullAcquire(guzItem);
+			return guzLoc;
+		} else {
+			if (!get_property("_smm.GuzzlrLocationLockedWarningDone").to_boolean()) {
+				set_property("_smm.GuzzlrLocationLockedWarningDone", "true");
+				abort(guzLoc + " is not yet unlocked");
+			}
+		}
+	}
 
 	// for the A Quest, LOL quest
 	if ($location[The Valley of Rof L'm Fao].turns_spent < 10)
 		return $location[The Valley of Rof L'm Fao];
 
-	// Guzzlr quest
+	// GUZZLR bronze quest
 	if (guzItem != $item[none] && guzLoc != $location[none]) {
 		if (isUnlocked(guzLoc)) {
 			fullAcquire(guzItem);
 			return guzLoc;
 		} else {
-			if (!get_property("_smmGuzzlrLocationLockedWarningDone").to_boolean()) {
-				set_property("_smmGuzzlrLocationLockedWarningDone", "true");
+			if (!get_property("_smm.GuzzlrLocationLockedWarningDone").to_boolean()) {
+				set_property("_smm.GuzzlrLocationLockedWarningDone", "true");
 				abort(guzLoc + " is not yet unlocked");
 			}
 		}
@@ -650,6 +716,7 @@ string advURLWithWanderingMonsterRedirect(location aLocation) {
 
 				if (voteMonster == $monster[terrible mutant]
 					|| voteMonster == $monster[angry ghost]
+					|| voteMonster == $monster[government bureaucrat]
 					|| voteMonster == $monster[slime blob]) {
 					redirectOutfitSelector = "100 item";
 					redirectFamiliarSelector = "item";
