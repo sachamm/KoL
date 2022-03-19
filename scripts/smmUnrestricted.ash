@@ -9,7 +9,7 @@ A collection of functions for use in aftercore or in an unrestricted run.
 To use the functions in this ASH script in another ASH script, add this to your script:
 import "smmUnrestricted.ash";
 
-To use the functions in this ASH script from your command line, do this in the CLI:
+To use the functions in this ASH script from your command line, do this in the gCLI:
 using smmUnrestricted.ash;
 
 This will add all the functions in smmUnrestricted.ash AND all it's imports to your command line name space.
@@ -55,7 +55,7 @@ int gkDrinkItemSpleenReduction = 0;
 float gkDrinkAdvGains = 6.17 + (gkDrinkItemSpleenReduction * kTurnsPerSpleen / gkDrinkItem.inebriety); // per-inebriety adv gain
 
 item gkPreoverdrinkItem = $item[none];
-item gkOverdrinkDrinkItem = $item[sangria del diablo]; // or sangria del diablo, probably with no pre-drink?
+item gkOverdrinkDrinkItem = $item[sangria del diablo]; // nightcap night cap -- OR sangria del diablo, probably with no pre-drink?
 item gkStooperDrink = $item[elemental caipiroska]; // or Lucky Lindy if we need SR and luckyIfNeeded is true
 int gkOverdrinkSpleenReduction = 0;
 
@@ -66,6 +66,9 @@ int gkBastilleBuffAmount = 11;
 
 
 string MallSpecialsPurchasedKey = "_smm.MallSpecialsPurchased";
+string ShelfSpecialsPurchasedKey = "_smm.ShelfSpecialsPurchased";
+
+int gStoreSaveAmount = get_property("smm.StoreSaveAmount") == "" ? 11 : get_property("smm.StoreSaveAmount").to_int(); // amount to save from going on sale default 11
 
 
 // COLD RES BUFFS TODO KGB, pillkeeper, frosty hand (cargo pocket)
@@ -134,7 +137,7 @@ void sweetSynthesis(effect buff, int minimumNumberOfTurns) {
 	if (buff == $effect[Synthesis: Collection])
 		cli_execute_if_needed(sweetSynthesisHelper($item[Crimbo peppermint bark], $item[Crimbo peppermint bark]), buff, minimumNumberOfTurns);
 	else if (buff == $effect[Synthesis: Greed])
-		cli_execute_if_needed(sweetSynthesisHelper($item[crimbo fudge], $item[sugar sheet]), buff, minimumNumberOfTurns);
+		cli_execute_if_needed(sweetSynthesisHelper($item[Tallowcreme Halloween Pumpkin], $item[Crimbo fudge]), buff, minimumNumberOfTurns);
 	else if (buff == $effect[Synthesis: Smart])
 		cli_execute_if_needed(sweetSynthesisHelper($item[marzipan skull], $item[ribbon candy]), buff, minimumNumberOfTurns);
 }
@@ -146,37 +149,47 @@ void sweetSynthesis(effect buff, int minimumNumberOfTurns) {
 // -------------------------------------
 
 
-void stockStore() {
-	int storeSaveAmount = get_property("smm.StoreSaveAmount") == "" ? 11 : get_property("smm.StoreSaveAmount").to_int(); // amount to save from going on sale default 11
+// target stock amount is the available amount times the stockFraction minus gStoreSaveAmount
+// will save and NOT sell a number of theItem equal to the #1 rank in the top 10 list
+boolean stockTop10Item(int minPrice, int limit, float stockFraction, item theItem) {
+	return stockItem(minPrice, limit,
+		max(0, (available_amount(theItem) + shop_amount(theItem)) * stockFraction - gStoreSaveAmount),
+		rank1Amount(lookupCollection(theItem)),
+		theItem);
+}
 
+
+void stockStore() {
 	// min price, limit, amount to stock, amount to save, item
- 	stockItem(7500, 0, 163, 2448 + 60, $item[mojo filter]); // save top 1 spot amount and an extra 60 to use
-	stockItem(6100, 0, 120, 1600, $item[drum machine]); // save more later for top 10 spot
-	stockItem(20000, 0, 22, 238 + 100, $item[sleaze jelly]); // save top 1 spot amount and an extra 100 to use
-	stockItem(42000, 0, 3, 25 + 5, $item[scimitar cozy]); // save top 1 spot amount and an extra 5 to use
+ 	stockItem(9500, 0, 163, rank1Amount(lookupCollection($item[mojo filter])) + 111, $item[mojo filter]); // save top 1 spot amount and an extra 111 to use
+	stockItem(6100, 0, 120, rank1Amount(lookupCollection($item[drum machine])), $item[drum machine]); // save more later for top 10 spot
+	stockItem(20000, 0, 22, rank1Amount(lookupCollection($item[sleaze jelly])) + 100, $item[sleaze jelly]); // save top 1 spot amount and an extra 100 to use
 
 	// min price, limit, amount to stock, item
 	stockItem(20000, 0, 11, $item[bottle of antifreeze]);
 
-	// Arr, M80 items, save the min top10 amount -- basically this will save everything for the top 10
-	// until we reach a level where the minimum number is no longer enough to get to the next level
-	// we'll then sell 1/2 of whatever we have left
-	// min price, limit, amount to stock, amount to save, item
-	stockItem(100, 0, max(0, (available_amount($item[bottle of rum]) + shop_amount($item[bottle of rum])) / 2 - storeSaveAmount), 23741, $item[bottle of rum]);
-	stockItem(260, 0, max(0, (available_amount($item[crowbarrr]) + shop_amount($item[crowbarrr])) / 2 - storeSaveAmount), 811, $item[crowbarrr]);
-	stockItem(100, 0,  max(0, (available_amount($item[eyepatch]) + shop_amount($item[eyepatch])) / 2 - storeSaveAmount), 1600, $item[eyepatch]);
-	stockItem(1000, 0, max(0, (available_amount($item[flaregun]) + shop_amount($item[flaregun])) / 2 - storeSaveAmount), 3705, $item[flaregun]);
-	stockItem(100, 0, max(0, (available_amount($item[grogpagne]) + shop_amount($item[grogpagne])) / 2 - storeSaveAmount), 277, $item[grogpagne]);
-	stockItem(1000, 0, max(0, (available_amount($item[grungy bandana]) + shop_amount($item[grungy bandana])) / 2 - storeSaveAmount), 111, $item[grungy bandana]);
-	stockItem(200, 0, max(0, (available_amount($item[leotarrrd]) + shop_amount($item[leotarrrd])) / 2 - storeSaveAmount), 1348, $item[leotarrrd]);
-	stockItem(180, 0, max(0, (available_amount($item[stuffed shoulder parrot]) + shop_amount($item[stuffed shoulder parrot])) / 2 - storeSaveAmount), 3659, $item[stuffed shoulder parrot]);
-	stockItem(3450, 0, max(0, (available_amount($item[sunken chest]) + shop_amount($item[sunken chest])) / 2 - storeSaveAmount), 11662, $item[sunken chest]);
-	stockItem(200, 0, 61, max(0, (available_amount($item[swashbuckling pants]) + shop_amount($item[swashbuckling pants])) / 2 - storeSaveAmount), $item[swashbuckling pants]);
-
+	// Arr, M80 items
+	// min price, limit, fraction to stock, item
+	stockTop10Item(100, 0, 0.5, $item[bottle of rum]);
+	stockTop10Item(200, 0, 0.5, $item[crowbarrr]);
+	stockTop10Item(100, 0, 0.5, $item[eyepatch]);
+	stockTop10Item(1000, 66, 0.5, $item[flaregun]);
+	stockTop10Item(100, 0, 0.5, $item[grogpagne]);
+	stockTop10Item(990, 66, 0.5, $item[grungy bandana]);
+	stockTop10Item(200, 0, 0.5, $item[leotarrrd]);
+	stockTop10Item(180, 0, 0.5, $item[stuffed shoulder parrot]);
+	stockTop10Item(3450, 22, 0.5, $item[sunken chest]);
+	stockTop10Item(180, 0, 0.5, $item[swashbuckling pants]);
 
 	// price, limit, amount to stock, item
-	put_shop(420000, 0, 3 - shop_amount($item[great old fashioned]), $item[great old fashioned]);
 	put_shop(83000, 0, 3 - shop_amount($item[low tide martini]), $item[low tide martini]);
+
+	// arbitrage
+	doArbitrage($item[scimitar cozy], 5);
+	doArbitrage($item[fish stick cozy], 5);
+	doArbitrage($item[bazooka cozy], 5);
+	doArbitrage($item[great old fashioned], 5);
+	doArrbitrage($item[4-d camera], 11);
 
 // 	put_shop(0, 0, available_amount($item[rocky raccoon]) - 250, $item[rocky raccoon]);
 // 	put_shop(0, 0, available_amount($item[savoy truffle]) - 250, $item[savoy truffle]);
@@ -245,6 +258,10 @@ void currentIncomeSea(int perAdventureCost, float itemDrop, float meatDrop) {
 	print("pufferfish: " + (monsterTotalMeatValue($monster[pufferfish], itemDrop, meatDrop) - perAdventureCost));
 }
 
+void currentIncomeSea() {
+	currentIncomeSea(perAdventureCost(), item_drop_modifier(), meat_drop_modifier());
+}
+
 
 
 void currentIncome(int perAdventureCost, float itemDrop, float meatDrop) {
@@ -275,22 +292,42 @@ void currentIncome(int perAdventureCost, float itemDrop, float meatDrop) {
 	print("gnarly/gnasty gnome: " + (mall_price($item[clockwork key]) * ((1.6 * (1 + itemDrop/100)) / 100) - perAdventureCost)); // mafia's drop rate for clockwork keys is horribly wrong
 
 	print("blur: " + ((monsterTotalMeatValue($monster[blur], itemDrop, meatDrop) * 0.95) - perAdventureCost - mall_price($item[ten-leaf clover])/20));
-	print("swarm of scarab beatles: " + ((monsterTotalMeatValue($monster[swarm of scarab beatles], itemDrop, meatDrop) - perAdventureCost - mall_price($item[ten-leaf clover])/20) * 0.95)); // include cost of the ten-leaf clover and the 1 turn in 20 to get Ultrahydrated
-}
-
-void currentIncomeSea() {
-	currentIncomeSea(perAdventureCost(), item_drop_modifier(), meat_drop_modifier());
+	print("swarm of scarab beatles: " + (monsterTotalMeatValue($monster[swarm of scarab beatles], itemDrop, meatDrop) * 0.8)); // include cost of the ten-leaf clover and the 1 turn in 20 to get Ultrahydrated
 }
 
 void currentIncome() {
 	currentIncome(perAdventureCost(), item_drop_modifier(), meat_drop_modifier());
 }
 
+
 void printIncomeDetails(monster aMonster) {
 	print(aMonster);
 	int [item] itemDrops = item_drops(aMonster);
 	foreach anItem in itemDrops {
 		print(anItem + ": " + itemDrops[anItem] + "% drop @" + mall_price(anItem) + " meat");
+	}
+}
+
+
+
+void luckyIncome() {
+	int [location] luckyAdventuresByMeatGainMap = luckyAdventuresByMeatGainMap();
+	location [] sortedLuckyAdventuresByMeatGain = sortedLuckyAdventuresByMeatGain(false);
+	print("turn value: " + kTurnValue + " -- cost to get lucky! with:");
+	print("pillkeeper (first): 0, subsequent: " + (3 * gkSpleenAdvGains * kTurnValue));
+	print("Lucky Lindy: " + (kTurnValue * 3 + 500));
+	print("11-leaf clover: " + historical_price($item[11-leaf clover]));
+	foreach ind, aloc in sortedLuckyAdventuresByMeatGain {
+		print(aloc + ": " + luckyAdventuresByMeatGainMap[aloc]);
+	}
+}
+
+
+void luckyCurrentIncome() {
+	int [location] luckyAdventuresByMeatGainMap = luckyAdventuresByMeatGainMap();
+	location [] sortedLuckyAdventuresByMeatGain = sortedLuckyAdventuresByMeatGain(false);
+	foreach ind, aloc in sortedLuckyAdventuresByMeatGain {
+		print(aloc + ": " + (luckyAdventuresByMeatGainMap[aloc] - kTurnValue));
 	}
 }
 
@@ -401,6 +438,25 @@ void incomeCalculator() {
 // AUTOMATION -- DAILY
 // -------------------------------------
 
+void useNashCrosbyStill() {
+	print("useNashCrosbyStill", "green");
+	item[int] distilledLiquour;
+	for i from 0 to 11 {
+		distilledLiquour[i] = to_item(i + 1551);
+	}
+	distilledLiquour[12] = $item[bottle of Pete's Sake];
+	distilledLiquour[13] = $item[bottle of Ooze-O];
+	
+	sort distilledLiquour by available_amount(value);
+	int i = 0;
+	while (stills_available() > 0) {
+		create(min(stills_available(), creatable_amount(distilledLiquour[i])), distilledLiquour[i]);
+		i++;
+	}
+}
+
+
+
 int effectiveGingerbreadCityTurns() {
 	int base = to_int(get_property("_gingerbreadCityTurns"));
 	int clockAdvance = 0;
@@ -464,7 +520,7 @@ void dressupForBackupCamera(location aLocation, int copiesToMake) {
 int grindBackupCameraFightHelper(int copiesToMake, monster cameraMonster, string aPage) {
 	assert(inCombat(), "grindBackupCameraFightHelper: we're not in combat");
 
-	if (copiesToMake >= 2 && my_familiar() == $familiar[Pocket Professor] && pocketProfessorLecturesAvailable() > 0) {
+	if (copiesToMake >= 2 && my_familiar() == $familiar[Pocket Professor] && pocketProfessorLecturesAvailable() > 0 && my_hp() >= my_maxhp() / 4) {
 		aPage = customScriptWithDefaultKill(1, cameraMonster, aPage, "skill lecture on relativity;");
 		copiesToMake--;
 		boolean conditionsSatisfied = postAdventure();
@@ -740,20 +796,16 @@ record MaximizerRecord {
 
 
 void grindGlitchSeasonReward() {
-	advURL("/inv_eat.php?pwd&which=3&whichitem=10207");
+	print("grindGlitchSeasonReward", "green");
+	advURL("/inv_eat.php?pwd&which=3&whichitem=10207", true, false);
 	run_combat(); postAdventure();
+// 	assert(get_property("_glitchMonsterFights").to_boolean(), "did not flight the glitch monster");
 }
 
 
 
 void grindDrip(location dripLoc, string dressupTweak) {
 	print("grindDrip at " + dripLoc + " with dressupTweak: " + dressupTweak, "green");
-// 	set_property("choiceAdventure1411", "1"); // door 1: staff and maybe drippy orb
-// 	set_property("choiceAdventure1411", "2"); // door 2: candy bar or driplets
-	set_property("choiceAdventure1411", "3"); // door 3: drippy grub
-// 	set_property("choiceAdventure1411", "4"); // door 4: trade drippy stein for drippy pilsner
-// 	set_property("choiceAdventure1411", "5"); // door 5: driplets
-	set_property("choiceAdventure1415", "1"); // buy drippy candy bar
 
 	setDefaultState();
 	change_mcd(0);
@@ -771,11 +823,12 @@ void grindDrip(location dripLoc, string dressupTweak) {
 
 	if (turnsToGrind > 0) {
 		// DRESSUP
-		clear_automate_dressup();
 		if (item_amount($item[drippy stake]) > 1) put_closet(item_amount($item[drippy stake]) - 1, $item[drippy stake]);
 
-		string maxString = "0.2 mus, +equip drippy stake, +equip drippy khakis, +equip Drip harness, +equip lustrous drippy orb, equip depleted Crimbonium football helmet, -equip \"i voted\" sticker";
+		string maxString = "0.2 mus, +equip drippy stake, +equip drippy khakis, +equip Drip harness, +equip lustrous drippy orb";
 		maxString = maxStringAppend(maxString, fixupCLArtifacts(dressupTweak));
+		if (!wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[drippy truncheon]) && countHandsUsed(maxString) < 2)
+			maxString = maxStringAppend(maxString, "equip drippy truncheon");
 		if (!wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[drippy shield]) && countHandsUsed(maxString) < 2)
 			maxString = maxStringAppend(maxString, "equip drippy shield");
 		if (can_equip($item[sea salt scrubs]))
@@ -796,15 +849,29 @@ void grindDrip(location dripLoc, string dressupTweak) {
 		}
 	}
 
-	remove_property("choiceAdventure1411");
-	remove_property("choiceAdventure1415");
 }
 
 void grindDrip() {
-	if (have_item($item[maple magnet]))
+
+	if (have_item($item[maple magnet])) {
+		saveAndSetProperty("choiceAdventure1406", "5");
+
 		grindDrip($location[the dripping trees], "equip maple magnet");
-	else
+
+		restoreSavedProperty("choiceAdventure1406");
+	} else {
+	// 	set_property("choiceAdventure1411", "1"); // door 1: staff and maybe drippy orb
+	// 	set_property("choiceAdventure1411", "2"); // door 2: candy bar or driplets
+		set_property("choiceAdventure1411", "3"); // door 3: drippy grub
+	// 	set_property("choiceAdventure1411", "4"); // door 4: trade drippy stein for drippy pilsner
+	// 	set_property("choiceAdventure1411", "5"); // door 5: driplets
+		set_property("choiceAdventure1415", "1"); // buy drippy candy bar
+
 		grindDrip($location[the dripping hall], "");
+
+		remove_property("choiceAdventure1411");
+		remove_property("choiceAdventure1415");
+	}
 }
 
 
@@ -942,10 +1009,11 @@ void grindGuzzlr(string tweakOutfit) {
 		maxString = maxStringAppend("0.01 mp regen, +combat 25 max", maxString);
 	}
 
+	string testString = maxStringAppend(maxString, maxStringForLocation(locationToGoTo, maxString));
 	// guzzlr equipment shoes = less adv, pants = more bucks, hat = more stats
-	maxString = maxStringAppendIfPossibleToEquip(maxString, $item[Guzzlr shoes]);
-	maxString = maxStringAppendIfPossibleToEquip(maxString, $item[Guzzlr pants]);
-	maxString = maxStringAppendIfPossibleToEquip(maxString, $item[Guzzlr hat]);
+	maxString = maxStringAppendIfPossibleToEquip(testString, $item[Guzzlr shoes]);
+	maxString = maxStringAppendIfPossibleToEquip(testString, $item[Guzzlr pants]);
+	maxString = maxStringAppendIfPossibleToEquip(testString, $item[Guzzlr hat]);
 
 	automate_dressup(locationToGoTo, selector, familiarSelector, maxString);
 
@@ -1167,25 +1235,31 @@ PrioritySkillRecord [int] freeCraftingData(item nightcap) {
 	// nightcap -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
 	tempPSR = new PrioritySkillRecord($skill[none], nightcap, 1, 0, 1);
 	tempPSR.usesAvailable = 1 - available_amount(nightcap); // only ever need 1
-	tempPSR.isAvailableNow = availableFreeCraftTurns >= 1;
+	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats(nightcap);
+	psrArray[i++] = tempPSR;
+
+	// tempura air -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
+	tempPSR = new PrioritySkillRecord($skill[none], $item[tempura air], 1, 0, 5);
+	tempPSR.usesAvailable = 1 - my_session_items($item[tempura air]);
+	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats($item[tempura air]);
 	psrArray[i++] = tempPSR;
 
 	// haunted gimlet -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
 	tempPSR = new PrioritySkillRecord($skill[none], $item[haunted gimlet], 3, 0, 11);
 	tempPSR.usesAvailable = kBaseUsesAvailable - 11 - my_session_items($item[haunted gimlet]); // will only craft if we have 11 free crafting turns
-	tempPSR.isAvailableNow = availableFreeCraftTurns >= 3;
+	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats($item[haunted gimlet]);
 	psrArray[i++] = tempPSR;
 
 	// for use with haunted hell ramen -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
 	tempPSR = new PrioritySkillRecord($skill[none], $item[Hell ramen], 2, 0, 11);
 	tempPSR.usesAvailable = kBaseUsesAvailable - my_session_items($item[Hell ramen]);
-	tempPSR.isAvailableNow = availableFreeCraftTurns >= 2;
+	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats($item[Hell ramen]);
 	psrArray[i++] = tempPSR;
 
 	// backstop item: create these if nothing else is available, should be 1 turn to create
 	tempPSR = new PrioritySkillRecord($skill[none], $item[savory dry noodles], 1, 0, 99);
 	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = availableFreeCraftTurns >= 1;
+	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats($item[savory dry noodles]);
 	psrArray[i++] = tempPSR;
 
 	return psrArray;
@@ -1349,7 +1423,7 @@ void grindTotCostume(item costume) {
 	} else
 		scriptString = "";
 
-	automate_dressup(advLocation, selector, "robortender", maxString);
+	automate_dressup(advLocation, selector, "item", maxString);
 
 	int tries = 3;
 	while (tries > 0 && !have_item(costume)) { // in case of wandering monsters
@@ -1411,23 +1485,18 @@ void applyMummingBuffs() {
 }
 
 
-void useNashCrosbyStill() {
-	print("useNashCrosbyStill", "green");
-	item[int] distilledLiquour;
-	for i from 0 to 11 {
-		distilledLiquour[i] = to_item(i + 1551);
-	}
-	distilledLiquour[12] = $item[bottle of Pete's Sake];
-	distilledLiquour[13] = $item[bottle of Ooze-O];
-	
-	sort distilledLiquour by available_amount(value);
-	print(distilledLiquour[0]);
 
-	int i = 0;
-	while (stills_available() > 0) {
-		create(min(stills_available(), creatable_amount(distilledLiquour[i])), distilledLiquour[i]);
-		i++;
-	}
+void buyShelfSpecials() {
+	print("buyShelfSpecials", "green");
+	if (to_boolean(get_property(ShelfSpecialsPurchasedKey)))
+		return;
+
+	int startingMeat = my_meat();
+	int [item, int] buy_map;
+	
+
+	buySpecials(buy_map);
+	set_property(ShelfSpecialsPurchasedKey, "true");
 }
 
 
@@ -1436,32 +1505,13 @@ void buyMallSpecials() {
 	if (to_boolean(get_property(MallSpecialsPurchasedKey)))
 		return;
 
-	int startingMeat = my_meat();
 	int [item, int] buy_map;
 	file_to_map("unrestricted_buy_map.txt", buy_map);
-	int [item] receipt;
 
-	batch_open();
-	foreach buy_item, price in buy_map {
-		int itemsBought;
-		print("buying " + buy_map[buy_item, price] + "x " + buy_item + "@" + price);
-		if (!inRonin())
-			itemsBought = buy(buy_map[buy_item, price], buy_item, price);
-		else
-			itemsBought = buy_using_storage(buy_map[buy_item, price], buy_item, price);
-
-		if (itemsBought > 0)
-			receipt[buy_item] = itemsBought;
-	}
-	boolean success = batch_close();
-	if (!success) abort("buy batch wasn't successful!");
-
-	print("buyMallSpecials receipt:");
-	printReceipt(receipt);
-	print("actual meat spent: " + (startingMeat - my_meat()), "blue");
-
+	buySpecials(buy_map);
 	set_property(MallSpecialsPurchasedKey, "true");
 }
+
 
 
 void timespinner_prank(string playerName) {
@@ -1536,12 +1586,19 @@ void burnFax(boolean putFax) {
 	if (item_amount($item[photocopied monster]) == 0)
 		cli_execute("fax get");
 
-	if (get_property("photocopyMonster").to_monster().phylum == $phylum[penguin]) {
-		automate_dressup($location[none], "item", "robortender", "0.1 meat");
-	} else {
-		clear_automate_dressup();
-		maximize("item, switch Trick-or-Treating Tot, switch Cat Burglar, switch Pocket Professor", false);
+	monster monsterToFight = get_property("photocopyMonster").to_monster();
+
+	// dress up
+	string selector = "item";
+	string familiarSelector = "item";
+	string maxString;
+	if (!cllHasReminiscence(monsterToFight))
+		maxString = "equip combat lover's locket";
+
+	if (roboEconomicsForMonster(monsterToFight) >= 3333) { // TODO figure out benefit from other fams
+		familiarSelector = "robortender";
 	}
+	automate_dressup($location[none], selector, familiarSelector, maxString);
 
 	healIfRequiredWithMPRestore();
 	anyAdventure(new AdventureRecord($location[none], $skill[none], $item[photocopied monster]));
@@ -1579,7 +1636,7 @@ void burnGenieWishes(item goalItem, string wish) {
 
 	// compose wish string
 	string genie_string = "monster " + wish;
-	if (wish.contains_text("pony"))
+	if (!willCombat)
 		genie_string = "item pony";
 
 	while (genieWishesPossible > 0 && (goalItem == $item[none] || my_session_items(goalItem) <= startingGoalAmount)) {
@@ -1748,11 +1805,14 @@ void printDailyInfo(int [location] endGameTurnsSpent) {
 
 	float dreadsylvaniaCompletion = endGameTurnsSpent[$location[Dreadsylvanian Woods]] / 10;
 	float hobopolisCompletion = hobopolisCompletion(endGameTurnsSpent);
-	if (dreadsylvaniaCompletion < 75 || hobopolisCompletion < 75)
-		if (!have_item($item[maple magnet])
+	if (dreadsylvaniaCompletion < 75 || hobopolisCompletion < 75) {
+		if (!have_item($item[maple magnet]) && !get_property("_smm.BuyMapleMagnetWarningDone").to_boolean()
 			&& user_confirm("Dreadsylvanian Woods " + dreadsylvaniaCompletion
-				+ "% complete, Hobopolis " + hobopolisCompletion + "% complete -- buy maple magnet?", 60000, false))
+				+ "% complete, Hobopolis " + hobopolisCompletion + "% complete -- buy maple magnet?", 60000, false)) {
 			fullAcquire($item[maple magnet]);
+		}
+		set_property("_smm.BuyMapleMagnetWarningDone", true);
+	}
 
 	printPottedPowerPlant();
 }
@@ -1787,9 +1847,9 @@ void setupItems() {
 
 	if (!have_item($item[pantogram pants])) {
 		fullAcquire($item[bubblin' crude]);
-		fullAcquire($item[taco shell]);
+		fullAcquire($item[porquoise]);
 		fullAcquire($item[ten-leaf clover]);
-		summon_pants("sleaze", "mp regen 2", "meat drop 1", "hilarity"); // bubblin' crude, taco shell, ten-leaf clover
+		summon_pants("sleaze", "mp regen 2", "meat drop 2", "hilarity"); // bubblin' crude, porquoise, ten-leaf clover
 	}
 
 	// mod the Cosplay sabre 
@@ -1827,7 +1887,6 @@ void setupItems() {
 		use_if_needed($item[boiling broth], $effect[Boiling Determination], gkBastilleBuffAmount);
 		use_if_needed($item[interrogative elixir], $effect[Enhanced Interrogation], gkBastilleBuffAmount);
 		unused = cli_execute("basty win");
-		abort(); // manual check
 	} else if (to_boolean(get_property("_bastilleGamesLockedIn")) == false && to_int(get_property("_bastilleGames")) < 5 && (have_effect($effect[Shark-Tooth Grin]) > 0 || have_effect($effect[boiling determination]) > 0 || have_effect($effect[enhanced interrogation]) > 0))
 		print("have bastille buffs but not enough", "red");
 
@@ -1855,7 +1914,6 @@ void secondBreakfast(int [location] endGameTurnsSpent) {
 	if (have_mushroom_plot())
 		cli_execute("planting/auto_mushroom.ash");
 
-	useNashCrosbyStill();
 	burnFreeDaycare();
 	applyMummingBuffs();
 
@@ -1868,11 +1926,8 @@ void secondBreakfast(int [location] endGameTurnsSpent) {
 	}
 	burnInigoCrafting();
 
-	if (have_skill($skill[canticle of carboloading]))
+	if (have_skill($skill[canticle of carboloading])) {
 		use_skill(1, $skill[canticle of carboloading]);
-	if (have_skill($skill[love mixology])) {
-		use_skill(1, $skill[love mixology]);
-		// TODO if it's good use it?
 	}
 
 	healIfRequiredWithMPRestore();
@@ -1897,7 +1952,7 @@ void secondBreakfast() {
 
 void dailyDeedsAdv() {
 	restore_mp(20);
-	grindTotCostume($item[li'l pirate costume]); // better chance of robortender drop by going first
+	grindTotCostume($item[li'l pirate costume]);
 	grindTotCostume($item[li'l ninja costume]);
 
 	if (my_garden_type() == "grass") // means we're using the tall grass garden
@@ -1940,21 +1995,32 @@ int sausagesToEat() {
 
 
 
+// Pending Turns Record
+record PendingTurnsRecord {
+	int turns;
+	string desc;
+};
+
 // potential number of turns that could be spent while drunk
 int drunkTurnsPending(boolean shouldPrint) {
-	int genieTurns = 3 - to_int(get_property("_genieWishesUsed"));
-	int faxTurns = to_boolean(get_property("_photocopyUsed")) ? 0 : 1;
-	int kTimespinnerTricks = 3; // guesstimate of the number of time-spinner minutes that will be used tricking people
-	int timespinnerTurns = max(10 - kTimespinnerTricks - to_int(get_property("_timeSpinnerMinutesUsed")), 0);
-	int scavengeTurns = to_int(get_property("_daycareGymScavenges")) > 2 ? 0 : to_int(get_property("_daycareGymScavenges")) > 1 ? 2 : 3;
+	int kTimespinnerTricks = 3; // TODO better guesstimate
+	PendingTurnsRecord [int] pts;
+	int idx = 0;
+	pts[idx++] = new PendingTurnsRecord(3 - to_int(get_property("_genieWishesUsed")), "genie bottle");
+	pts[idx++] = new PendingTurnsRecord(to_boolean(get_property("_photocopyUsed")) ? 0 : 1, "fax");
+	pts[idx++] = new PendingTurnsRecord(max(10 - kTimespinnerTricks - to_int(get_property("_timeSpinnerMinutesUsed")), 0), "timespinner fights"); // guesstimate of the number of turns that will be used tricking people TODO better guesstimate
+	pts[idx++] = new PendingTurnsRecord(to_int(get_property("_daycareGymScavenges")) > 2 ? 0 : to_int(get_property("_daycareGymScavenges")) > 1 ? 2 : 3, "boxing daycare scavenging");
+	pts[idx++] = new PendingTurnsRecord(3 - cllNumMonstersFought(), "combat lover's locket reminiscences");
 
-	int totalPendingTurns = genieTurns + timespinnerTurns + faxTurns + scavengeTurns;
+	int totalPendingTurns;
+	string outputString;
+	foreach idx, pt in pts {
+		outputString += pt.turns + " turns for " + pt.desc + ", ";
+		totalPendingTurns += pt.turns;
+	}
 
 	if (shouldPrint)
-		print("genie turns pending: " + genieTurns + ", fax turns pending: " + faxTurns
-			+ ", timespinner turns pending: " + timespinnerTurns + ", scavenger turns pending: "
-			+ scavengeTurns + ", TOTAL PENDING TURNS: " + totalPendingTurns);
-
+		print(outputString + " TOTAL PENDING TURNS: " + totalPendingTurns);
 	return totalPendingTurns;
 }
 
@@ -1981,6 +2047,8 @@ void tquillaEat(int numberToEat, boolean refillSpleen) {
 	assert(numberToEat >= 1, "not eating " + numberToEat + "X " + gkFoodItem);
 	assert(fullness_limit() - my_fullness() >= gkFoodItem.fullness, "we're too full, you're going to have to eat manually");
 	assert(my_spleen_use() >= gkEatSpleenReduction, "not enough spleen use!");
+
+	abort("do manually");
 
 	numberToEat = min(numberToEat, floor((fullness_limit() - my_fullness()) / to_float(gkFoodItem.fullness)));
 	numberToEat = min(numberToEat, floor(my_spleen_use() / to_float(gkEatSpleenReduction)));
@@ -2046,10 +2114,6 @@ void tquillaOverdrink(boolean refillSpleen, boolean luckyIfNeeded) {
 	int kDrinkItemSize = gkOverdrinkDrinkItem.inebriety + gkStooperDrink.inebriety;
 
 	int drunkTurnsPending = drunkTurnsPending(false);
-	int turnsUntilSemiRare = turnsUntilSemiRare();
-	if (turnsUntilSemiRare > 0 && turnsUntilSemiRare <= drunkTurnsPending)
-		if (!user_confirm("Pending overdrunk turns: " + drunkTurnsPending + " and turns until next semi rare: " + turnsUntilSemiRare + ". Continue?", 60000, true))
-			abort();
 
 	saveOutfit();
 	try {
@@ -2227,6 +2291,7 @@ void burnCampAwayBuffs() {
 }
 
 
+
 // TODO conditional-ize this to make it faster
 void burnBuffs() {
 	burn_kgb("item");
@@ -2246,7 +2311,13 @@ void burnBuffs() {
 	unused = cli_execute("cast incredible self-esteem");
 	unused = cli_execute("daycare mysticality");
 	unused = cli_execute("use circle drum");
+
+	use_skill(3, $skill[Feel Disappointed]);
+	use_skill(3, $skill[Feel Excitement]);
+	use_skill(3, $skill[Feel Nervous]);
+	use_skill(3, $skill[Feel Peaceful]);
 }
+
 
 
 void burnNuns() {
@@ -2262,6 +2333,7 @@ void burnNuns() {
 }
 
 
+
 void burnFreeRests() {
 	print("burnFreeRests", "green");
 	int do_it = total_free_rests() - to_int(get_property("timesRested"));
@@ -2271,6 +2343,7 @@ void burnFreeRests() {
 		cli_execute("camp rest");
 	}
 }
+
 
 
 void burnFreeMP() {
@@ -2308,6 +2381,7 @@ void burnFreeMP() {
 }
 
 
+
 void burnSpleen() {
 	print("burnSpleen", "green");
 	// if i'm both overdrunk and the hippy stone is broken, don't burn spleen items: we're about to ascend
@@ -2319,6 +2393,7 @@ void burnSpleen() {
 		if (spleenAvailable > 0) print("WARNING: spleen available!!!!!!!!!!!!!!!!!!!!", "red");
 	}
 }
+
 
 
 // should be called while overdrunk after dressing for rollover
@@ -2385,6 +2460,49 @@ void burn_sausages() {
 }
 
 
+
+// fightMons is an ordered list of monsters we want to fight with the combat lover's locket
+// TODO
+void burnCombatLoversLocket(monster fightMon) {
+	if (3 - cllNumMonstersFought() <= 0) return;
+
+	advURL("/inventory.php?reminisce=1");
+	visit_url("/choice.php?whichchoice=1463&pwd&option=1&mid=" + fightMon.to_int(), true, false);
+	run_combat();
+	postAdventure();
+}
+
+// fight the default monsters
+void burnCombatLoversLocket() {
+	setCurrentMood("meat");
+
+	// mer-kin baker for mer-kin rolling pin
+	automate_dressup($location[none], "item", "robortender", "0.5 meat");
+	burnCombatLoversLocket($monster[mer-kin baker]);
+
+	// crimbylow
+	automate_dressup($location[none], "item", "robortender", "0.5 meat");
+	burnCombatLoversLocket($monster[crimbylow]);
+
+	// gingerbread maw
+	automate_dressup($location[none], "item", "robortender", "0.5 meat");
+	burnCombatLoversLocket($monster[gingerbread maw]);
+
+	// Knob Goblin Embezzler meat
+// 	automate_dressup($location[none], "meat", "meat", "0.1 item");
+// 	burnCombatLoversLocket($monster[Knob Goblin Embezzler]);
+
+	// ice conceirge for bag of foreign bribes
+// 	automate_dressup($location[none], "item", "item", "0.1 meat");
+// 	burnCombatLoversLocket($monster[ice concierge]);
+
+	// swarm of scarab beatles for mojo filter
+// 	automate_dressup($location[none], "item", "item", "0.1 meat");
+// 	burnCombatLoversLocket($monster[swarm of scarab beatles]);
+}
+
+
+
 void beforeOverdrunkGoodNight() {
 	print("dolphinItem: " + get_property("dolphinItem"), "green");
 	if (get_property("dolphinItem") != "" && !to_boolean(get_property("_smm.ShouldUseDolphinWhistleQueryDone")) && user_confirm("Use dolphin whistle for dolphinItem: " + get_property("dolphinItem") + ", price: " + mall_price(to_item(get_property("dolphinItem"))), 60000, false)) {
@@ -2403,6 +2521,7 @@ void good_night_adv() {
 	healIfRequiredWithMPRestore();
 	//burnGenieWishes($item[bag of foreign bribes], "ice concierge"); // get ponies for now if we don't otherwise use it
 	burnScavengeDaycare(3);
+	burnCombatLoversLocket();
 
 	//burnBrokenChampagneBottle(); // may want to save until tomorrow so we can use +item from LOV tunnel, etc?
 
@@ -2459,7 +2578,9 @@ void burnFreeUseItems() {
 	burnGenieWishes($item[none], "pony");
 	burnGenieWishes($item[none], "pony");
 	burnGenieWishes($item[none], "pony");
-	unused = cli_execute("BeachComber free");
+
+	int combs = 11 - get_property("_freeBeachWalksUsed").to_int();
+	unused = cli_execute("combo " + combs);
 	burnLicenseToChill();
 }
 
@@ -2567,8 +2688,6 @@ void grindGhostCostume() {
 		setDefaultState();
 		if (have_item($item[invisible seam ripper]))
 			use(1, $item[invisible seam ripper]);
-		if (!isOlfacted($monster[sheet ghost]) && have_effect($effect[On the Trail]) > 0)
-			uneffect($effect[On the Trail]);
 
 		automate_dressup($location[The Haunted Storage Room], "item", "default", "item");
 
@@ -2576,7 +2695,7 @@ void grindGhostCostume() {
 			target = {$monster[sheet ghost]};
 			add_item_condition(1, $item[li'l ghost costume]);
 			while (have_effect($effect[Invisibly Ripped]) > 0) {
-				targetMob($location[The Haunted Storage Room], target, $skill[none], 1, true, kMaxInt); // optimal, ignore cost
+				targetMob($location[The Haunted Storage Room], target, $skill[none], 1, true, kMaxInt); // optimal, max banisher cost
 			}
 		} finally {
 			if (my_session_items($item[li'l ghost costume]) == 0)
@@ -2593,14 +2712,12 @@ void grindGhostCostume() {
 		setCurrentMood("-combat");
 		if (have_item($item[invisible string]))
 			use(1, $item[invisible string]);
-		if (!isOlfacted($monster[Ninja Snowman Weaponmaster]) && have_effect($effect[On the Trail]) > 0)
-			uneffect($effect[On the Trail]);
 
 		automate_dressup($location[Lair of the Ninja Snowmen], "-combat", "default", "item");
 // 		assert(-combat < -25, "");
 		target = {$monster[Ninja Snowman Weaponmaster]};
 		while (!have_item($item[invisible seam ripper]) && have_effect($effect[Invisible Ties]) > 0) {
-			targetMob($location[Lair of the Ninja Snowmen], target, $skill[none], 1, true, kMaxInt); // optimal, ignore cost
+			targetMob($location[Lair of the Ninja Snowmen], target, $skill[none], 1, true, kMaxInt); // optimal, max banisher cost
 			cli_execute("refresh inv");
 		}
 		if (!have_item($item[invisible seam ripper]))
@@ -2614,13 +2731,11 @@ void grindGhostCostume() {
 		print("STEP 1: getting invisible string from plaid ghost @ The Haunted Laundry Room", "green");
 		setDefaultState();
 		automate_dressup($location[The Haunted Laundry Room], "item", "default", "item");
-		if (!isOlfacted($monster[plaid ghost]) && have_effect($effect[On the Trail]) > 0)
-			uneffect($effect[On the Trail]);
 
 		target = {$monster[plaid ghost]};
 		int tries = 6 + 3; // highest number of turns i've seen, plus an extra 3
 		while (!have_item($item[invisible string]) && tries > 0) {
-			targetMob($location[The Haunted Laundry Room], target, $skill[none], 1, true, kMaxInt); // optimal, ignore cost
+			targetMob($location[The Haunted Laundry Room], target, $skill[none], 1, true, kMaxInt); // optimal, max banisher cost
 			cli_execute("refresh inv");
 			tries--;
 		}
@@ -3329,13 +3444,13 @@ void buffForItemDrop(int turnsToBuffFor, boolean useSweetSynthesis) {
 	if (have_skill($skill[incredible self-esteem]))
 		cli_execute("cast incredible self-esteem");
 
-	if (my_class() == $class[Accordion Thief] && to_int(get_property("_thingfinderCasts")) < 10)
+	if (my_class() == $class[Accordion Thief] && to_int(get_property("_thingfinderCasts")) < 10 && my_level() >= 15)
 		buffIfNeededWithUneffect($skill[The Ballad of Richie Thingfinder], turnsToBuffFor);
 
 	// these ones have a cost associated
 	if (!to_boolean(get_property("_madTeaParty"))) cli_execute("hatter 28"); // +20%
 	if (isAsdonWorkshed())
-		fueled_asdonmartin("observantly", turnsToBuffFor);
+		safeFueledAsdonMartin($effect[Driving Observantly], turnsToBuffFor);
 
 	int availableSpleen = spleen_limit() - my_spleen_use();
 	if (useSweetSynthesis && (availableSpleen > ceil(turnsToBuffFor / 30.0)))
@@ -3471,41 +3586,63 @@ void grindSpacegate(string gateString) {
 		adv1($location[Through the Spacegate], 0, ""); // zero-turn adventure, will acquire the equipment needed
 	}
 
-	string maxString = "0.5 mp regen"; // , -equip \"i voted\" sticker ??
+	string familiarSelector = "item";
+	string offhandString = "";
+	string maxString = "0.1 mp regen, equip combat lover's locket"; // , -equip \"i voted\" sticker ??
 	string plantLife = get_property("_spacegatePlantLife");
 	string animalLife = get_property("_spacegateAnimalLife");
 
-	// prefer plant life sample kit for no reason
-	if ((plantLife.contains_text("primitive") || plantLife.contains_text("advanced") || plantLife.contains_text("anomalous")) && (!plantLife.contains_text("hostile"))) {
-		fullAcquire($item[botanical sample kit]);
-		maxString += ", +equip botanical sample kit";
-		set_property("choiceAdventure1240", "2"); // The Animals, The Animals: alien toenails
-		set_property("choiceAdventure1241", "1"); // buffalo-like animal: alien meat
-		set_property("choiceAdventure1242", "1"); // house-sized animal
-		set_property("choiceAdventure1255", "1"); // cool space rocks
-		set_property("choiceAdventure1256", "1"); // wide open spaces
-	} else if ((animalLife.contains_text("primitive") || animalLife.contains_text("advanced") || animalLife.contains_text("anomalous")) && (!animalLife.contains_text("hostile"))) {
-		fullAcquire($item[zoological sample kit]);
-		maxString += ", +equip zoological sample kit";
-		abort(); set_property("choiceAdventure1241", "?????"); // buffalo-like animal: DNA
-		set_property("choiceAdventure1242", "3"); // house-sized animal
-		set_property("choiceAdventure1255", "1"); // cool space rocks
-		set_property("choiceAdventure1256", "1"); // wide open spaces
-	} else {
-		fullAcquire($item[geological sample kit]);
-		maxString += ", +equip geological sample kit";
-		set_property("choiceAdventure1241", "1"); // buffalo-like animal: meat
-		set_property("choiceAdventure1242", "1"); // house-sized animal
-		set_property("choiceAdventure1255", "2"); // cool space rocks
-		set_property("choiceAdventure1256", "2"); // wide open spaces
+	set_property("choiceAdventure1243", "1"); // Interstellar Trade: buy anything
+
+	// prefer plant life sample kit for no reason TODO use the one we need the most
+	if (plantLife.contains_text("primitive") || plantLife.contains_text("advanced") || plantLife.contains_text("anomalous")) {
+		if (!plantLife.contains_text("hostile") && offhandString == "") {
+			fullAcquire($item[botanical sample kit]);
+			offhandString = "equip botanical sample kit";
+			set_property("choiceAdventure1237", "3"); // A Simple Plant: alien plant sample
+			set_property("choiceAdventure1238", "3"); // A Complicated Plant: complex alien plant sample
+			set_property("choiceAdventure1239", "3"); // What a Plant!: fascinating alien plant sample
+		} else {
+			familiarSelector = "robortender"; // TODO sniff value and switch based on that???
+			set_property("choiceAdventure1237", "1"); // A Simple Plant: edible alien plant bit
+			set_property("choiceAdventure1238", "1"); // A Complicated Plant: edible alien plant bit
+			set_property("choiceAdventure1239", "1"); // What a Plant!: edible alien plant bit
+		}
 	}
 
+	if (animalLife.contains_text("primitive") || animalLife.contains_text("advanced") || animalLife.contains_text("anomalous")) {
+		if (!animalLife.contains_text("hostile") && offhandString == "") {
+			fullAcquire($item[zoological sample kit]);
+			offhandString = "equip zoological sample kit";
+			set_property("choiceAdventure1240", "3"); // The Animals, The Animals: alien zoological sample
+			set_property("choiceAdventure1241", "3"); // buffalo-like animal: complex alien zoological sample
+			set_property("choiceAdventure1242", "3"); // house-sized animal: fascinating alien zoological sample
+		} else {
+			set_property("choiceAdventure1240", "2"); // The Animals, The Animals: alien toenails
+			set_property("choiceAdventure1241", "2"); // buffalo-like animal: alien toenails
+			set_property("choiceAdventure1242", "2"); // house-sized animal: alien toenails
+		}
+	}
+
+	if (offhandString == "") {
+		fullAcquire($item[geological sample kit]);
+		offhandString = "equip geological sample kit";
+		set_property("choiceAdventure1236", "2"); // Space Cave: just core sample
+		set_property("choiceAdventure1255", "2"); // cool space rocks: core sample
+		set_property("choiceAdventure1256", "2"); // wide open spaces: core sample
+	} else {
+		set_property("choiceAdventure1236", "6"); // Space Cave: just leave
+		set_property("choiceAdventure1255", "1"); // cool space rocks: rocks
+		set_property("choiceAdventure1256", "1"); // wide open spaces: rocks
+	}
+
+	maxString = maxString.maxStringAppend(offhandString);
 	foreach sgEquipmentIndex in spacegateEquipment {
 		if (have_item(spacegateEquipment[sgEquipmentIndex]))
-			maxString += ", +equip " + spacegateEquipment[sgEquipmentIndex];
+			maxString = maxString.maxStringAppend("equip " + spacegateEquipment[sgEquipmentIndex]);
 	}
 
-	automate_dressup($location[Through the Spacegate], "item", "robortender", maxString);
+	automate_dressup($location[Through the Spacegate], "item", familiarSelector, maxString);
 
 	boolean unused;
 	if (get_property("_spacegateCoordinates") > "DAAAAAA")
@@ -3607,13 +3744,13 @@ void fantasyrealmBaseGrind() {
 	advToDo = 5 - monstersKilled[$monster[Cursed villager]];
 	if (advToDo > 0) {
 		fullAcquire(2, $item[spectre scepter]);
-		string maxString = "-ml, +equip double-ice box, +equip fantasyrealm g. e. m., +equip LyleCo premium monocle, +equip LyleCo premium magnifying glass";
+		string maxString = "-ml, equip double-ice box, equip fantasyrealm g. e. m., equip LyleCo premium monocle, equip LyleCo premium magnifying glass";
 		automate_dressup($location[the cursed village], "mainstat", "none", maxString);
 		healIfRequiredWithMPRestore();
 		adventure(advToDo, $location[The Cursed Village]);
 	}
 
-	automate_dressup($location[none], "50 spooky res", "none", "-ml, +equip fantasyrealm g. e. m., +equip LyleCo premium monocle, +equip LyleCo premium magnifying glass");
+	automate_dressup($location[none], "50 spooky res", "none", "-ml, equip fantasyrealm g. e. m., equip LyleCo premium monocle, equip LyleCo premium magnifying glass");
 	healIfRequired();
 	advToDo = 5 - monstersKilled[$monster[Spooky ghost]];
 	tries = 3 + advToDo;
@@ -3624,7 +3761,7 @@ void fantasyrealmBaseGrind() {
 		tries--;
 	}
 
-	automate_dressup($location[none], "mainstat", "none", "-ml, +equip fantasyrealm g. e. m., +equip LyleCo premium monocle, +equip LyleCo premium magnifying glass");
+	automate_dressup($location[none], "mainstat", "none", "-ml, equip fantasyrealm g. e. m., equip LyleCo premium monocle, equip LyleCo premium magnifying glass");
 
 	healIfRequiredWithMPRestore();
 	advToDo = 5 - monstersKilled[$monster[Fantasy forest faerie]];
@@ -3820,7 +3957,6 @@ void fantasyrealmGrind(item targetItem) { // grindFantasyRealm
 		cli_execute("dc list the Ley Incursion's waist");
 	}
 	if (targetItem == $item[Master Thief's utility belt]) {
-		print("HERE");
 		uneffect($effect[Reptilian Fortitude]);
 		pageText = advURL($location[The Sprawling Cemetery]);
 		run_choice(1); postAdventure();
@@ -4196,7 +4332,10 @@ void grindNeverendingParty(boolean useSweetSynthesis) {
 
 
 
-// finagle things so that all buffed stats are below 100
+// finagle things so that all buffed stats are below 101
+// PR party hat gives more fun points; Red Roger's red left hand gives +100% item in PR;
+// Red Roger's red right hand gives +50 dmg in PR;
+// Red Roger's red right foot for sailing and Red Roger's red left foot for island
 boolean prDressup(string selectorString, string familiarString, string baseString) {
 	int tries = 3;
 	float mus_mod = 1;
@@ -4204,7 +4343,8 @@ boolean prDressup(string selectorString, string familiarString, string baseStrin
 	float mox_mod = 1;
 
 	repeat {
-		string temp_maxString = baseString + ", " + mys_mod + " mys 100 max, " + mus_mod + " mus 100 max, " + mox_mod + " mox 100 max";
+		string temp_maxString = baseString + ", equip PirateRealm eyepatch, equip PirateRealm party hat, equip Red Roger's red left hand, equip Red Roger's red right hand, "
+			+ mys_mod + " mys 100 max, " + mus_mod + " mus 100 max, " + mox_mod + " mox 100 max, equip combat lover's locket";
 		automate_dressup($location[PirateRealm Island], selectorString, familiarString, temp_maxString);
 		if (my_buffedstat($stat[muscle]) > 100) mus_mod -= 1;
 		if (my_buffedstat($stat[mysticality]) > 100) mys_mod -= 1;
@@ -4222,7 +4362,7 @@ void getPirateRealmQuest() {
 	if (available_amount($item[PirateRealm eyepatch]) == 0)
 		visit_url("/place.php?whichplace=realm_pirate&action=pr_port", true, false);
 
-	boolean success = prDressup("item", "Plastic Pirate Skull", "+equip PirateRealm eyepatch| +equip PirateRealm party hat| +equip Red Roger's red left hand| +equip Red Roger's red right hand| +equip Red Roger's red right foot| +equip Red Roger's red left foot");
+	boolean success = prDressup("item", "Plastic Pirate Skull", "0.5 meat");
 	assert(success, "can't dressup -- buffed stat higher than 100??");
 
 	if (available_amount($item[curious anemometer]) == 0) {
@@ -4241,7 +4381,7 @@ void getPirateRealmQuest() {
 		run_choice(choiceNumber);
 
 		run_choice(4); // curious anemometer to unlock Trash Island
-		run_choice(5); // Man o' War
+		run_choice(4); // Swift Clipper
 		run_choice(1); // head to the sea
 	}
 }
@@ -4272,6 +4412,7 @@ PRStatusRecord getPirateRealmStatus() {
 	return result;
 }
 
+// one adventure on the seas
 boolean sailThePirateRealmSeas() {
 	boolean rval = true;
 	PRStatusRecord status = getPirateRealmStatus();
@@ -4285,9 +4426,7 @@ boolean sailThePirateRealmSeas() {
 			run_choice(2); // party
 		else
 			run_choice(1); // party but no food, so the option is missing
-	} else if (aPage.contains_text("Stormy Weather"))
-		run_choice(1); // batten hatches
-	else if (aPage.contains_text("High Tide, Low Morale")) {
+	} else if (aPage.contains_text("High Tide, Low Morale")) {
 		if (status.grub > status.grog && status.grub > 5)
 			run_choice(1); // feast
 		else if (status.grog > 5)
@@ -4296,9 +4435,7 @@ boolean sailThePirateRealmSeas() {
 			run_choice(3);
 		else
 			run_choice(4);
-	} else if (aPage.contains_text("The Starboard is Bare"))
-		run_choice(2); // more variable but more fun points
-	else if (aPage.contains_text("Like Shops in the Night")) {
+	} else if (aPage.contains_text("Like Shops in the Night")) {
 		while (status.gold >= 10 && (status.grub < 50 || status.grog < 50 || status.glue < 2)) {
 			int theChoice = 0;
 			if (status.grub < status.grog && status.grub < 50)
@@ -4321,15 +4458,7 @@ boolean sailThePirateRealmSeas() {
 		}
 
 		run_choice(6); // exit
-	} else if (aPage.contains_text("Who Pirates the Pirates?"))
-		run_choice(1); // fire guns
-	else if (aPage.contains_text("A Sea Monster!"))
-		run_choice(1); // fight it
-	else if (aPage.contains_text("An Opportunity for Dastardly Do"))
-		run_choice(1); // attack them
-	else if (aPage.contains_text("Avast, a Mast!"))
-		run_choice(1); // search for plunder
-	else if (aPage.contains_text("The Ship is Wrecked")) {
+	} else if (aPage.contains_text("The Ship is Wrecked")) {
 		if (available_choice_options()[1] == "")
 			run_choice(2); // wait for assistance
 		else
@@ -4340,22 +4469,21 @@ boolean sailThePirateRealmSeas() {
 		run_choice(-1); // head inland
 		rval = false;
 
-// 	} else if (isErrorPage(aPage)) // makes extra checks that should never happen, so do the specific one for this location:
 	} else if (aPage.contains_text("<td>You're not currently at sea.<center>")) 
 		rval = false;
 
-	// we shouldn't get here
-	else {
-		print(aPage);
-		abort("sailThePirateRealmSeas: unsupported choice");
-	}
+	else
+		run_choice(-1);
+
+	assert(!handling_choice(), "still handling a choice at the end of sailThePirateRealmSeas");
 
 	postAdventure();
 	return rval;
 }
 
+// get through an entire sea
 boolean grindPirateRealmSea() {
-	prDressup("mp regen", "Plastic Pirate Skull", "+equip PirateRealm eyepatch| +equip PirateRealm party hat| +equip Red Roger's red left hand| +equip Red Roger's red right foot");
+	prDressup("mp regen", "Plastic Pirate Skull", "equip Red Roger's red right foot");
 
 	while (sailThePirateRealmSeas()) {
 		healIfRequiredWithMPRestore();
@@ -4364,6 +4492,7 @@ boolean grindPirateRealmSea() {
 	return true;
 }
 
+// grind through an entire island
 boolean grindPirateRealmIsland(int turns) {
 	location island = to_location(get_property("_LastPirateRealmIsland"));
 
@@ -4398,101 +4527,117 @@ void grindPirateRealm() {
 	if (to_boolean(get_property("_smm.PRIslandThreeDone")))
 		return;
 
- 	setDefaultState();
- 	clearGoals();
- 	burnMP(-100);
+	saveAndSetProperty("choiceAdventure1358", "2"); // The Starboard is Bare, Dive for bigger bounty
+	saveAndSetProperty("choiceAdventure1359", "2"); // Grog for the Grogless, Dive for sunken casks
+	saveAndSetProperty("choiceAdventure1362", "2"); // Stormy Weather, Try to gain some extra distance
+	saveAndSetProperty("choiceAdventure1363", "1"); // Who Pirates the Pirates?, Attempt to flee
+	saveAndSetProperty("choiceAdventure1364", "1"); // An Opportunity for Dastardly Do, Attack them
+	saveAndSetProperty("choiceAdventure1365", "2"); // A Sea Monster!, Flee it!
+	try {
+		setDefaultState();
+		clearGoals();
+		burnMP(-100);
 
-	location island;
+		location island;
 
-	// choose island 1 -- Dessert if available, Battle otherwise
-	if (get_property("_LastPirateRealmIsland") == "") {
-		assert(my_adventures() >= 40, "grindPirateRealm: not enough adv to visit the PirateRealm");
-		getPirateRealmQuest();
+		// choose island 1 -- Dessert if available, Battle otherwise
+		if (get_property("_LastPirateRealmIsland") == "") {
+			assert(my_adventures() >= 40, "grindPirateRealm: not enough adv to visit the PirateRealm");
+			getPirateRealmQuest();
 
-		visit_url(to_url($location[Sailing the PirateRealm Seas]), true, false);
-		int choiceNumber = 0;
-		foreach i, name in available_choice_options(false) {
-			if (name.contains_text("Dessert")) {
-				choiceNumber = i;
-				break;
+			visit_url(to_url($location[Sailing the PirateRealm Seas]), true, false);
+			int choiceNumber = 0;
+			foreach i, name in available_choice_options(false) {
+				if (name.contains_text("Dessert")) {
+					choiceNumber = i;
+					break;
+				}
+				if (name.contains_text("Battle"))
+					choiceNumber = i;
 			}
-			if (name.contains_text("Battle"))
-				choiceNumber = i;
-		}
-		run_choice(choiceNumber);
-	}
-
-	// sea 1
-	if (!to_boolean(get_property("_smm.PRSeaOneDone"))) {
-		print("adventuring at sea #1", "green");
-		if (grindPirateRealmSea())
-			set_property("_smm.PRSeaOneDone", "true");
-		else
-			abort("grindPirateRealm: failed while adventuring at sea");
-	}
-	// island 1
-	if (!to_boolean(get_property("_smm.PRIslandOneDone"))) {
-		print("adventuring at island #1", "green");
-		prDressup("mp regen", "Plastic Pirate Skull", "+equip PirateRealm eyepatch| +equip PirateRealm party hat| +equip Red Roger's red left hand| +equip Red Roger's red left foot");
-		if (grindPirateRealmIsland(5))
-			set_property("_smm.PRIslandOneDone", "true");
-		else
-			abort("grindPirateRealm: failed while adventuring on island");
-	}
-
-	// sea 2
-	if (!to_boolean(get_property("_smm.PRSeaTwoDone"))) {
-		// choose island 2
-		if (get_property("_LastPirateRealmIsland") != "Trash Island") {
-			equip($item[PirateRealm eyepatch]);
-			visit_url(to_url($location[Sailing the PirateRealm Seas]), true, false);
-			run_choice(-1); // trash island
+			run_choice(choiceNumber);
 		}
 
-		print("adventuring at sea #2", "green");
-		if (grindPirateRealmSea())
-			set_property("_smm.PRSeaTwoDone", "true");
-		else
-			abort("grindPirateRealm: failed while adventuring at sea");
-	}
-	// island 2
-	if (!to_boolean(get_property("_smm.PRIslandTwoDone"))) {
-		buffForMeatDrop(5, false); // don't use sweet synthesis: doesn't repay cost unless we burn the rest of the buff turns somewhere useful
-		prDressup("meat", "meat", "+equip PirateRealm eyepatch| +equip PirateRealm party hat| +equip Red Roger's red left foot");
-
-		print("adventuring at island #2", "green");
-		if (grindPirateRealmIsland(5))
-			set_property("_smm.PRIslandTwoDone", "true");
-		else
-			abort("grindPirateRealm: failed while adventuring on island");
-		setDefaultState(); // reset the mood
-	}
-
-	// sea 3
-	if (!to_boolean(get_property("_smm.PRSeaThreeDone"))) {
-		// choose island 3
-		if (get_property("_LastPirateRealmIsland") != "Tiki Island") {
-			equip($item[PirateRealm eyepatch]);
-			visit_url(to_url($location[Sailing the PirateRealm Seas]), true, false);
-			// run_choice(1); // signal island
-			run_choice(2); // tiki island
+		// sea 1
+		if (!to_boolean(get_property("_smm.PRSeaOneDone"))) {
+			print("adventuring at sea #1", "green");
+			if (grindPirateRealmSea())
+				set_property("_smm.PRSeaOneDone", "true");
+			else
+				abort("grindPirateRealm: failed while adventuring at sea");
+		}
+		// island 1
+		if (!to_boolean(get_property("_smm.PRIslandOneDone"))) {
+			print("adventuring at island #1", "green");
+			prDressup("mp regen", "default", "equip Red Roger's red left foot");
+			if (grindPirateRealmIsland(5))
+				set_property("_smm.PRIslandOneDone", "true");
+			else
+				abort("grindPirateRealm: failed while adventuring on island");
 		}
 
-		print("adventuring at sea #3", "green");
-		if (grindPirateRealmSea())
-			set_property("_smm.PRSeaThreeDone", "true");
-		else
-			abort("grindPirateRealm: failed while adventuring at sea");
-	}
-	// island 3
-	if (!to_boolean(get_property("_smm.PRIslandThreeDone"))) {
-		prDressup("mp regen", "Plastic Pirate Skull", "+equip PirateRealm eyepatch| +equip PirateRealm party hat| +equip Red Roger's red left hand| +equip Red Roger's red left foot");
+		// sea 2
+		if (!to_boolean(get_property("_smm.PRSeaTwoDone"))) {
+			// choose island 2
+			if (get_property("_LastPirateRealmIsland") != "Trash Island") {
+				equip($item[PirateRealm eyepatch]);
+				visit_url(to_url($location[Sailing the PirateRealm Seas]), true, false);
+				run_choice(-1); // trash island
+			}
 
-		print("adventuring at island #3", "green");
-		if (grindPirateRealmIsland(10))
-			set_property("_smm.PRIslandThreeDone", "true");
-		else
-			abort("grindPirateRealm: failed while adventuring on island");
+			print("adventuring at sea #2", "green");
+			if (grindPirateRealmSea())
+				set_property("_smm.PRSeaTwoDone", "true");
+			else
+				abort("grindPirateRealm: failed while adventuring at sea");
+		}
+		// island 2
+		if (!to_boolean(get_property("_smm.PRIslandTwoDone"))) {
+			buffForMeatDrop(5, false); // don't use sweet synthesis: doesn't repay cost unless we burn the rest of the buff turns somewhere useful
+			prDressup("meat", "meat", "equip Red Roger's red left foot");
+
+			print("adventuring at island #2", "green");
+			if (grindPirateRealmIsland(5))
+				set_property("_smm.PRIslandTwoDone", "true");
+			else
+				abort("grindPirateRealm: failed while adventuring on island");
+			setDefaultState(); // reset the mood
+		}
+
+		// sea 3
+		if (!to_boolean(get_property("_smm.PRSeaThreeDone"))) {
+			// choose island 3
+			if (get_property("_LastPirateRealmIsland") != "Tiki Island") {
+				equip($item[PirateRealm eyepatch]);
+				visit_url(to_url($location[Sailing the PirateRealm Seas]), true, false);
+				// run_choice(1); // signal island
+				run_choice(2); // tiki island
+			}
+
+			print("adventuring at sea #3", "green");
+			if (grindPirateRealmSea())
+				set_property("_smm.PRSeaThreeDone", "true");
+			else
+				abort("grindPirateRealm: failed while adventuring at sea");
+		}
+		// island 3
+		if (!to_boolean(get_property("_smm.PRIslandThreeDone"))) {
+			prDressup("mp regen", "default", "equip Red Roger's red left foot");
+
+			print("adventuring at island #3", "green");
+			if (grindPirateRealmIsland(10))
+				set_property("_smm.PRIslandThreeDone", "true");
+			else
+				abort("grindPirateRealm: failed while adventuring on island");
+		}
+
+	} finally {
+		restoreSavedProperty("choiceAdventure1358");
+		restoreSavedProperty("choiceAdventure1359");
+		restoreSavedProperty("choiceAdventure1362");
+		restoreSavedProperty("choiceAdventure1363");
+		restoreSavedProperty("choiceAdventure1364");
+		restoreSavedProperty("choiceAdventure1365");
 	}
 }
 
@@ -4605,6 +4750,13 @@ void grindReflections(int reflectionsToGet, int maxPerTurnCost) {
 void grindScarabBeatles(int numberToGet, int maxPerTurnCost, boolean doBlur) {
 	int kBuffTurns = ceil(numberToGet * 1);
 	print("grindScarabBeatles, " + numberToGet + " to get, maxPerTurnCost: " + maxPerTurnCost + ", do blur: " + doBlur, "green");
+
+	// first time through: get Ultrahydrated first to save a turn of our buffs
+	if (have_effect($effect[Ultrahydrated]) == 0) {
+		if (!get_property("_freePillKeeperUsed").to_boolean())
+			cli_execute("pillkeeper free semirare");
+		adv1($location[The Oasis], 1);
+	}
 
 	if (isFloundryLocation($location[The Oasis]) && have_item($item[wriggling worm]))
 		use_if_needed($item[wriggling worm], $effect[Baited Hook], kBuffTurns);
@@ -4882,66 +5034,71 @@ void remove_properties(string filter) {
 // AUTOMATION -- GRINDING -- SEA QUEST
 // -------------------------------------
 
+boolean getFishy(int minTurns) {
+	int neededFishy = minTurns - have_effect($effect[Fishy]);
+	if (neededFishy <= 0) return true;
+
+	int skateParkFishy = get_property("skateParkStatus") == "ice" ? 30 : 0;
+	int pipeFishy = get_property("_fishyPipeUsed").to_boolean() ? 0 : 10;
+
+	if (pipeFishy >= neededFishy) {
+		use(1, $item[fishy pipe]);
+		neededFishy = minTurns - have_effect($effect[Fishy]);
+	}
+
+	if (skateParkFishy >= neededFishy) {
+		cli_execute("skate lutz");
+		neededFishy = minTurns - have_effect($effect[Fishy]);
+	}
+
+	return have_effect($effect[Fishy]) >= minTurns;
+}
+
+
+boolean getBreathWater(int minTurns) {
+	assert(breatheWater() == 0, "getBreathWater: we're already breathing water");
+	assert(minTurns <= 20, "getBreathWater: can't get more than 20 turns of breathing water at a time");
+
+	item [] breatheWaterItems = {$item[hyperinflated seal lung], $item[ballast turtle], $item[tempura air], $item[pressurized potion of pneumaticity]};
+	sort breatheWaterItems by -historical_price(value);
+	int idx = 0;
+	while (breatheWater() == 0) {
+		item breatheWaterItem = breatheWaterItems[idx++];
+		if (have_item(breatheWaterItem))
+			use(1, breatheWaterItem);
+	}
+
+	if (breatheWater() == 0 && isAsdonWorkshed())
+		safeFueledAsdonMartin($effect[Driving Observantly], minTurns);
+
+	return breatheWater() >= minTurns;
+}
+
+
 // prep for success in the sea
 // gets fishy, underwater breathing and reduces pressure penalties as possible
-void prepForSea(location seaLocation, boolean isGrinding) {
-	boolean unused;
-	set_location(seaLocation);
-	int turnsInTheSea = have_effect($effect[Fishy]);
-	print("lasso training: " + get_property("lassoTraining"));
+void prepForSea(location seaLocation, boolean isGrinding, int seaTurns) {
+	print("prepForSea: lasso training: " + get_property("lassoTraining"));
 
-	// FISHY
-	if (!to_boolean(get_property("_fishyPipeUsed"))) {
-		if (have_effect($effect[fishy]) == 0)
-			abort("no fishy!");
-		use(1, $item[fishy pipe]);
-	}
+	if (have_effect($effect[Fishy]) < seaTurns)
+		getFishy(seaTurns);
+	assert(have_effect($effect[Fishy]) >= seaTurns, "wasn't able to get " + seaTurns + " turns of Fishy");
 
-	// MP REGEN
-// 	if (have_effect($effect[Red Around the Gills]) == 0) {
-// 		buy(1, $item[mer-kin lipstick]);
-// 		use(1, $item[mer-kin lipstick]);
-// 	}
-
-	// BREATHE WATER
-	if (!canBreatheWater()) {
-		// clear room for Donho
-		setDefaultMoodRaw();
-		shakeOffNonMoodSongs();
-
-		item [] breatheWaterItems = {$item[hyperinflated seal lung], $item[ballast turtle], $item[tempura air], $item[pressurized potion of pneumaticity]};
-		item itemToUse = mostOfItem(breatheWaterItems);
-		if (available_amount(itemToUse) == 0) {
-			if (isAsdonWorkshed())
-				unused = fueled_asdonmartin("waterproofly", turnsInTheSea);
-			else
-				abort("unable to breathe water");
-		}
-		else
-			use(1, itemToUse);
-	} else {
-		turnsInTheSea = min(turnsInTheSea, breatheWater());
-	}
+	if (breatheWater() == 0) // water-breathing buffs overlap, so only get a new one when we run out of the last
+		getBreathWater(seaTurns);
+	assert(breatheWater() >= seaTurns, "wasn't able to get " + seaTurns + " turns of water breathing");
 
 	// REDUCE PRESSURE
-	if (have_effect($effect[Donho's Bubbly Ballad]) < turnsInTheSea) {
-		if (have_skill($skill[Donho's Bubbly Ballad]))
-			buffIfNeededWithUneffect($skill[Donho's Bubbly Ballad], turnsInTheSea);
-		else {
-			int recordingsNeeded = ceil((turnsInTheSea - have_effect($effect[Donho's Bubbly Ballad])) / 20.0);
-			print(turnsInTheSea);
-			if (recordingsNeeded > 0) {
-				//buy(recordingsNeeded, $item[recording of Donho's Bubbly Ballad]);
-				ensureSongRoom($skill[Donho's Bubbly Ballad]);
-				use(recordingsNeeded, $item[recording of Donho's Bubbly Ballad]);
-			}
-		}
-		if (have_effect($effect[Donho's Bubbly Ballad]) == 0)
-			abort("did not get Donho effect");
-	}
+	ensureSongRoom($skill[Donho's Bubbly Ballad]);
+	if (have_skill($skill[Donho's Bubbly Ballad]))
+		buffIfNeededWithUneffect($skill[Donho's Bubbly Ballad], seaTurns);
+	else
+		use_if_needed($item[recording of Donho's Bubbly Ballad], $effect[Donho's Bubbly Ballad], seaTurns);
+	assert(have_effect($effect[Donho's Bubbly Ballad]) >= seaTurns, "did not get Donho effect");
 	//use shavin' razor; use mer-kin fastjuice; use shark cartilage;
 
-	buffForItemDrop(20); // max 30 = turns cozy is good for?
+	if (isGrinding)
+		buffForItemDrop(seaTurns);
 
 	setDefaultMood(); // fill up mood
 }
@@ -4956,8 +5113,8 @@ void dressForSea(location seaLocation, boolean isGrinding) { // sea_quest sea qu
 	string familiarString = "robortender [tracker]";
 	//string maxString = "+equip lucky gold ring, -equip \"i voted\" sticker, -equip Kramco Sausage-o-Matic&trade;, -equip pantogram pants, -equip aerogel attache case, -equip mafia thumb ring"; // needed to stop some automation
 	string maxString = "-equip \"i voted\" sticker, -equip Kramco Sausage-o-Matic&trade;, -equip mafia thumb ring";
-	if (my_class() == $class[accordion thief])
-		maxString += ", +four songs";
+// 	if (my_class() == $class[accordion thief]) // causes problems in octopus' garden
+// 		maxString += ", +four songs";
 
 	if (seaLocation == $location[An Octopus's Garden]) {
 		setCurrentMood("-combat");
@@ -4965,8 +5122,6 @@ void dressForSea(location seaLocation, boolean isGrinding) { // sea_quest sea qu
 		familiarString = "";
 		use_familiar($familiar[Robortender]); equip($item[toggle switch (Bartend)]);
 		maxString += ", 0.1 item, 0.01 hp, +equip straw hat";
-		if (can_equip($item[aquamariner's necklace]))
-			maxString += ", +equip aquamariner's necklace";
 		if (can_equip($item[octopus's spade]))
 			maxString += ", +equip octopus's spade";
 
@@ -5034,7 +5189,7 @@ void dressForSea(location seaLocation, boolean isGrinding) { // sea_quest sea qu
 			maxString += ", item";
 		if (get_property("redSnapperPhylum") != "merkin")
 			setRedNosedSnapperGuideMe("merkin");
-		maxString += ", -20 combat";
+		maxString += ", -50 combat";
 		if (can_equip($item[cozy scimitar]))
 			maxString += ", +equip cozy scimitar";
 		if ((to_int(get_property("_chestXRayUsed")) < 3))
@@ -5162,7 +5317,8 @@ void dressForSea(location seaLocation, boolean isGrinding) { // sea_quest sea qu
 // prep for and dress for success in the sea
 // gets fishy, underwater breathing and reduces pressure penalties as possible
 void seaQuest(location seaLocation, boolean isGrinding) { // sea_quest sea quest
-	prepForSea(seaLocation, isGrinding);
+	int turns = breatheWater() > 0 ? breatheWater() : 20;
+	prepForSea(seaLocation, isGrinding, turns);
 	dressForSea(seaLocation, isGrinding);
 }
 
@@ -5172,7 +5328,7 @@ void grindOctopusesGarden(int turnsToGrind, int maxPerTurnCost, boolean favourGa
 	setCurrentMood("-combat");
 	seaQuest($location[An Octopus's Garden], true);
 	if (isAsdonWorkshed() && (!drivingAsdonMartin() || have_effect($effect[Driving Observantly]) < turnsToGrind))
-		fueled_asdonmartin("observantly", turnsToGrind);
+		safeFueledAsdonMartin($effect[Driving Observantly], turnsToGrind);
 	//sweetSynthesis($effect[Synthesis: Collection], turnsToGrind);
 
 	monster [] monsterArray = {$monster[octopus gardener], $monster[stranglin' algae]};
@@ -5186,6 +5342,7 @@ void grindSeaLocation(location seaLocation, monster [] targetArray, boolean maxi
 
 	seaQuest(seaLocation, true);
 
+	// do all this for the results of Harpoon! and Summon Leviatuga OR just wield the broken champagne bottle and the rest of the items and let the consult script do the rest
 	int tries = min(turnsToGrind, have_effect($effect[fishy])) + instaKillsAvailable() + 5; // some extra tries for turtle finding
 	while (have_effect($effect[fishy]) > 0 && have_effect($effect[Donho's Bubbly Ballad]) > 0 && canBreatheWater() && tries > 0) {
 		string itemScript = main_sub() + init_sub() + setup_aborts_sub() + "call init;";
@@ -5257,6 +5414,12 @@ void grindEdgarFitzsimmons(int turnsToGrind, int maxPerTurnCost) {
 void grindMarinaraTrench(int turnsToGrind, int maxPerTurnCost) {
 	monster [] monsterArray = {$monster[mer-kin diver]};
 	grindSeaLocation($location[The Marinara Trench], monsterArray, true, turnsToGrind, maxPerTurnCost);
+}
+
+
+void grindCoralCorral(int turnsToGrind, int maxPerTurnCost) {
+	monster [] monsterArray = {$monster[sea cow], $monster[sea cowboy]};
+	grindSeaLocation($location[The Coral Corral], monsterArray, true, turnsToGrind, maxPerTurnCost);
 }
 
 
@@ -5350,7 +5513,7 @@ void slimetube(boolean wantEngulfed, boolean burnSpleen) {
 	if (my_spleen_use() < spleen_limit() && burnSpleen)
 		cli_execute_if_needed("synthesize crimbo fudge, senior mints", $effect[Synthesis: Strong], turnsToSpend); 
 	if (isAsdonWorkshed())
-		fueled_asdonmartin("recklessly", turnsToSpend);
+		safeFueledAsdonMartin($effect[Driving Recklessly], turnsToSpend);
 	max_mcd();
 
 	int expectedDmg = safeExpectedCoatedInSlimeDmg();
@@ -5557,7 +5720,7 @@ void grindCrimbo2019(location seaLoc, monster sideCritter, int kills) {
 		fullAcquire($item[cozy scimitar]);
 
 	if (seaLoc == $location[gingerbread reef] || seaLoc == $location[The Wreck of the H. M. S. Kringle] || seaLoc == $location[The Impenetrable Kelp-Holly Forest]) {
-		prepForSea(seaLoc, true);
+		prepForSea(seaLoc, true, kills);
 		automate_dressup(seaLoc, "", $familiar[red-nosed snapper], "item, +equip cozy scimitar, +equip mime army infiltration glove, +equip thumb ring");
 	} else {
 		seaQuest(seaLoc, true);
@@ -5577,7 +5740,7 @@ void grindCrimbo2019(location seaLoc, monster sideCritter, int kills) {
 void grindDolphinOrphans(location seaLoc, monster sideCritter, int kills) {
 	fullAcquire($item[cozy scimitar]);
 	if (seaLoc == $location[gingerbread reef] || seaLoc == $location[The Wreck of the H. M. S. Kringle] || seaLoc == $location[The Impenetrable Kelp-Holly Forest]) {
-		prepForSea(seaLoc, true);
+		prepForSea(seaLoc, true, kills);
 		clear_automate_dressup();
 		use_familiar($familiar[red-nosed snapper]);
 		maximize("item, +equip cozy scimitar, +equip mime army infiltration glove, +equip thumb ring", false);
@@ -5659,7 +5822,7 @@ void dailyFishingGrind(int [location] endGameTurnsSpent, int maxPerTurnCost) {
 	print("dailyFishingGrind", "green");
 
 	// SEA QUESTING/GRINDING
-	if (have_effect($effect[Fishy]) >= 1 && breatheWater() >= 1) {
+	if (have_effect($effect[Fishy]) > 1) { //  && breatheWater() >= 1 won't have breathe water the first time through
 		if (!to_boolean(get_property("_smm.PreGrindDone"))) {
 			seaQuest($location[the coral corral], true);
 			currentIncomeSea();
@@ -5706,7 +5869,7 @@ void dailyGrind() {
 	}
 
 	// if we have the Fishy buff from the pipe from yesterday
-	if (to_boolean(get_property("_smm.DailyFishingGrind")))
+	if (get_property("_smm.DailyFishingGrind").to_boolean())
 		dailyFishingGrind(endGameTurnsSpent, maxPerTurnCost); // 20 turns, burns item buffs
 	else
 		dailyDefaultGrind(endGameTurnsSpent);
@@ -5752,7 +5915,7 @@ void dailyGrind() {
 	}
 
 	if (banishesAvailable(maxPerTurnCost) > 0 && !to_boolean(get_property("_smm.GrindDone"))) {
-		grindScarabBeatles(maxPerTurnCost, true, 13); // ignoreCost, doBlur, banishes to save
+		grindScarabBeatles(maxPerTurnCost, true, 10); // ignoreCost, doBlur, banishes to save
 		stockStore();
 		assert(!canYellowRay(), "should have spent all the yellow rays by now");
 		set_property("_smm.GrindDone", "true");
@@ -5767,6 +5930,7 @@ void dailyGrind() {
 	grindSpacegate(gkSpacegateCoordinates);
 	set_property("choiceAdventure1251", "");
 
+// 	abort("do fantasyrealm, piraterealm, the drip manually with combat lover's locket");
 	fantasyrealmBaseGrind();
 	fantasyrealmGrind($item[Master Thief's utility belt]);
 	grindPirateRealm();
@@ -5780,6 +5944,12 @@ void dailyGrind() {
 			cli_execute("use dolphin whistle");
 	}
 	set_property("_smm.ShouldUseDolphinWhistleQueryDone", "true");
+
+	if (!get_property("_workshedItemUsed").to_boolean() && isAsdonWorkshed()) {
+		fueled_asdonmartin("observantly", 600);
+		assert(have_effect($effect[Driving Observantly]) >= 600, "didn't get 600 turns of Driving Observantly");
+		use(1, $item[cold medicine cabinet]);
+	}
 
 	timeToRollover();
 }
@@ -5796,12 +5966,12 @@ void good_night() {
 		use_if_needed($item[boiling broth], $effect[Boiling Determination], gkBastilleBuffAmount);
 		use_if_needed($item[interrogative elixir], $effect[Enhanced Interrogation], gkBastilleBuffAmount);
 		unused = cli_execute("basty win");
-		abort(); // manual check
 	}
 	assert(get_property("_bastilleGames").to_int() > 0, "didn't play Bastille Battalion but should have!");
 
 	stockStore();
 
+	useNashCrosbyStill();
 	burnBuffs();
 	burnSpleen();
 	burnFreeUseItems();
@@ -5946,11 +6116,11 @@ void latteAdventure(location place, string ingredient, int maxTurns) {
 	automate_dressup($location[none], "meat", "default", maxStringForLocation(place, "equip latte lovers member's mug"));
 
 	if (check_counters(maxTurns, kDontAbort) && !isLatteIngredientUnlocked(ingredient))
-		print("WARNING: counter possible before finishing latteAdventure (will abort script at counter) while looking for " + ingredient + " at " + place, "red");
+		print("WARNING: counter possible before finishing latteAdventure (will abort script at counter) while looking for " + ingredient + " at " + place, "orange");
 
 	int tries = maxTurns;
 	while (!isLatteIngredientUnlocked(ingredient) && tries > 0) {
-// 		check_counters(kAbortOnCounter); // will be done by adv1?
+		assert(equipped_amount($item[latte lovers member's mug]) >= 1, "we aren\'t equipping the latte lovers member\'s mug");
 		if (!adv1(place))
 			abort("latteAdventure: did not successfully adventure at " + place);
 		tries--;
@@ -5966,32 +6136,14 @@ void latteAdventure(location place, string ingredient) {
 }
 
 
+// grind default latte lovers member's mug locations until we get their ingredient
 void grindLatteIngredients() {
-	foreach idx, ingredient in kDefaultLatteIngredients {
-		if (!isLatteIngredientUnlocked(ingredient))
-			latteAdventure(kLatteLocations[ingredient], ingredient);
+	string ingredient = nextLatteIngredient();
+	while (ingredient != "") {
+		assert(!isLatteIngredientUnlocked(ingredient), "nextLatteIngredient returned an unlocked ingredient");
+		latteAdventure(kLatteLocations[ingredient], ingredient);
+		ingredient = nextLatteIngredient();
 	}
-	foreach idx, ingredient in kDefaultLatteLastRefillIngredients {
-		if (!isLatteIngredientUnlocked(ingredient))
-			latteAdventure(kLatteLocations[ingredient], ingredient);
-	}
-	foreach idx, ingredient in kExtraLatteIngredients {
-		if (!isLatteIngredientUnlocked(ingredient))
-			latteAdventure(kLatteLocations[ingredient], ingredient);
-	}
-
-// 	latte_adventure($location[The Bat Hole Entrance],		"guarna");	// +4 adv at rollover
-// 	latte_adventure($location[The Black Forest],			"cajun");	// +40% meat
-// 	latte_adventure($location[The Dire Warren],				"carrot");	// +20% item
-// 	latte_adventure($location[The Arid, Extra-Dry Desert],	"lizard");	// 5-15 mp regen
-// 	latte_adventure($location[The Spooky Forest],			"rawhide");	// +5 fam weight
-// 
-// 	if (inRonin()) { // not really expected to be used in ronin/hardcore, but kept for info purposes
-// 		latte_adventure($location[The Dark Elbow of the Woods],	"vitamins");// +3 fam exp
-// 		latte_adventure($location[The Dark Heart of the Woods],	"wing");	// +combat
-// 	}
-// 
-// 	latte_adventure($location[The Haunted Library],			"ink");		// -combat WARNING: library might not be unlocked
 }
 
 

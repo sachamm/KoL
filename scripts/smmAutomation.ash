@@ -4,6 +4,52 @@ string __smm_automation_version = "0.3";
 
 
 /*
+Automation, with 3 main functions: automated dressing, automated redirection, and monster targeting.
+
+Automated dressing attempts to fill equipment slots with useful items that would not otherwise be equipped
+(or, in the case of the broken champagne bottle and possibly others, to ensure items WON'T be equipped unless
+explicitly called for). Things that automated dressing might do:
+- equip a pickpocket-enabling item if you're not DB or AT if there's pickpocketable items (TODO: look for pp-only items only??)
+- wear "i voted" sticker on the turn the vote monster is due (if it's a free turn OR the property smm.FreeWanderingMonstersOnly is false)
+- wear maple magnet in the places where grinding with it is useful
+- wear the Kramco Sausage-o-Matic if there's a high chance of getting a sausage goblin
+- wear all the best item-dropping items when the broken champagne bottle is called for
+- wear oyster basket on oyster day
+- wear fishing equipment in fishing locations
+- wear mafia thumb ring
+- wear latte lovers member's mug if we're in a location with pending unlocks
+- wear a combat lover's locket in a location with pending unlocks
+- wear a melee weapon for mus classes and ranged for mox classes
+- wear pantogram pants for hilarity
+In all cases, will respect "-equip" directives, e.g. -equip pantogram pants; will not overwrite
+existing equip directives (including outfits); and will prioritize better items first. The main
+function to use for automating outfits is automate_dressup().
+
+Automated redirection attempts to redirect wandering monsters and copies to useful locations with delay.
+Places that redirection might go to (in priority order as of 2022-02-16):
+- infernal rackets backstage if we don't have the unicorn (have to get the other 1/2 of the Azazel quest manually i think)
+- join guild locations if we haven't joined our guild (haunted pantry, sleazy back alley, outskirts of cobb's knob)
+- guild quest locations when they are needed (currently: the unquiet garves, the "fun" house)
+- the few prioritized latte lovers member's mug unlock locations (see nextLatteIngredient(), but default is +item,+meat,+adv at minimum)
+- pagoda quest unlocks (pandamonium slums, inside the palindome)
+- initial zap wand unlock (Enormous Greater-Than Sign)
+- Guzzlr gold quest locations
+- pirate unlocks (TODO)
+- 10 turns in The Valley of Rof L'm Fao for A Quest, LOL
+- Guzzlr bronze quest locations
+- smut orc logging camp to get a smut orc keepsake box (last-ditch default if nothing else) TODO figure something better
+In all cases, you have to finish the quest manually at this time. The main function to use
+for auto redirection is redirectAdventure() or ra () on the gCLI.
+
+Monster targeting attempts to kill the target monsters a set number of times. It's original purpose
+was to finish New You quests, which need this kind of facility, but it turns out to be useful
+in Bounty quests and grinding as well. Uses automated dressing to equip banishing items and uses
+automated redirection while targeting. See targetMob() for more details.
+
+You can get auto dressup without the auto redirection by setting the additionalMaxString argument to the empty string.
+Put your entire max string in the selector argument instead. You can get auto redirection without the auto dressup by
+putting your entire max string into the additionalMaxString and setting selector to the empty string.
+
 To use the subroutines from this ASH file in the CLI, do this in the CLI:
 using smmAutomation.ash;
 
@@ -32,21 +78,38 @@ string kRedirectSavedEquipSetKey = "redirectSavedEquipSet";
 string kTargetMobSavedEquipSetKey = "targetMobEquipSet";
 
 
+// TODO make these properties
+string [] kDefaultLatteIngredients = {"carrot", "cajun", "rawhide"}; // ingredients must appear in kLatteLocations
+string [] kDefaultLatteLastRefillIngredients = {"carrot", "cajun", "guarna"}; // ingredients must appear in kLatteLocations
+string [] kExtraLatteIngredients = {}; // extra ingredients to unlock (other than those in the above 2 lists) -- ingredients must appear in kLatteLocations
+
+
+// abstracts the notion of an adventure to include not just a location but also item uses and skill uses.
+// this uniquely identifies a single method to start an adventure
+// One and only one field should be filled out, all others should be none.
+record AdventureRecord {
+	location locationToUse;
+	skill skillToUse;
+	item itemToUse;
+};
+
+
+
 // -------------------------------------
-// AUTOMATION -- DRESSING
+// DRESSING
 // -------------------------------------
 
 
 // selects a familiar based on the given selector and returns a string appropriate for
 // "maximize" to dress the familiar in the best equipment
 //
-// will read dressupFamiliarOverrideString and use that if set
+// will read smm.ChooseFamiliarOverride and smm.ChooseFamiliarOverrideEquipString and use those if set
 string chooseFamiliar(string selector, location aLocation) {
 	string rval;
-	string overrideString = get_property("dressupFamiliarOverrideString");
+	string overrideString = get_property("smm.ChooseFamiliarOverride");
 	if (overrideString != "") {
 		use_familiar(to_familiar(overrideString));
-		return "";
+		return get_property("smm.ChooseFamiliarOverrideEquipString");
 	}
 
 	matcher selectorMatcher = create_matcher(" \\[.*\\]", selector);
@@ -85,7 +148,13 @@ string chooseFamiliar(string selector, location aLocation) {
 
 	// MEAT
 	} else if (contains_text(famSelector, "meat")) {
-		return "switch Trick-or-Treating Tot, switch Cat Burglar, switch Hobo Monkey";
+		rval = "switch Cat Burglar, switch Hobo Monkey";
+		if (have_item($item[li'l pirate costume])) {
+			rval += ", switch Trick-or-Treating Tot";
+			use_familiar($familiar[Trick-or-Treating Tot]);
+		} else
+			use_familiar($familiar[Hobo Monkey]);
+		return rval;
 
 	// -COMBAT
 	} else if (contains_text(famSelector, "-combat")) {
@@ -99,8 +168,8 @@ string chooseFamiliar(string selector, location aLocation) {
 
 	// FIGHT -- best default combat familiar
 	} else if (contains_text(famSelector, "fight")) {
-		use_familiar($familiar[Angry Goat]);
-		return "switch Angry Goat";
+		use_familiar($familiar[Vampire Vintner]);
+		return "switch Vampire Vintner";
 
 	// MONSTER LEVEL
 	} else if (contains_text(famSelector, "ml")) {
@@ -174,7 +243,7 @@ string chooseFamiliar(string selector, location aLocation) {
 			//use_familiar($familiar[Pocket Professor]);
 		}
 
-		return "equip ittah bittah hookah"; // default familiar equipment
+		return "equip miniature crystal ball"; // default familiar equipment
 	}
 
 	return "";
@@ -219,6 +288,20 @@ boolean voteMonsterNext() {
 
 
 
+void setDefaultMoodForLocation(location advLocation) {
+	if (advLocation == $location[Infernal Rackets Backstage]) {
+		setCurrentMood("-combat");
+
+	} else if (advLocation == $location[The Enormous Greater-Than Sign]) {
+		setCurrentMood("-combat");
+
+	} else if (advLocation == $location[The "Fun" House] && get_property("questG04Nemesis") == "step5" && $location[The "Fun" House].turns_spent >= 6) {
+		setCurrentMood("-combat");
+	}
+}
+
+
+
 // appends to existingMaxString a maximizer string that will equip an item that enables pickpocketing on non-moxie classes
 // returns existingMaxString for moxie classes
 string dressForPickpocket(location advLocation, string existingMaxString) {
@@ -239,10 +322,8 @@ string dressForPickpocket(location advLocation, string existingMaxString) {
 }
 
 
-void setDefaultMoodForLocation(location advLocation) {
-	if (advLocation == $location[Infernal Rackets Backstage]) {
-		setCurrentMood("-combat");
-	}
+string storedDressupMaxString() {
+	return get_property(kDressupMaxStringKey);
 }
 
 
@@ -251,6 +332,7 @@ void setDefaultMoodForLocation(location advLocation) {
 // most locations will require nothing. Prototypical example is the pirate fledges required for adventuring in the Obligatory Pirate Cove
 // since these are required items only, will not check if the existing maxString allows dressing with the returned item(s)
 string maxStringForLocation(location advLocation, string maxString) { // #dressForLocation
+	// PIRATES
 	if (advLocation == $location[Barrrney's Barrr] || advLocation == $location[The F'c'le] || advLocation == $location[The Poop Deck] || advLocation == $location[Belowdecks]) {
 		if (have_item($item[pirate fledges]))
 			maxString = maxStringAppend(maxString, "equip pirate fledges");
@@ -259,16 +341,24 @@ string maxStringForLocation(location advLocation, string maxString) { // #dressF
 		else
 			abort("can't dress for location: " + advLocation);
 
+	// PALINDOME
 	} else if (advLocation == $location[Inside the Palindome]) {
 		if (have_item($item[Talisman o' Namsilat]))
 			maxString = maxStringAppend(maxString, "equip Talisman o' Namsilat");
 		else
 			abort("can't dress for location: " + advLocation);
 
+	// AZAZEL
 	} else if (advLocation == $location[infernal Rackets Backstage]) {
 		if ( !(get_property("questM10Azazel") == "finished" || have_item($item[Azazel's unicorn])))
 			maxString = maxStringAppend(maxString, "-10 combat");
 
+	// GUILD -- "fun" house
+	} else if (advLocation == $location[The "Fun" House]) {
+		if (get_property("questG04Nemesis") == "step5" && $location[The "Fun" House].turns_spent >= 6)
+			maxString = maxStringAppend(maxString, "clownosity 4 min, -500 combat");
+
+	// 8-bit REALM
 	} else if (advLocation == $location[8-Bit Realm]) {
 		if (have_item($item[continuum transfunctioner]))
 			maxString = maxStringAppend(maxString, "equip continuum transfunctioner");
@@ -280,12 +370,24 @@ string maxStringForLocation(location advLocation, string maxString) { // #dressF
 }
 
 
-// appends to existingMaxString a maximizer string that will enable olfacting and returns it.
-string dressForOlfaction(location advLocation, string existingMaxString) {
-	return "";
+// returns a maximizer string that will enable olfacting
+string dressForOlfaction(location advLocation, monster target) {
+	string rval;
+	string maxString = storedDressupMaxString();
+
+	if (!hasBeenOfferedLatte(target) && !get_property("_latteCopyUsed").to_boolean()
+		&& !wantsToNotEquip(maxString, $item[latte lovers member's mug]) && !wantsToEquip(maxString, $slot[off-hand]))
+		rval = rval.maxStringAppend("equip latte lovers member's mug");
+
+	return rval;
 }
 
 
+
+// the core of the automated dressup facility, this returns a maximizer string so we can
+// dress up in the most appropriate outfit.
+// an empty selector represents an automated outfit without any actual automated equipping -- therefore this function cannot be called with an empty selector
+// an empty additionalMaxString represents an automated outfit based on selector but with no automated redirecting
 string maximizerStringForDressup(location advLocation, string selector, string additionalMaxString) {
 	assert(selector != "", "maximizerStringForDressup: blank selector");
 
@@ -295,7 +397,7 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 	selector = replace_first(selectorMatcher, "");
 	string maxString = maxStringAppend(selector, additionalMaxString);
 
-	// LOCATION-SPECIFIC items
+	// LOCATION-SPECIFIC items that we need to adventure at the location (e.g. pirate fledges)
 	maxString = maxStringForLocation(advLocation, maxString);
 
 	// IN RONIN
@@ -304,16 +406,17 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 
 	boolean highChanceOfSausageGoblin = (chanceOfSausageGoblinNextTurn() > 0.20 && to_int(get_property("_sausageFights")) < kSausagesToGet) || chanceOfSausageGoblinNextTurn() > 0.50;
 	boolean lowChanceOfSausageGoblin = (chanceOfSausageGoblinNextTurn() > 0.10 && to_int(get_property("_sausageFights")) < kSausagesToGet) || chanceOfSausageGoblinNextTurn() > 0.25;
-	// HIGH CHANCE OF SAUSAGE GOBLINS, the kramco gets priority in the off-hand
+
+	// SAUSAGE GOBLINS (HIGH CHANCE), the kramco gets priority in the off-hand when we're likely to get a sausage goblin
 	if (!inRonin() && highChanceOfSausageGoblin && countHandsUsed(maxString) < 2 && !wanderingMonstersBad(maxString)
-			&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[Kramco Sausage-o-Matic&trade;])) {
+		&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[Kramco Sausage-o-Matic&trade;])) {
 		maxString = maxStringAppend(maxString, "equip Kramco Sausage-o-Matic&trade;");
 	}
 
 	// LATHE MAPLE MAGNET
 	if (have_item($item[maple magnet]) && countHandsUsed(maxString) < 2
-			&& (advLocation == $location[Dreadsylvanian Woods] || advLocation == $location[The Smut Orc Logging Camp] || advLocation == $location[The Purple Light District] || advLocation == $location[The Mouldering Mansion] || advLocation == $location[The Stately Pleasure Dome] || advLocation == $location[The Rogue Windmill] || advLocation == $location[The Jungles of Ancient Loathing] || advLocation == $location[The Dripping Trees])
-			&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[maple magnet]))
+		&& (advLocation == $location[Dreadsylvanian Woods] || advLocation == $location[The Smut Orc Logging Camp] || advLocation == $location[The Purple Light District] || advLocation == $location[The Mouldering Mansion] || advLocation == $location[The Stately Pleasure Dome] || advLocation == $location[The Rogue Windmill] || advLocation == $location[The Jungles of Ancient Loathing] || advLocation == $location[The Dripping Trees])
+		&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[maple magnet]))
 		maxString = maxStringAppend(maxString, "equip maple magnet");
 
 	// PICKPOCKET-ENDABLING ITEM
@@ -332,7 +435,7 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 			maxString = maxStringAppend(maxString, "-equip mafia thumb ring");
 	}
 
-	// GARBAGE TOTE ITEMS: BROKEN CHAMPAGNE BOTTLE
+	// GARBAGE TOTE ITEMS: BROKEN CHAMPAGNE BOTTLE will try to equip all sorts of +item things when we equip the broken champagne bottle
 	if (!wantsToEquip(maxString, $item[broken champagne bottle]) && !wantsToNotEquip(maxString, $item[broken champagne bottle])) // unless explicitly asked for, don't equip broken champagne bottle
 		maxString = maxStringAppend(maxString, "-equip broken champagne bottle");
 	else if (wantsToEquip(maxString, $item[broken champagne bottle])) { // if we're equipping the champagne bottle, equip all the +item stuff
@@ -354,30 +457,37 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 		maxString = maxStringAppend(maxString, "-equip wad of used tape, -equip makeshift garbage shirt");
 
 	// MISC
-	// if we're in aftercore, get hilarity drops, free fights, fishing, and doctor bag quests
+	// if we're in aftercore: free fights, and doctor bag quests
 	if (!inRonin()) {
 		if (isOysterDay()) {
 			if (!wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[oyster basket]) && countHandsUsed(maxString) < 2)
 				maxString = maxStringAppend(maxString, "equip oyster basket");
 		}
-		// if we restarted mafia, the aerogelAttacheCaseItemDrops count will be off so just don't equip if we've restarted
-		if (!haveRestartedMafia() && aerogelAttacheCaseItemDrops() < 5 && !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[aerogel attache case]) && countHandsUsed(maxString) < 2 && have_effect($effect[Fishy]) == 0)
+
+		// AEROGEL ATTACHE CASE if we restarted mafia, the aerogelAttacheCaseItemDrops count will be off so just don't equip if we've restarted
+		if (!haveRestartedMafia() && aerogelAttacheCaseItemDrops() < 5
+			&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[aerogel attache case])
+			&& countHandsUsed(maxString) < 2 && have_effect($effect[Fishy]) == 0)
 			maxString = maxStringAppend(maxString, "equip aerogel attache case");
 
-		// only need to wear the bag on the one turn that the quest comes up but not sure how to calc that
+		// LIL' DOCTORS BAG need to wear the bag on the one turn that the quest comes up but not sure how to calc that
 		if (to_boolean(get_property("_wantLilDoctorBagQuest")) && get_property("questDoctorBag") == "unstarted" && count_accessories(maxString) < 3 && !wantsToNotEquip(maxString, $item[Lil' Doctor&trade; bag]))
 			maxString = maxStringAppend(maxString, "equip Lil' Doctor&trade; bag");
 
-		// FISHING
-		if (isFloundryLocation(advLocation)) {
-			if (!wantsToEquip(maxString, $slot[pants]) && !wantsToNotEquip(maxString, $item[government-issued slacks]))
-				maxString = maxStringAppend(maxString, "equip government-issued slacks");
-			if (!wantsToEquip(maxString, $slot[hat]) && !wantsToNotEquip(maxString, $item[fishin' hat]))
-				maxString = maxStringAppend(maxString, "equip fishin' hat");
+		// GUZZLR items if we're in a Guzzlr quest location
+		item guzItem = to_item(get_property("guzzlrQuestBooze"));
+		location guzLoc = to_location(get_property("guzzlrQuestLocation"));
+		if (advLocation == guzLoc && have_item(guzItem)) {
+			if (count_accessories(maxString) < 3 && !wantsToNotEquip(maxString, $item[Guzzlr shoes]))
+				maxString = maxStringAppend(maxString, "equip Guzzlr shoes");
+			if (guzzlrQuestTurns(true) <= 2 && !wantsToEquip(maxString, $slot[pants]) && !wantsToNotEquip(maxString, $item[Guzzlr pants]))
+				maxString = maxStringAppend(maxString, "equip Guzzlr pants");
+			if (guzzlrQuestTurns(true) <= 1 && !wantsToEquip(maxString, $slot[hat]) && !wantsToNotEquip(maxString, $item[Guzzlr hat]))
+				maxString = maxStringAppend(maxString, "equip Guzzlr hat");
+		} else if (advLocation == guzLoc && !have_item(guzItem)) {
+			print("WARNING: wanted to dress for Guzzlr delivery but we don't have the delivery item!", "red");
+			printGuzzlrQuest();
 		}
-
-		if (!wantsToEquip(maxString, $slot[pants]) && !wantsToNotEquip(maxString, $item[pantogram pants]))
-			maxString = maxStringAppend(maxString, "equip pantogram pants");
 	}
 
 	// MAFIA THUMB RING
@@ -392,21 +502,60 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 		maxString = maxStringAppend(maxString, "equip Kramco Sausage-o-Matic&trade;");
 	}
 
+	// TODO lucky golden ring -- wear whenever we have access to spring break beach, conspiracy island, dinseylandfill, etc., not sure how to figure out if we have access
+
+	// CURSED MAGNIFYING GLASS
+	if (get_property("cursedMagnifyingGlassCount").to_int() < 13 && get_property("_voidFreeFights").to_int() < 5
+		&& countHandsUsed(maxString) < 2 && !wantsToEquip(maxString, $slot[off-hand])
+		&& !wantsToNotEquip(maxString, $item[cursed magnifying glass]))
+		maxString = maxStringAppend(maxString, "equip cursed magnifying glass");
+
+	// LATTE LOVERS MEMBER'S MUG unlocks
+	if (!isLatteLocationUnlocked(advLocation) && countHandsUsed(maxString) < 2
+			&& !wantsToEquip(maxString, $slot[off-hand])
+			&& !wantsToNotEquip(maxString, $item[latte lovers member's mug])) {
+		maxString = maxStringAppend(maxString, "equip latte lovers member's mug");
+	}
+
+	// COMBAT LOVERS LOCKET -- get all reminiscences
+	if (!inRonin() && count_accessories(maxString) < 3 && !wanderingMonstersBad(maxString)
+			&& !wantsToEquip(maxString, $slot[off-hand])
+			&& !wantsToNotEquip(maxString, $item[combat lover's locket])
+			&& count(cllNoReminiscence(advLocation)) > 0) {
+		maxString = maxStringAppend(maxString, "equip combat lover's locket");
+	}
+
+	// TODO latte drink _latteDrinkUsed worth 1/2 mp
+
+	// FISHING
+	if (!inRonin() && isFloundryLocation(advLocation)) {
+		if (!wantsToEquip(maxString, $slot[pants]) && !wantsToNotEquip(maxString, $item[government-issued slacks]))
+			maxString = maxStringAppend(maxString, "equip government-issued slacks");
+		if (!wantsToEquip(maxString, $slot[hat]) && !wantsToNotEquip(maxString, $item[fishin' hat]))
+			maxString = maxStringAppend(maxString, "equip fishin' hat");
+	}
+
+	// PANTOGRAM PANTS equip for occasional hilarity
+	if (!wantsToEquip(maxString, $slot[pants]) && !wantsToNotEquip(maxString, $item[pantogram pants])
+		&& get_property("_pantogramModifier").contains_text("Drops Items"))
+		maxString = maxStringAppend(maxString, "equip pantogram pants");
+
 	// melee vs ranged -- need to be careful with vote monsters as they scale, done last in case we equip any weapons during auto dressup
+	// TODO not sure if we actually want to do this
 	if (!wantsToEquip(maxString, $slot[weapon])) {
 		if (my_primestat() == $stat[muscle]) {
-			if (my_class() == $class[seal clubber] && have_effect($effect[Fishy]) == 0) {
+// 			if (my_class() == $class[seal clubber] && have_effect($effect[Fishy]) == 0) {
 // 				if (have_effect($effect[Iron Palms]) > 0)
 // 					maxString = maxStringAppend(maxString, "type club, type sword");
 // 				else					
 // 				maxString = maxStringAppend(maxString, "type club");
-			} else
-				maxString = maxStringAppend(maxString, "melee");
+// 			} else
+// 				maxString = maxStringAppend(maxString, "melee");
 		} else if (my_primestat() == $stat[moxie] && !wantsToEquipMelee(maxString)) {
-			if (my_class() == $class[accordion thief])
-				maxString = maxStringAppend(maxString, "type accordion");
-			else
-				maxString = maxStringAppend(maxString, "-melee");
+// 			if (my_class() == $class[accordion thief])
+// 				maxString = maxStringAppend(maxString, "type accordion");
+// 			else
+// 				maxString = maxStringAppend(maxString, "-melee");
 		}
 	}
 
@@ -439,7 +588,7 @@ void dressup(location advLocation, string selector, string familiarSelector, str
 		restoreOutfit(true, kDressupOutfitPrefixKey + maxString);
 	} else {
 		set_property(kDressupLastFullMaxStringKey, maxString);
-		saveAndSetProperty("maximizerMRUSize", 0); // TODO try to avoid log spam with this shit
+		saveAndSetProperty("logPreferenceChange", "false"); // try to avoid log spam with this
 		try {
 			// first see if have an outfit saved for this maxString, and switch to it if we do.
 			// if not, do an initial maximize and unequip and retry if that fails.
@@ -456,7 +605,7 @@ void dressup(location advLocation, string selector, string familiarSelector, str
 			saveOutfit(kDressupOutfitPrefixKey + maxString);
 			set_property(kForceDressupKey, "false");
 		} finally {
-			restoreSavedProperty("maximizerMRUSize");
+			restoreSavedProperty("logPreferenceChange");
 		}
 	}
 
@@ -479,7 +628,7 @@ void dressup(string tweak, boolean replaceExistingTweak) {
 	if ((locationString == "" || locationString == "none" || theLocation == my_location()) && dressupMaxString != "") {
 		dressup(theLocation, get_property(kDressupSelectorKey), get_property(kDressupFamiliarSelectorKey), maxStringAppend(dressupMaxString, tweak));
 	} else
-		print("wrong location (stored loc: \"" + locationString + "\", my loc: \"" + my_location() + "\") OR no max string, skipping dressup", "orange");
+		print("wrong location (stored loc: \"" + locationString + "\", my loc: \"" + my_location() + "\") OR no max string, SKIPPING maximize", "orange");
 }
 
 void dressup(string tweak) {
@@ -551,7 +700,7 @@ string fixupCLArtifacts(string maximizerString) {
 }
 
 
-// 
+// TODO??
 void overrideAutomateDressup() {
 }
 
@@ -591,50 +740,104 @@ void automate_dressup(location aLocation, string item_selector, string familiar_
 
 
 
+// -------------------------------------
+// REDIRECTION
+// -------------------------------------
+
+
+// returns the next default latte lovers member's mug ingredient to grind or the empty string if there are no more
+string nextLatteIngredient() {
+	foreach idx, ingredient in kDefaultLatteIngredients {
+		if (!isLatteIngredientUnlocked(ingredient))
+			return ingredient;
+	}
+	foreach idx, ingredient in kDefaultLatteLastRefillIngredients {
+		if (!isLatteIngredientUnlocked(ingredient))
+			return ingredient;
+	}
+	foreach idx, ingredient in kExtraLatteIngredients {
+		if (!isLatteIngredientUnlocked(ingredient))
+			return ingredient;
+	}
+
+	return "";
+}
+
+
+
 // returns the location we should go when we do a wandering-monster redirect
 // this should be the most important place to burn delay
-location redirectionDelayLocation() { // locationfordelay
+location redirectionDelayLocation() { // locationfordelay redirect delay location
+	location rval;
+	string reason;
+
 	// AZAZEL we need non-combats, don't do if we finished, have the unicorn or we have all 4 items
-	if ( !(get_property("questM10Azazel") == "finished" || have_item($item[Azazel's unicorn])
+	if (rval == $location[none] && !(get_property("questM10Azazel") == "finished" || have_item($item[Azazel's unicorn])
 		|| (have_item($item[comfy pillow]) && have_item($item[giant marshmallow]) && have_item($item[beer-scented teddy bear]) && have_item($item[booze-soaked cherry])) )) {
-		return $location[infernal rackets backstage];
+		reason = "Azazel";
+		rval = $location[infernal rackets backstage];
 	}
 
 	// GUILD
-	if (get_property("questG07Myst") == "started")
-		return $location[The Haunted Pantry];
-	if (get_property("questG08Moxie") == "started")
-		return $location[The Sleazy Back Alley];
-	if (get_property("questG09Muscle") == "started")
-		return $location[The Outskirts of Cobb's Knob];
+	if (rval == $location[none] && get_property("questG07Myst") == "started") {
+		reason = "guild quest";
+		rval = $location[The Haunted Pantry];
+	}
+	if (rval == $location[none] && get_property("questG08Moxie") == "started") {
+		reason = "guild quest";
+		rval = $location[The Sleazy Back Alley];
+	}
+	if (rval == $location[none] && get_property("questG09Muscle") == "started") {
+		reason = "guild quest";
+		rval = $location[The Outskirts of Cobb's Knob];
+	}
 
-	if (get_property("questG04Nemesis") == "started")
-		return $location[The Unquiet Garves];
+	if (rval == $location[none] && get_property("questG04Nemesis") == "started") {
+		reason = "guild quest";
+		rval = $location[The Unquiet Garves];
+	}
 
-	if (get_property("questG04Nemesis") == "step5" && $location[The "Fun" House].turns_spent < 10)
-		return $location[The "Fun" House];
+	if (rval == $location[none] && get_property("questG04Nemesis") == "step5") {
+		reason = "guild quest";
+		rval = $location[The "Fun" House];
+	}
 
-	// TODO add latte unlock locs
+	// LATTE LOVERS MEMBER'S MUG unlocks
+	string ingredient = nextLatteIngredient();
+	if (ingredient != "") {
+		assert(!isLatteIngredientUnlocked(ingredient), "nextLatteIngredient returned an unlocked ingredient");
+		reason = "latte ingredient: " + ingredient;
+		rval = kLatteLocations[ingredient];
+	}
 
 	// PAGODA -- hey deze map is a superlikely, so adventure there until we get it
-	if ( !(have_item($item[hey deze map]) || (get_campground() contains $item[pagoda plans])))
-		return $location[pandamonium slums];
-	// Pagoda -- elf farm raffle ticket, want -combat
-	if ( !(have_item($item[elf farm raffle ticket]) || (get_campground() contains $item[pagoda plans])) && have_item($item[Talisman o' Namsilat]))
-		return $location[inside the palindome];
-
-	// TODO poop deck
+	if (rval == $location[none] && !(have_item($item[hey deze map]) || (get_campground() contains $item[pagoda plans]))) {
+		reason = "pagoda";
+		rval = $location[pandamonium slums];
+	}
+	// elf farm raffle ticket, want -combat
+	if (rval == $location[none] && ( !(have_item($item[elf farm raffle ticket]) || (get_campground() contains $item[pagoda plans])) && have_item($item[Talisman o' Namsilat]))) {
+		reason = "pagoda";
+		rval = $location[inside the palindome];
+	}
 
 	// TODO zap wand
+	if (get_property("lastPlusSignUnlock").to_int() < my_ascensions() && !have_item($item[plus sign])) {
+		reason = "zap wand: looking for plus sign";
+		rval = $location[The Enormous Greater-Than Sign];
+	}
+
+	// TODO poop deck
 
 	// GUZZLR gold or platinum quest -- gold and platinum get precedence, see below for bronze
 	item guzItem = to_item(get_property("guzzlrQuestBooze"));
 	location guzLoc = to_location(get_property("guzzlrQuestLocation"));
 	string guzTier = get_property("guzzlrQuestTier");
-	if (guzItem != $item[none] && guzLoc != $location[none] && (guzTier == "gold" || guzTier == "platinum")) {
+	if (rval == $location[none] && guzItem != $item[none] && guzLoc != $location[none] && (guzTier == "gold" || guzTier == "platinum")) {
 		if (isUnlocked(guzLoc)) {
 			fullAcquire(guzItem);
-			return guzLoc;
+			reason = "quzzlr gold or platinum quest";
+			rval = guzLoc;
 		} else {
 			if (!get_property("_smm.GuzzlrLocationLockedWarningDone").to_boolean()) {
 				set_property("_smm.GuzzlrLocationLockedWarningDone", "true");
@@ -644,14 +847,23 @@ location redirectionDelayLocation() { // locationfordelay
 	}
 
 	// for the A Quest, LOL quest
-	if ($location[The Valley of Rof L'm Fao].turns_spent < 10)
-		return $location[The Valley of Rof L'm Fao];
+	if (rval == $location[none] && $location[The Valley of Rof L'm Fao].turns_spent < 10) {
+		reason = "A Quest, LOL quest";
+		rval = $location[The Valley of Rof L'm Fao];
+	}
 
-	// GUZZLR bronze quest
-	if (guzItem != $item[none] && guzLoc != $location[none]) {
+	// UNTINKER
+	if (rval == $location[none] && get_property("questM01Untinker") == "started") {
+		reason = "untinker";
+		rval = $location[The Degrassi Knoll Garage];
+	}
+
+	// GUZZLR bronze quest, should be the last refuge unless we don't get a bronze quest
+	if (rval == $location[none] && guzItem != $item[none] && guzLoc != $location[none]) {
 		if (isUnlocked(guzLoc)) {
 			fullAcquire(guzItem);
-			return guzLoc;
+			reason = "quzzlr bronze quest";
+			rval = guzLoc;
 		} else {
 			if (!get_property("_smm.GuzzlrLocationLockedWarningDone").to_boolean()) {
 				set_property("_smm.GuzzlrLocationLockedWarningDone", "true");
@@ -660,14 +872,55 @@ location redirectionDelayLocation() { // locationfordelay
 		}
 	}
 
-	// default is to go to the smut orc logging camp to get smut orc pervert
-	int turnsToPervert = 19 - smutOrcPervertProgress();
-	if (turnsToPervert == 0)
-		if (!user_confirm(turnsToPervert + " turns to Smut Orc Pervert, " + $location[The Smut Orc Logging Camp].turns_spent + " turns spent -- adventuring here will overwrite it. Continue?", 60000, false))
-			abort();
-	print("vote monster next, adventuring in Smut Orc Logging Camp instead. Progress to pervert BEFORE adventure: " + smutOrcPervertProgress(), "orange");
-	return $location[The Smut Orc Logging Camp];
+	// DEFAULT go to the smut orc logging camp to get smut orc pervert
+	if (rval == $location[none]) {
+		int turnsToPervert = 19 - smutOrcPervertProgress();
+		if (turnsToPervert == 0)
+			if (!user_confirm(turnsToPervert + " turns to Smut Orc Pervert, " + $location[The Smut Orc Logging Camp].turns_spent + " turns spent -- adventuring here will overwrite it. Continue?", 60000, false))
+				abort();
+		reason = "smut orc keepsake box. Progress to pervert BEFORE adventure: " + smutOrcPervertProgress();
+		rval = $location[The Smut Orc Logging Camp];
+	}
+
+	print("redirectionDelayLocation: redirecting to " + rval + " for reason: " + reason, "orange");
+	return rval;
 }
+
+
+
+string toString(AdventureRecord advRecord) {
+	if (advRecord.locationToUse != $location[none])
+		return advRecord.locationToUse.to_string();
+	else if (advRecord.itemToUse != $item[none])
+		return advRecord.itemToUse.to_string();
+	else
+		return advRecord.skillToUse.to_string();
+}
+
+
+// adventures at advRecord (a location, item or skill) including all pre-adventure checks
+string getToAdventure(AdventureRecord advRecord) {
+	if (advRecord.locationToUse != $location[none])
+		return advURL(advRecord.locationToUse);
+	else if (advRecord.itemToUse != $item[none]) {
+		preAdventureChecks();
+		return use(1, advRecord.itemToUse);
+	} else {
+		preAdventureChecks();
+		return use_skill(advRecord.skillToUse);
+	}
+}
+
+
+
+// adventures at advRecord (a location, item or skill) including all pre- and post-adventure stuff
+boolean anyAdventure(AdventureRecord advRecord) {
+	string result = getToAdventure(advRecord);
+	result += run_turn();
+	postAdventure();
+	return true;
+}
+
 
 
 // Adventure with advURL() (which means doing the same pre-automation that adventure() does, but without the turn automation or post-automation)
@@ -724,6 +977,12 @@ string advURLWithWanderingMonsterRedirect(location aLocation) {
 			}
 			print("advURLWithWanderingMonsterRedirect: redirecting to " + actualLocation + " for a vote monster: " + voteMonster, "red");
 
+		// CURSED MAGNIFYING GLASS
+		} else if (get_property("cursedMagnifyingGlassCount").to_int() >= 13 && get_property("_voidFreeFights").to_int() <= 5) {
+			actualLocation = redirectionDelayLocation();
+			maxString = "equip cursed magnifying glass";
+			print("advURLWithWanderingMonsterRedirect: redirecting to " + actualLocation + " for a VOID monster", "red");
+
 		// PERVERT -- takes a turn, do last
 		} else if (smutOrcPervertProgress() >= 19) {
 			maxString = "5 exp, -ml";
@@ -772,7 +1031,7 @@ boolean redirectAdventureHelper(location aLocation, string scriptString) {
 	boolean rval = false;
 
 	preAdventureChecks(); // need this here so any potential maximize before an adv (esp. combat freq) gets the benefit of our mood
-	dressup(); // may equip something (e.g. i voted sticker)
+	dressup("", false); // may equip something (e.g. i voted sticker)
 	saveOutfit(kRedirectSavedEquipSetKey);
 
 	try {
@@ -867,14 +1126,15 @@ void ra(location aLocation, int adventures) {
 
 
 // -------------------------------------
-// AUTOMATION -- target mob
+// TARGET MOB
 // -------------------------------------
 
 // returns a script for olfacting the given monster
 string olfactionScript(monster aMonster) {
 	string rval = "";
 	if (to_monster(get_property("olfactedMonster")) != aMonster
-		&& user_confirm("We'd like to olfact " + aMonster + ", previous olfact target: " + get_property("olfactedMonster") + ". Proceed?", 60000, true))
+		&& user_confirm("We'd like to olfact " + aMonster + ", previous olfact target: " + get_property("olfactedMonster")
+			+ ", olfacts remaining: " + get_property("_olfactionsUsed") + ". Proceed?", 60000, true))
 		rval += "skill Transcendent Olfaction;";
 	if (to_monster(get_property("_gallapagosMonster")) != aMonster)
 		rval += "skill Gallapagosian Mating Call;";
@@ -885,22 +1145,6 @@ string olfactionScript(monster aMonster) {
 	return rval;
 }
 
-void olfaction(monster a_monster) {
-	if (to_monster(get_property("olfactedMonster")) != a_monster
-		&& user_confirm("We'd like to olfact " + a_monster + ", previous olfact target: " + get_property("olfactedMonster") + ". Proceed?", 60000, true))
-		use_skill($skill[Transcendent Olfaction]);
-	if (to_monster(get_property("_gallapagosMonster")) != a_monster) {
-		use_skill($skill[Gallapagosian Mating Call]);
-		//set_property("gallapagosMonster", a_monster); // something broke?
-	}
-	if ((to_monster(get_property("_latteMonster")) != a_monster) && (have_skill($skill[Offer Latte to Opponent]))) {
-		use_skill($skill[Offer Latte to Opponent]);
-		//set_property("_latteMonster", a_monster); // something broke?
-	}
-	if ((to_monster(get_property("nosyNoseMonster")) != a_monster) && (have_skill($skill[Get a Good Whiff of This Guy])))
-		use_skill($skill[Get a Good Whiff of This Guy]);
-}
-
 
 // returns true if we fought the main target and won, false otherwise
 boolean targetMobFightHelper(location aLocation, monster [] target_monsters, skill skillToUse, int maxPerTurnCost, boolean optimal, boolean shouldOlfact) {
@@ -909,7 +1153,8 @@ boolean targetMobFightHelper(location aLocation, monster [] target_monsters, ski
 
 	 // the max number of non-targets we want unbanished, 1 if we can replace or 0 otherwise
 	int maxNonTargetsUnbanished = 0;
-	if (have_skill($skill[Macrometeorite]) || item_amount($item[fish-oil smoke bomb]) > 0) maxNonTargetsUnbanished = 1;
+// 	if (have_skill($skill[Macrometeorite]) || item_amount($item[fish-oil smoke bomb]) > 0) maxNonTargetsUnbanished = 1;
+	if (have_skill($skill[Macrometeorite])) maxNonTargetsUnbanished = 1;
 	int unbanishedNonTargets = unbanishedNonTargets(aLocation, target_monsters);
 
 	// REPLACE/BANISH
@@ -928,19 +1173,19 @@ boolean targetMobFightHelper(location aLocation, monster [] target_monsters, ski
 			// should be caught below and kill the target (optionally with the skillToUse)
 
 		// FREE-RUNAWAY
-		} else if (unbanishedNonTargets > maxNonTargetsUnbanished && item_amount($item[fish-oil smoke bomb]) > 0) {
-			visit_url("/fight.php?action=steal", true, false); // pickpocket if able
-			throw_item($item[fish-oil smoke bomb]);
-			return false;
+// 		} else if (unbanishedNonTargets > maxNonTargetsUnbanished && item_amount($item[fish-oil smoke bomb]) > 0) {
+// 			visit_url("/fight.php?action=steal", true, false); // pickpocket if able
+// 			throw_item($item[fish-oil smoke bomb]);
+// 			return false;
 
 		// BANISH
 		} else {
-			SkillRecord banisher = banishToUse(aLocation, maxPerTurnCost);
+			PrioritySkillRecord banisher = banishToUse(aLocation, maxPerTurnCost);
 
-			if (banisher.skillToUse != $skill[none]) {
-				print("RECOMMENDING BANISHER: " + banisher.skillToUse, "green");
+			if (banisher.theSkill != $skill[none]) {
+				print("RECOMMENDING BANISHER: " + banisher.theSkill, "green");
 				visit_url("/fight.php?action=steal", true, false); // pickpocket if able
-				use_skill(banisher.skillToUse);
+				use_skill(banisher.theSkill);
 				assert(!inCombat(), "targetMobFightHelper: tried to banish, but we're still in combat");
 				return false;
 
@@ -959,23 +1204,26 @@ boolean targetMobFightHelper(location aLocation, monster [] target_monsters, ski
 
 	// TARGET MONSTER
 	if (arrayContains(target_monsters, last_monster())) {
+		string prefightScript;
 		if (target_monsters[0] == last_monster()) {
 
 			// OLFACT
 			if (shouldOlfact)
-				olfaction(last_monster());
+				prefightScript += olfactionScript(last_monster());
 
 			// SKILL TO USE
 			if (skillToUse != $skill[none]) {
-				use_skill(skillToUse);
-				// special case if the skill is Use the Force, which drops us into a choice adventure
-				if (choice_follows_fight())
-					print("WARNING: choice follows skill used: " + skillToUse + "!", "red");
-				if (skillToUse == $skill[Use the Force]) {
-					visit_url("/main.php", true, false);
-					run_choice(3);
-				}
+				prefightScript += "skill " + skillToUse + ";";
 			}
+		}
+		executeScript(prefightScript);
+		
+		// special case if the skill is Use the Force, which drops us into a choice adventure
+		if (skillToUse == $skill[Use the Force]) {
+			visit_url("/main.php", false, false);
+			run_choice(3);
+		} else if (choice_follows_fight()) {
+			print("WARNING: choice follows skill used: " + skillToUse + "!", "red");
 		}
 
 		// FIGHT
@@ -1022,17 +1270,15 @@ boolean targetMob(location aLocation, monster [] target_monsters, skill skillToU
 	int kStartingKills = kills;
 	if (kills == 0) kills = 1; // need 1 to get into the loop, we'll detect kStartingKills and break out below
 
-	// TRACKER FAMILIAR AUTOMATION -- needs fixing, should be in dressup()???
+	// TRACKER FAMILIAR AUTOMATION -- TODO not sure this works as intended -- should be in dressup()???
 	// the familiar is set by chooseFamiliar(), called by dressup() below, but we have to set the phylum in targetMob because chooseFamiliar doesn't know anything about the target
-	print("FIXME [tracker]: " + get_property(kDressupFamiliarSelectorKey), "red");
 	boolean tracking = get_property(kDressupFamiliarSelectorKey).contains_text("[tracker]"); // true if we're tracking with Red-nosed Snapper... or Nosy Nose???
-	if (tracking && have_effect($effect[On the Trail]) == 0) { // we only want to track until we have olfacted
+	if (tracking && monsterQueueCopies(target_monsters[0]) < 4) { // we only want to track until we have olfacted the target
 		use_familiar($familiar[Red-nosed Snapper]);
 		if (snapperGuideMeToPhylum() != target_monsters[0].phylum) {
 			print("setting tracker phylum: " + target_monsters[0].phylum, "blue");
 			setRedNosedSnapperGuideMe(target_monsters[0].phylum);
 		}
-		tracking = true;
 	}
 
 	boolean hadGoals = haveGoals(); // if we have goals now and not later, presumably they're completed
@@ -1043,26 +1289,26 @@ boolean targetMob(location aLocation, monster [] target_monsters, skill skillToU
 
 		 // the max number of non-targets we want unbanished, 1 if we can replace or 0 otherwise
 		int maxNonTargetsUnbanished = 0;
-		if (canReplaceMonster() || (canFreeRunaway(maxPerTurnCost) && isOlfacted(target_monsters[0])))
+		if (canReplaceMonster() || (canFreeRunaway(maxPerTurnCost) && monsterQueueCopies(target_monsters[0]) >= 4))
 			maxNonTargetsUnbanished = 1;
 
 		// BANISH equip a banishing item if we're going to banish
 		string tweakItem = "";
 		if (unbanishedNonTargets(aLocation, target_monsters) > maxNonTargetsUnbanished) {
-			SkillRecord equip_banish = banishToUse(aLocation, maxPerTurnCost);
-			if (equip_banish.skillToUse == $skill[none])
+			PrioritySkillRecord equip_banish = banishToUse(aLocation, maxPerTurnCost);
+			if (equip_banish.theSkill == $skill[none])
 				print("NO RECOMMENDED BANISHER!!", "orange");
 			else
-				print("RECOMMENDING BANISHER: " + equip_banish.skillToUse, "green");
-			if (equip_banish.itemToEquip != $item[none]) {
-				print("EQUIPPING: " + equip_banish.itemToEquip, "blue");
-				tweakItem = "+equip " + equip_banish.itemToEquip;
+				print("RECOMMENDING BANISHER: " + equip_banish.theSkill, "green");
+			if (equip_banish.theItem != $item[none]) {
+				print("EQUIPPING: " + equip_banish.theItem, "blue");
+				tweakItem = "+equip " + equip_banish.theItem;
 			}
-		} else if (!isOlfacted(target_monsters[0])) {
+		} else if (monsterQueueCopies(target_monsters[0]) < 4) {
 			// if we're not going to banish, maybe equip to olfact?
-			tweakItem = dressForOlfaction(aLocation, tweakItem);
+			tweakItem = dressForOlfaction(aLocation, target_monsters[0]);
 		}
-		dressup(tweakItem);
+		dressup(tweakItem, false);
 		saveOutfit(kTargetMobSavedEquipSetKey);
 
 		restore_mp(mp_cost($skill[Gallapagosian Mating Call]) + mp_cost(skillToUse));
@@ -1073,7 +1319,9 @@ boolean targetMob(location aLocation, monster [] target_monsters, skill skillToU
 			boolean chainedFight = false;
 
 			// DIRECT TARGET map the monsters, time-spinner
-			if (!tracking && have_effect($effect[On the Trail]) == 0 && unbanishedNonTargets >= 1) {
+			if (!tracking
+				&& monsterQueueCopies(target_monsters[0]) == 1 //  no extra copies in the queue
+				&& unbanishedNonTargets >= 1) {
 
 				if (to_int(get_property("_monstersMapped")) < 3) {
 					print("targetMob: mapping (map the monsters) target monster: " + target_monsters[0], "green");
@@ -1081,19 +1329,20 @@ boolean targetMob(location aLocation, monster [] target_monsters, skill skillToU
 						if (!use_skill(1, $skill[Map the Monsters]))
 							abort("tried to cast map the monsters but it didn't work!");
 					aPage = advURL(aLocation);
-					while (!handling_choice()) {
-						// probably a wandering monster???
+					while (!handling_choice()) { // we didn't get to the map choice
+						// probably a wandering monster
 						run_combat();
 						aPage = advURL(aLocation);
 					}
-					runMapChoice(aPage, target_monsters[0]);
-						
+					runMapChoice(aPage, target_monsters[0]);	
 					chainedFight = true;
 
 				} else if (to_int(get_property("_timeSpinnerMinutesUsed")) <= 7) {
 					print("targetMob: traveling back in time (time-spinner) to fight target monster: " + target_monsters[0], "green");
-					timespinnerFight(target_monsters[0]);
-					chainedFight = true;
+					string spinResult = timespinnerFight(target_monsters[0]);
+					if (spinResult != "")
+						chainedFight = true;
+
 				} else
 					print("targetMob: would like to direct target: " + target_monsters[0] + " but no direct mapper available", "orange");
 			}
@@ -1189,37 +1438,38 @@ boolean tm(location aLocation, monster target_monster, skill skillToUse, int kil
 // Adventures at aLocation exactly once with advURLWithWanderingMonsterRedirect, banishing non-wandering monsters encountered
 // if they don't appear in the given array of target monsters.
 // Differs from targetMob in that it only adventures once no matter what happens. (targetMob will follow choice adv even when "kills" is 0)
-// TODO: refactor to amalgamate this with targetMob: only thing that needs to be done is to allow targetMob take a script to pass to run_combat
-// If maxPerTurnCost is less than fuel cost, will fuel up and use the Asdon Martin banish first, will otherwise balance
-// among all banishers according to banishToUse(), using the Asdon Martin only if it has to (and only if it is already fueled up).
-// scriptToUse is the script to use against monsters in the targetMonsters array -- wandering monsters use the script in the CSS
+// Also does not olfact or direct target as targetMob does and requires a script that kills the monster (or an empty script to run the default CCS)
+// Uses banishers according to banishToUse().
+// scriptToUse is the script to use against monsters in the targetMonsters array -- wandering monsters use the script in the CCS
 // Returns true if one of the targetMonsters was killed, false otherwise
 // if the script passed in doesn't kill the monster, will return true while still in combat (since we know it is a target monster)
+// TODO: refactor to amalgamate this with targetMob??: only thing that needs to be done is to allow targetMob take a script to pass to run_combat??????
 boolean adv1TargetingMobs(location aLocation, monster [] targetMonsters, int maxPerTurnCost, string scriptToUse) {
 	assert(my_adventures() > 0, "adv1TargetingMobs: Out of adventures");
 	check_counters(kAbortOnCounter);
 
 	int maxNonTargetsUnbanished = 0;
-	if (have_skill($skill[Macrometeorite]) || item_amount($item[fish-oil smoke bomb]) > 0) maxNonTargetsUnbanished = 1;
+// 	if (have_skill($skill[Macrometeorite]) || item_amount($item[fish-oil smoke bomb]) > 0) maxNonTargetsUnbanished = 1;
+	if (have_skill($skill[Macrometeorite])) maxNonTargetsUnbanished = 1;
 
 	// equip a banishing item if we're going to banish
 	string tweakItem = "";
 	if (unbanishedNonTargets(aLocation, targetMonsters) > maxNonTargetsUnbanished) {
-		SkillRecord equip_banish = banishToUse(aLocation, maxPerTurnCost);
-		if (equip_banish.skillToUse == $skill[none])
+		PrioritySkillRecord equip_banish = banishToUse(aLocation, maxPerTurnCost);
+		if (equip_banish.theSkill == $skill[none])
 			print("NO RECOMMENDED BANISHER!!", "orange");
 		else
-			print("RECOMMENDING BANISHER: " + equip_banish.skillToUse, "green");
-		if (equip_banish.itemToEquip != $item[none]) {
-			print("EQUIPPING: " + equip_banish.itemToEquip, "blue");
-			tweakItem = "+equip " + equip_banish.itemToEquip;
+			print("RECOMMENDING BANISHER: " + equip_banish.theSkill, "green");
+		if (equip_banish.theItem != $item[none]) {
+			print("EQUIPPING: " + equip_banish.theItem, "blue");
+			tweakItem = "+equip " + equip_banish.theItem;
 		}
 	} else {
 		// if we're not going to banish, maybe equip to olfact?
-		tweakItem = dressForOlfaction(aLocation, tweakItem);
+		tweakItem = dressForOlfaction(aLocation, targetMonsters[0]);
 	}
 
-	dressup(tweakItem);
+	dressup(tweakItem, false);
 	saveOutfit(kRedirectSavedEquipSetKey);
 
 	try {
@@ -1231,40 +1481,52 @@ boolean adv1TargetingMobs(location aLocation, monster [] targetMonsters, int max
 		} else if (isChoicePage(page)) { // choice
 			run_choice(-1);
 			return false;
-		} else if (!contains_text(page, "fight.php")) { // "no action" adventure -- things like exposition pages -- i believe these take no adventures
+
+		// "NO ACTION" adventure -- things like exposition pages -- i believe these take no adventures
+		} else if (!contains_text(page, "fight.php")) {
 			return false;
-		} else if (!contains_monster(aLocation, last_monster())) { // wandering monster
+
+		// WANDERING MONSTER
+		} else if (!contains_monster(aLocation, last_monster())) {
 			print("wandering monster", "blue");
-			run_combat();
+			run_combat(); // use the DEFAULT script!
 			return false;
-		} else if (!arrayContains(targetMonsters, last_monster())) { // the meat of the matter
-			// special processing if there is exactly 1 unbanished (and non-target) monster and we get the wrong monster
-			// first, try to Macrometeorite, if not, try free runaway
-			if ((unbanishedNonTargets(aLocation, targetMonsters) == maxNonTargetsUnbanished || have_effect($effect[On the Trail]) > 0 && contains_monster(aLocation, to_monster(get_property("olfactedMonster")))) && have_skill($skill[Macrometeorite])) {
+
+		// NON-TARGETS
+		} else if (!arrayContains(targetMonsters, last_monster())) {
+
+			// REPLACE MONSTER TODO add powerful glove?
+			if (have_skill($skill[Macrometeorite])
+				&& (unbanishedNonTargets(aLocation, targetMonsters) == 1 || monsterQueueCopies(targetMonsters[0]) >= 4)
+				&& contains_monster(aLocation, get_property("olfactedMonster").to_monster())) {
 				executeScript(pickpocket_sub() + "skill Macrometeorite");
 				// should be caught below and kill the target
-			} else if (unbanishedNonTargets(aLocation, targetMonsters) > maxNonTargetsUnbanished && item_amount($item[fish-oil smoke bomb]) > 0) {
-				executeScript(pickpocket_sub() + "use fish-oil smoke bomb");
-				return false;
-			} else { // banish
-				SkillRecord banisher = banishToUse(aLocation, maxPerTurnCost);
-				if (banisher.skillToUse == $skill[none])
+
+			// FREE RUNAWAY -- beter used in the slimetube
+// 			} else if (unbanishedNonTargets(aLocation, targetMonsters) >= 1 && item_amount($item[fish-oil smoke bomb]) > 0) {
+// 				executeScript(pickpocket_sub() + "use fish-oil smoke bomb");
+// 				return false;
+
+			// BANISH
+			} else {
+				PrioritySkillRecord banisher = banishToUse(aLocation, maxPerTurnCost);
+				if (banisher.theSkill == $skill[none])
 					print("NO RECOMMENDED BANISHER!!", "orange");
 				else
-					print("RECOMMENDING BANISHER: " + banisher.skillToUse, "green");
-				if (banisher.skillToUse != $skill[none]) {
-					executeScript(pickpocket_sub() + "skill " + banisher.skillToUse);
+					print("RECOMMENDING BANISHER: " + banisher.theSkill, "green");
+				if (banisher.theSkill != $skill[none]) {
+					executeScript(pickpocket_sub() + "skill " + banisher.theSkill);
 					return false;
 				} else { // no banisher, use Macrometeorite but only if olfacted, otherwise we're just stabbing in the dark
 					if (have_effect($effect[On The Trail]) > 0) {
 						if (have_skill($skill[Macrometeorite]))
 							executeScript(pickpocket_sub() + "skill Macrometeorite");
-						else if (have_item($item[fish-oil smoke bomb])) {
-							executeScript(pickpocket_sub() + "use fish-oil smoke bomb");
-							return false;
-						}
+// 						else if (have_item($item[fish-oil smoke bomb])) {
+// 							executeScript(pickpocket_sub() + "use fish-oil smoke bomb");
+// 							return false;
+// 						}
 					} else
-						print("WARNING: Can't banish OR macro!", "blue");
+						print("WARNING: Can't banish OR macro!", "orange");
 				}
 			}
 		}
@@ -1272,11 +1534,8 @@ boolean adv1TargetingMobs(location aLocation, monster [] targetMonsters, int max
 		// separated out from normal fight processing because we might get here via Macrometeorite
 		buffer page2;
 		if (arrayContains(targetMonsters, last_monster())) {
-			string preScript = pickpocket_sub();
-			if (targetMonsters[0] == last_monster())
-				preScript += olfactionScript(last_monster());
-			run_combat(preScript + scriptToUse);
-			if (have_effect($effect[Beaten Up]) == 0)
+			run_combat(scriptToUse);
+			if (have_effect($effect[Beaten Up]) > 0)
 				return false;
 		} else {
 			print("WARNING: combat with non-target monster!!!", "blue");
@@ -1304,13 +1563,5 @@ void setDefaultAutomationState() {
 	clear_automate_dressup();
 }
 
-
-
-void main() {
-	print("**RUNNING pre-adventure script**");
-	dressup();
-	hpMood();
-	burnExtraMP();
-}
 
 

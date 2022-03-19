@@ -3,138 +3,98 @@ notify TQuilla;
 since r26135;
 
 import <smmUtils.ash>
-string __dc_version = "0.5";
+string __dc_version = "0.9";
 
 /**
-CLI display case utilities centered around maintaining top 10 collections.
+gCLI display case utilities centered around maintaining top 10 collections while saving items in your inventory.
 
-"dc help" in the CLI for help
+"dc help" in the gCLI for help.
 
-TODO save the top 10 of each item in the daily env vars _smm.DCTop10 <item>
+Scrapes the top 10 info from Jicken Wings (or the KoL wiki if that isn't available), and then caches
+that info for the day.
 
 @author Sacha Mallais (TQuilla #2771003)
 */
 
-int gOvershootAmount = get_property("smm.DCOvershootAmount") == "" ? 11 : get_property("smm.DCOvershootAmount").to_int(); // amount to overshoot the next highest top 10 item
-int gSaveAmount = get_property("smm.DCSaveAmount") == "" ? 1 : get_property("smm.DCSaveAmount").to_int(); // amount to save from going into the display case
-
-record IntRange {
-	int top;
-	int bottom;
-};
-
+int gkDCOvershootAmount = get_property("smm.dcOvershootAmount") == "" ? 11 : get_property("smm.dcOvershootAmount").to_int(); // amount to overshoot the next highest top 10 item
+int gkDCSaveAmount = get_property("smm.dcSaveAmount") == "" ? 1 : get_property("smm.dcSaveAmount").to_int(); // amount to save from going into the display case
 
 
 // dc will call these functions (is_hatchling, is_gift, etc) on each item. if that function returns true for the item, dc will save
-// the associated number in this map instead of the default gSaveAmount
-int [string] gTypeSaveMap = {
+// the associated number in this map instead of the default gkDCSaveAmount
+int [string] gkTypeSaveMap = {
 	"is_hatchling" : 0, // hatchlings
-	"is_gift" : 0, // gifts
+	"is_gift" : 3, // gifts
 	"is_skillbook" : 0, // skillbooks
 };
 
 
-void printHelp() {
-	print_html("<h2>Display Case (dc) Commands:</h2>");
-	print_html("<br>Display case utilities centered around maintaining top 10 collections.</br>");
-	print_html("<h3>Item commands:</h3>");
-	print_html("<br/><strong style=\"color:blue;\"><i>&lt;item&gt;</i></strong>: print a short summary of the given item, including top 10 information");
-	print_html("<strong style=\"color:blue;\">list <i>&lt;item&gt;</i></strong>: prints more detailed information on the item, especially the top 10 information");
-	print_html("<strong style=\"color:blue;\">addall <i>&lt;item&gt;</i></strong>: add all items you own without regard for the other top 10 entries. Follows the item saving rules (see below)");
-	print_html("<strong style=\"color:blue;\">top10 <i>&lt;item&gt;</i></strong>: add <b>or remove</b> items to make the top 10 -- will save some items for your inventory (unless it is a gift item), and will only put 11 more than the next lowest entry if it can't make it to the next higher entry. For example, if the top 1 entry is 200 and #2 is at 100 and you have 123 of that item, 'dc top10 myitem' will add enough to bring you to 111. If you instead had 500 of the same item, it would put in enough to bring you to 211 of that item in your display case.");
 
-	print_html("<h3>Shelf commands:</h3>");
+void printHelp() {
+	print_html("<br/>dc [<i>options</i>] <i>command</i> <i>parameters</i>");
+	print_html("<br/>Display case utilities centered around maintaining top 10 collections.</br>\nReplace <i>italicized words</i> with the appropriate argument. Arguments in square brackets [] are optional.");
+
+	print_html("<h4>Options:</h4>");
+	print_html("<br/><strong style=\"color:blue;\">--dry-run</strong>: Print out what the command WOULD do, but does NOT do it. Ex: dc --dry-run top10 bottle of rum (unimplemented)");
+	print_html("Options always come before the command.");
+
+	print_html("<h4>Item commands:</h4>");
+	print_html("<br/><strong style=\"color:blue;\"><i>item</i></strong>: Print a short summary of the disposition of the given item, including top 10 information. Ex: dc bone abacus");
+	print_html("<strong style=\"color:blue;\">list <i>item</i></strong>: Print more detailed information on the item, especially the top 10 information. Ex: dc list finger cymbals");
+	print_html("<strong style=\"color:blue;\">addall <i>item</i></strong>: Add all items you own without regard for the other top 10 entries. Follows the item saving rules (see below). Ex: dc addall bar skin");
+	print_html("<strong style=\"color:blue;\">top10 <i>item</i></strong>: Add <b>or remove</b> items to make the top 10 -- will save items according to the item saving rules (see below), and will only put <i>smm.dcOvershootAmount</i> (default: 11) more than the next lowest rank if it can't make it to the next higher rank. Removes everything if it can't achieve rank #10.");
+	print_html("• For example, if #1 is 200 and #2 is at 100 and you have 123 of that item, 'dc top10 myitem' will add enough to bring you to 111. If you instead had 500 of the same item, it would put in enough to bring you to 211 of that item in your display case.");
+	print_html("<strong style=\"color:blue;\">snipemin <i>[max-number-to-buy]</i> <i>item</i></strong>: Buy any minimum-priced items on the mall (unimplemented)");
+	print_html("<strong style=\"color:blue;\">snipe <i>max-price</i> <i>[max-number-to-buy]</i> <i>item</i></strong>: Buy any minimum-priced items on the mall (unimplemented)");
+
+	print_html("<h4>Shelf commands:</h4>");
 	print_html("<br/><strong style=\"color:blue;\">shelves</strong>: list shelves");
-	print_html("<strong style=\"color:blue;\">shelf <i>&lt;name&gt;</i></strong>: list contents and amounts of the named shelf");
-	print_html("<strong style=\"color:blue;\">addallshelf <i>&lt;name&gt;</i></strong>: run addall on each item of the named shelf");
-	print_html("<strong style=\"color:blue;\">top10shelf <i>&lt;name&gt;</i></strong>: run top10 on each item of the named shelf");
+	print_html("<strong style=\"color:blue;\">shelf <i>name</i></strong>: list contents and amounts of the named shelf");
+	print_html("<strong style=\"color:blue;\">addallshelf <i>name</i></strong>: run addall on each item of the named shelf");
+	print_html("<strong style=\"color:blue;\">top10shelf <i>name</i></strong>: run top10 on each item of the named shelf");
+	print_html("<strong style=\"color:blue;\">snipeminshelf <i>[max-number-to-buy]</i> <i>name</i></strong>: run snipemin on each item of the named shelf (unimplemented)");
 	print_html("<br/>Shelf operations that make changes will print a receipt of operations done. They follow the item save rules (below).");
 
-	print_html("<h3>Item saving rules:</h3>");
-	print_html("<br/>All keywords (including 'addall') follow this convention. If the item is not one or more of:");
-	print_html("<ul><li style='text-align: left;'>gift</li><li style='text-align: left;'>familiar hatchling</li></ul>");
-	print_html("then at least smm.DCSaveAmount (default 1) of the items will be saved from going into the display case.");
+	print_html("<h4>Item saving rules:</h4>");
+	print_html("<br/>If the item is not one or more of: gift, familiar hatchling, or skillbook then at least <i>smm.dcSaveAmount</i> (default 1) of the items will be saved from going into the display case.");
+	print_html("Familiar hatchlings, skillbooks save 0 items in the inventory, gifts save 3 items in the inventory.");
+	print_html("All commands (including 'addall') follow these rules.");
+	print_html("Why save items?");
+	print_html("• Keep at least one of the item available for use. Especially useful for equipment.");
+	print_html("• Obscure the number of items you actually have.");
+	print_html("• Don't waste items that don't help you get a higher rank. Sell the rest!");
 
-	print_html("<br/>All commands will raid Hagnk's and/or your closet if required to achieve a top 10 spot or 'all' of an item.<br/><br/>To add a specific number of items to the display case, use the built-in 'display' command: display put|take [x] item");
-}
+	print_html("<br/>All commands will raid Hagnk's and/or your closet (but not  your shop) if required to achieve a top 10 spot or 'all' of an item.");
 
+	print_html("<h4>Configuration:</h4>");
+	print_html("<br/>dc recognizes these properties:");
+	print_html("<strong style=\"color:blue;\">smm.dcOvershootAmount</strong>: the amount to overshoot. Use a very large number to put everything in the display case (still follows item saving rules, but see smm.dcSaveAmount)");
+	print_html("<strong style=\"color:blue;\">smm.dcSaveAmount</strong>: the number of items to save from going into the display case. See above for details on the items saving rules");
+	print_html("To see a property, use: get <i>property name</i>");
+	print_html("To set a property, use: set <i>property name</i>=<i>property value</i>");
 
-// ensure there are 10 or 11 entries and that the ranks go sequentially from 1
-boolean isValidTop10List(int [int, string] top10List) {
-	int idx = 1;
-	int totalCount = 0;
-	foreach rank, name, num in top10List {
-		if (rank == idx) {
-			totalCount++;
-			idx++;
-			continue;
-		}
-		if (rank == idx - 1) { // same rank as last, i.e. a tie
-			totalCount++;
-			continue;
-		}
-		return false;
-	}
+	print_html("<h4>Example Usage</h4>");
+	print_html("<br/>dc spider web");
+	print_html("Summary of top 10 info for spider web.");
 
-	if (totalCount != 10 && totalCount != 11)
-		return false;
-
-	return true;
-}
-
-
-string toString(int [int, string] top10List) {
-	string rval;
-	foreach rank, name, num in top10List {
-		rval += rank + ". " + name + ": " + num + "</br>\n";
-	}
-	return rval;
-}
-
-void printTop10List(int [int, string] top10List) {
-	print_html(toString(top10List));
-}
-
-
-int rank1Amount(int [int, string] collection) {
-	foreach s in collection[1] {
-		return collection[1, s];
-	}
-	abort("could not find top");
-	return 0;
-}
-
-int rank10Amount(int [int, string] collection) {
-	int totalCount = 0;
-	foreach rank, name, num in collection {
-		totalCount++;
-		if (totalCount == 10)
-			return num;
-	}
-	abort("could not find bottom");
-	return 0;
-}
-
-IntRange collectionRange(int [int, string] collection) {
-	IntRange rval;
-	rval.top = rank1Amount(collection);
-	rval.bottom = rank10Amount(collection);
-	return rval;
+	print_html("<br/>NB. To add a specific number of items to the display case, use the built-in 'display' command: 'display put|take [x] <i>item</i>'");
+	print_html("<br/><small>Version " + __dc_version + ". Copyright 2018-2022. Licensed under <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA</a> version 4.0 or any later version. If this help looks poorly formatted, try 'clear; dc help' on the gCLI.</small>");
 }
 
 
 void dcPrintItemDetails(item anItem, int [int, string] top10List) {
 	int equippedAmount = equipped_amount(anItem);
+	int familiarEquippedAmount = familiar_equipped_amount(anItem); // familiars holding the equipment but NOT our current familiar, which will be caught by equippedAmount
 	int itemAmount = item_amount(anItem);
 	int storageAmount = storage_amount(anItem);
 	int closetAmount = closet_amount(anItem);
 	int displayAmount = display_amount(anItem);
 	int shopAmount = shop_amount(anItem);
-	int total = equippedAmount + itemAmount + storageAmount + closetAmount + shopAmount + displayAmount;
+	int total = equippedAmount + familiarEquippedAmount + itemAmount + storageAmount + closetAmount + shopAmount + displayAmount;
 
 	int availableAmount = available_amount(anItem);
 	if ((availableAmount + displayAmount + shopAmount) != total)
-		print("WARNING: inconsistent amount! available + display + shop: " + (availableAmount + displayAmount + shopAmount) + ", calculated: " + total + " -- check Left-Hand Man!", "red");
+		print("WARNING: inconsistent amount! available + display + shop: " + (availableAmount + displayAmount + shopAmount) + ", calculated: " + total + " -- check familiar equipment!", "red");
 
 	string top10RangeString;
 	IntRange top_10_range;
@@ -158,7 +118,7 @@ void dcPrintItemDetails(item anItem, int [int, string] top10List) {
 		top10RangeString = " Top 10 range: " + top_10_range.top + "-" + top_10_range.bottom + myRankString;
 	}
 
-	print(equippedAmount + " equipped and " + itemAmount
+	print(equippedAmount + " equipped (" + familiarEquippedAmount + " by familiars that are NOT your current familiar) and " + itemAmount
 		+ " in inv (+" + storageAmount + " stored +" + closetAmount + " in closet +" + shopAmount + " in the shop) and "
 		+ displayAmount + " in case, total available: " + total + "." + top10RangeString);
 }
@@ -170,65 +130,9 @@ void dcPrintItemDetails(item anItem) {
 
 
 
-// returns the value of the given index without having to dereference the string
-int amount(int an_index, int [int, string] the_collection) {
-	foreach s in the_collection[an_index]
-		return the_collection[an_index, s];
-	abort("could not find amount");
-	return 0;
-}
-
-string name(int an_index, int [int, string] the_collection) {
-	foreach s in the_collection[an_index]
-		return s;
-	abort("could not find name at index " + an_index);
-	return "";
-}
-
-
-
-// returns true if the given item is in the top 10
-boolean in_top10(item anItem, int [int, string] collection) {
-	return display_amount(anItem) >= rank10Amount(collection);
-}
-
-
-
-// returns the top 10 list -- value is the number of items, indexed by user name and the top 10 spot number
-// tries Jicken Wings first, then the wiki if that doesn't work
-int [int, string] lookupCollection(item anItem) {
-	int [int, string] top10List;
-	string pageString = visit_url("http://dcdb.coldfront.net/collections/index.cgi?query_value=" + to_int(anItem) + "&query_type=item", true, false);
-
-	matcher itemMatcher = create_matcher("<tr><td bgcolor=\"blue\" align=\"center\" valign=\"center\"><font color=\"white\"><b>(.*) \\(#([0-9]+)\\)</b></font></td></tr>", pageString);
-	assert(find(itemMatcher), "lookupCollection: could not find the item name in Jicken Wings");
-	print("[" + group(itemMatcher, 2) + "]" + group(itemMatcher, 1));
-
-	matcher range_matcher = create_matcher("<tr><td bgcolor=\"white\" align=\"center\" valign=\"center\"><b>([0-9]+)</b></td>.*?<b>([^<]*)</b>.*?<b>([0-9,]+)</b></td></tr>", pageString);
-	for i from 1 to 11 {
-		boolean found = find(range_matcher);
-		if (!found && i < 11) {
-			if (i > 1) abort("unexpected error");
-			print("problem matching the Top 10 list from coldfront, trying wiki");
-			pageString = visit_url("https://kol.coldfront.net/thekolwiki/index.php/" + anItem.replace_string(" ", "_"), true, false);
-			range_matcher = create_matcher("[0-9]+\. <a href=.*?player'>(.*?) - ([0-9]+)</a>", pageString);
-			if (!find(range_matcher)) abort("wiki didn't work either");
-		} else if (!found && i == 11) { // the wiki doesn't have entry #11
-			continue;
-		}
-		top10List[group(range_matcher, 1).to_int(), group(range_matcher, 2)] = to_int(group(range_matcher, 3));
-	}
-
-	assert(isValidTop10List(top10List), "lookupCollection: something wrong with the top 10 list:\n" + toString(top10List));
-
-	return top10List;
-}
-
-
-
 int saveAmount(item anItem) {
 	int saveAmount = 1;
-	foreach evalString, tmpSaveAmount in gTypeSaveMap {
+	foreach evalString, tmpSaveAmount in gkTypeSaveMap {
 		boolean shouldSave = call boolean evalString (anItem);
 		if (shouldSave) {
 			saveAmount = tmpSaveAmount;
@@ -249,24 +153,24 @@ int calcMoveUpOneSpot(item anItem, int [int, string] top10List) {
 	int displayAmount = display_amount(anItem);
 
 	int goalAmount;
-	int goalIndex = 10;
+	int goalRank = 10;
 	if (!in_top10(anItem, top10List)) {
-		goalAmount = rank10Amount(top10List) + gOvershootAmount;
+		goalAmount = rank10Amount(top10List) + gkDCOvershootAmount;
 	} else {
 		for i from 10 to 1 by -1
-			if (amount(i, top10List) == displayAmount)
-				goalIndex = i - 1;
-		if (goalIndex < 1) goalIndex = 1;
-		goalAmount = amount(goalIndex, top10List) + gOvershootAmount;
+			if (amountAtRank(i, top10List) == displayAmount)
+				goalRank = i - 1;
+		if (goalRank < 1) goalRank = 1;
+		goalAmount = amountAtRank(goalRank, top10List) + gkDCOvershootAmount;
 	}
 	// don't go higher than the next spot up
-	if (goalIndex > 1 && goalAmount > amount(goalIndex - 1, top10List))
-		goalAmount = amount(goalIndex - 1, top10List) - 1;
+	if (goalRank > 1 && goalAmount > amountAtRank(goalRank - 1, top10List))
+		goalAmount = amountAtRank(goalRank - 1, top10List) - 1;
 	// if we don't have enough, try for the minimum
 	if (goalAmount > availableAmount + displayAmount)
-		goalAmount = amount(goalIndex, top10List) + 1;
+		goalAmount = amountAtRank(goalRank, top10List) + 1;
 	if (goalAmount > availableAmount + displayAmount)
-		abort("don't have enough " + anItem + " to reach spot " + goalIndex + " (need " + (goalAmount - availableAmount - displayAmount) + " more to reach goal of " + goalAmount + " units -- have " + availableAmount + ")");
+		abort("don't have enough " + anItem + " to reach spot " + goalRank + " (need " + (goalAmount - availableAmount - displayAmount) + " more to reach goal of " + goalAmount + " units -- have " + availableAmount + ")");
 
 	return goalAmount;
 }
@@ -275,11 +179,8 @@ int calcMoveUpOneSpot(item anItem, int [int, string] top10List) {
 // in the Top 10 list that we can reach, trying to be +11 over the next highest
 // (will be less than +11 if there aren't enough items)
 int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
-	int invAmount = item_amount(anItem);
-
-	int availableAmount = available_amount(anItem) + shop_amount(anItem) - saveAmount(anItem);
-
 	int displayAmount = display_amount(anItem);
+	int availableAmount = available_amount(anItem) + shop_amount(anItem) - saveAmount(anItem);
 
 	int goalAmount = availableAmount + displayAmount;
 	if (goalAmount < rank10Amount(top10List)) {
@@ -287,27 +188,28 @@ int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
 		return 0;
 	}
 
-	int goalIndex;
-	for i from 1 to count(top10List) {
-		if (amount(i, top10List) < goalAmount) {
-			goalIndex = i;
+	int goalRank;
+	foreach rank, name, num in top10List {
+		if (num < goalAmount) {
+			goalRank = rank;
 			break;
 		}
 	}
-	// if goalIndex is zero now, I'm not in the top 10 list, remove all items
-	if (goalIndex == 0)
+
+	// if goalRank is zero now, I'm not in the top 10 list, remove all items
+	if (goalRank == 0)
 		return 0;
 
 	// if i'm already at the goal index, the goal index is one less, unless i'm #10
-	if (name(goalIndex, top10List) == my_name()) {
+	if (nameAtRank(goalRank, top10List) == my_name()) {
 		// if we're #10, don't add or remove any
-		if (goalIndex == 10)
+		if (goalRank == 10)
 			goalAmount = displayAmount;
 		else
-			goalIndex++;
+			goalRank++;
 	}
-	if (goalAmount > amount(goalIndex, top10List) + gOvershootAmount)
-		goalAmount = amount(goalIndex, top10List) + gOvershootAmount;
+	if (goalAmount > amountAtRank(goalRank, top10List) + gkDCOvershootAmount)
+		goalAmount = amountAtRank(goalRank, top10List) + gkDCOvershootAmount;
 	return goalAmount;
 }
 
@@ -375,33 +277,35 @@ int addallItem(item anItem, int amountToSave) {
 }
 
 // puts all of the given item into the dc. saves one outside the dc if it isn't a gift item
-void addallItem(item anItem) {
-	addallItem(anItem, saveAmount(anItem));
+int addallItem(item anItem) {
+	return addallItem(anItem, saveAmount(anItem));
 }
 
 
 
 // can we do something with these args?
 void verifyArguments(string arguments) {
-	string [int] argv = split_string(arguments, " ");
+	string [] argv = split_string(arguments, " ");
+	string itemString = cdr(argv).joinString(" ");
 
 	if (argv[0] == "shelf" || argv[0] == "shelves" || argv[0] == "top10shelf" || argv[0] == "addallshelf") {
 		return;
 	} else if (argv[0] == "top10" || argv[0] == "auto") {
-		string item_string = cdr(argv).joinString(" ");
-		if (to_item(item_string) == $item[none]) abort("bad item: " + item_string);
+		if (to_item(itemString) == $item[none]) abort("bad item: " + itemString);
 		return;
 	} else if (argv[0] == "addall") {
-		string item_string = cdr(argv).joinString(" ");
-		if (to_item(item_string) == $item[none]) abort("bad item: " + item_string);
+		if (to_item(itemString) == $item[none]) abort("bad item: " + itemString);
 		return;
 	} else if (argv[0] == "list") {
-		string item_string = cdr(argv).joinString(" ");
-		if (to_item(item_string) == $item[none]) abort("bad item: " + item_string);
+		if (to_item(itemString) == $item[none]) abort("bad item: " + itemString);
+		return;
+	} else if (argv[0] == "snipemin") {
+		string [] snipeArgv = split_string(itemString, " ");
+		if (to_item(itemString) == $item[none])
+			abort("bad item: " + itemString);
 		return;
 	} else if (is_integer(argv[0]) && to_int(argv[0]) != 0) {
-		string item_string = cdr(argv).joinString(" ");
-		if (to_item(item_string) == $item[none]) abort("bad item: " + item_string);
+		if (to_item(itemString) == $item[none]) abort("bad item: " + itemString);
 		return;
 	} else if (to_item(arguments) == $item[none]) {
 		abort("bad item: " + arguments);
@@ -441,7 +345,7 @@ void main(string arguments) {
 	// add all of the given item to the dc
 	} else if ((argv[0] == "addall") && anItem == $item[none]) {
 		anItem = to_item(optionArgvString);
-		addallItem(anItem, 0);
+		addallItem(anItem);
 
 	// print top 10 details of given item
 	} else if ((argv[0] == "list" || argv[0] == "info") && anItem == $item[none]) {
@@ -449,14 +353,11 @@ void main(string arguments) {
 		top10List = lookupCollection(anItem);
 		printTop10List(top10List);
 
-	// print top 10 details of given item
+	// list shelves
 	} else if (argv[0] == "shelves" && anItem == $item[none]) {
-		string pageString = visit_url("/displaycollection.php?who=" + my_id(), true, false);
+		string pageString = rawDisplayCase();
 		print("Shelves:");
-		matcher shelfMatcher = create_matcher("shelf([\\d]+)\\\"\\);\\\' class=nounder><font color=white>([\\w ]+?)</font>", pageString);
-		while (find(shelfMatcher)) {
-			int shelfNumber = to_int(group(shelfMatcher, 1));
-			string shelfName = group(shelfMatcher, 2);
+		foreach shelfNumber, shelfName in shelves() {
 			print(shelfNumber + ": " + shelfName);
 		}
 		exit;
@@ -464,45 +365,35 @@ void main(string arguments) {
 	// operate on a whole shelf
 	} else if ((argv[0] == "shelf" || argv[0] == "top10shelf" || argv[0] == "addallshelf") && anItem == $item[none]) {
 		int [item] receipt;
-		string pageString = visit_url("/displaycollection.php?who=" + my_id(), true, false);
+		string pageString = rawDisplayCase();
 
 		string shelfName = optionArgvString;
 		if (shelfName == "") shelfName = "Top 10";
 
-		matcher shelfMatcher = create_matcher("<table.+?(shelf[0-9]+).+?" + shelfName + ".+?(shelf[0-9]+)(.+?)</table>", pageString);
-		find(shelfMatcher);
-		string shelfId = group(shelfMatcher, 1);
-		string shelfPage = group(shelfMatcher, 3);
 		int itemsOnShelf = 0;
-
-		matcher listMatcher = create_matcher("<td valign=center><b>(.*?)</b> ?\\(?([0-9,]*)\\)?</td>", shelfPage);
-		while (find(listMatcher)) {
-			string itemName = group(listMatcher, 1);
-			int itemAmount = to_int(group(listMatcher, 2));
+		foreach shelfItem, itemAmount in shelfItems(shelfName) {
 			itemsOnShelf++;
 
-			if (argv[0] == "shelf")
-				print(itemName + " " + itemAmount);
+			if (argv[0] == "shelf") {
+				receipt[shelfItem] = itemAmount;
 
-			else if (argv[0] == "top10shelf") {
+			} else if (argv[0] == "top10shelf") {
 				print("");
-				anItem = to_item(itemName);
-				top10List = lookupCollection(anItem);
-				int delta = top10Item(anItem, top10List);
+				top10List = lookupCollection(shelfItem);
+				int delta = top10Item(shelfItem, top10List);
 				if (delta != 0)
-					receipt[anItem] = delta;
-				dcPrintItemDetails(anItem, top10List);
+					receipt[shelfItem] = delta;
+				dcPrintItemDetails(shelfItem, top10List);
 
 			} else { // addallshelf
-				print("looking at: " + itemName);
-				anItem = to_item(itemName);
-				int delta = addallItem(anItem, 0);
+				print("looking at: " + shelfItem);
+				int delta = addallItem(shelfItem);
 				if (delta != 0)
-					receipt[anItem] = delta;
-				dcPrintItemDetails(anItem);
+					receipt[shelfItem] = delta;
+				dcPrintItemDetails(shelfItem);
 			}
 		}
-		print(itemsOnShelf + " items on the shelf, changes made: ");
+		print(itemsOnShelf + " items on the shelf");
 		printReceipt(receipt);
 		exit;
 	}
