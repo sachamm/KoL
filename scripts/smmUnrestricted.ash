@@ -159,6 +159,16 @@ boolean stockTop10Item(int minPrice, int limit, float stockFraction, item theIte
 }
 
 
+
+void roboritrage(int amountToStock) {
+	foreach phy, strongBooze in kRobortenderStrongBooze {
+		print("");
+		doArrbitrage(strongBooze, amountToStock);
+	}
+}
+
+
+
 void stockStore() {
 	// min price, limit, amount to stock, amount to save, item
  	stockItem(9500, 0, 163, rank1Amount(lookupCollection($item[mojo filter])) + 111, $item[mojo filter]); // save top 1 spot amount and an extra 111 to use
@@ -175,11 +185,13 @@ void stockStore() {
 	stockTop10Item(100, 0, 0.5, $item[eyepatch]);
 	stockTop10Item(1000, 66, 0.5, $item[flaregun]);
 	stockTop10Item(100, 0, 0.5, $item[grogpagne]);
-	stockTop10Item(990, 66, 0.5, $item[grungy bandana]);
+	stockTop10Item(900, 66, 0.5, $item[grungy bandana]);
 	stockTop10Item(200, 0, 0.5, $item[leotarrrd]);
 	stockTop10Item(180, 0, 0.5, $item[stuffed shoulder parrot]);
-	stockTop10Item(3450, 22, 0.5, $item[sunken chest]);
+	stockTop10Item(3000, 22, 0.5, $item[sunken chest]);
 	stockTop10Item(180, 0, 0.5, $item[swashbuckling pants]);
+
+	stockTop10Item(4000, 0, 0.5, $item[absentee voter ballot]);
 
 	// price, limit, amount to stock, item
 	put_shop(83000, 0, 3 - shop_amount($item[low tide martini]), $item[low tide martini]);
@@ -188,8 +200,23 @@ void stockStore() {
 	doArbitrage($item[scimitar cozy], 5);
 	doArbitrage($item[fish stick cozy], 5);
 	doArbitrage($item[bazooka cozy], 5);
-	doArbitrage($item[great old fashioned], 5);
 	doArrbitrage($item[4-d camera], 11);
+	doArrbitrage($item[internet point], 11);
+
+	// COMBAT LOVER'S LOCKET drops
+	stockAllItem($item[evil googly eye], kTurnValue, 0);
+	stockAllItem($item[spooky felt], kTurnValue, 0);
+	stockAllItem($item[spooky length of string], kTurnValue, 0);
+	stockAllItem($item[spooky stuffing], kTurnValue, 0);
+	stockAllItem($item[spooky toy wheel], kTurnValue, 0);
+	stockAllItem($item[spooky wooden block], kTurnValue, 0);
+
+	roboritrage(11);
+
+	// LUCKY items --  min price, limit, amount to stock, amount to save, item
+	int cloverCost = historical_price($item[11-leaf clover]);
+	stockAllItem($item[frozen Mob Penguin], cloverCost + kTurnValue, 0);
+	stockAllItem($item[roll of drink tickets], cloverCost + kTurnValue, 0);
 
 // 	put_shop(0, 0, available_amount($item[rocky raccoon]) - 250, $item[rocky raccoon]);
 // 	put_shop(0, 0, available_amount($item[savoy truffle]) - 250, $item[savoy truffle]);
@@ -312,12 +339,12 @@ void printIncomeDetails(monster aMonster) {
 
 void luckyIncome() {
 	int [location] luckyAdventuresByMeatGainMap = luckyAdventuresByMeatGainMap();
-	location [] sortedLuckyAdventuresByMeatGain = sortedLuckyAdventuresByMeatGain(false);
+	location [] luckyEconomics = luckyEconomics(false);
 	print("turn value: " + kTurnValue + " -- cost to get lucky! with:");
 	print("pillkeeper (first): 0, subsequent: " + (3 * gkSpleenAdvGains * kTurnValue));
 	print("Lucky Lindy: " + (kTurnValue * 3 + 500));
 	print("11-leaf clover: " + historical_price($item[11-leaf clover]));
-	foreach ind, aloc in sortedLuckyAdventuresByMeatGain {
+	foreach ind, aloc in luckyEconomics {
 		print(aloc + ": " + luckyAdventuresByMeatGainMap[aloc]);
 	}
 }
@@ -325,8 +352,8 @@ void luckyIncome() {
 
 void luckyCurrentIncome() {
 	int [location] luckyAdventuresByMeatGainMap = luckyAdventuresByMeatGainMap();
-	location [] sortedLuckyAdventuresByMeatGain = sortedLuckyAdventuresByMeatGain(false);
-	foreach ind, aloc in sortedLuckyAdventuresByMeatGain {
+	location [] luckyEconomics = luckyEconomics(false);
+	foreach ind, aloc in luckyEconomics {
 		print(aloc + ": " + (luckyAdventuresByMeatGainMap[aloc] - kTurnValue));
 	}
 }
@@ -521,7 +548,7 @@ int grindBackupCameraFightHelper(int copiesToMake, monster cameraMonster, string
 	assert(inCombat(), "grindBackupCameraFightHelper: we're not in combat");
 
 	if (copiesToMake >= 2 && my_familiar() == $familiar[Pocket Professor] && pocketProfessorLecturesAvailable() > 0 && my_hp() >= my_maxhp() / 4) {
-		aPage = customScriptWithDefaultKill(1, cameraMonster, aPage, "skill lecture on relativity;");
+		aPage = customScriptWithDefaultKill(current_round(), cameraMonster, aPage, "skill lecture on relativity;");
 		copiesToMake--;
 		boolean conditionsSatisfied = postAdventure();
 
@@ -672,84 +699,6 @@ void spleenBreakpoints(monster testMonster) {
 	int currentItemDrop = monsterCurrentItemMeatValue(testMonster);
 	float collectValue = monsterItemMeatValue(testMonster, item_drop_modifier() + 150) - monsterCurrentItemMeatValue(testMonster);
 	print("when used to target " + testMonster + ", with items worth " + baseItemDrop + " base and " + currentItemDrop + " current, Synth: Collection will give " + collectValue + " extra meat per turn, " + collectValue * 30 + " meat over 30 turns");
-}
-
-
-
-void printMPCost(item anItem) {
-	int mallPrice = mall_price(anItem);
-	effect anEffect = effect_modifier(anItem, "Effect");
-	if (anEffect != $effect[none]) {
-		float mpPerTurn = (numeric_modifier(anEffect, "MP Regen Min") + numeric_modifier(anEffect, "MP Regen Max")) / 2;
-		int effectTurns = numeric_modifier(anItem, "Effect Duration");
-		print(anItem + ": " + to_string(mpPerTurn, "%.1f") + "mp/turn for " + effectTurns + " turns @" + mallPrice + ", " + to_string(mallPrice/(mpPerTurn * effectTurns), "%.3f") + "meat/mp");
-	} else {
-		float avgMP = (anItem.minmp + anItem.maxmp) / 2;
-		print(anItem + ": " + to_string(avgMP, "%.1f") + "mp @" + mallPrice + ", " + to_string(mallPrice/avgMP, "%.3f") + "meat/mp");
-	}
-}
-
-void cheapestMPRegen() {
-	print("gulp latte: 'free'");
-	print("april shower: 1000mp @" + (3.5 * mall_price($item[shard of double-ice])) + " meat, " + ((3.5 * mall_price($item[shard of double-ice])) / min(1000, my_maxmp())) + " meat/mp");
-	print("magical mystery juice: " + ((my_level() * 1.5) + 5) + "mp @45 meat, " + to_string(45 / ((my_level() * 1.5) + 5), "%.3f") + " meat/mp");
-	printMPCost($item[mangled finger]);
-	printMPCost($item[neurostim pill]);
-	printMPCost($item[irradiated turtle]);
-	printMPCost($item[orcish hand lotion]);
-	printMPCost($item[carbonated water lily]);
-	printMPCost($item[honey-dipped locust]);
-	printMPCost($item[Monstar energy beverage]);
-	printMPCost($item[ancient magi-wipes]);
-	printMPCost($item[Doc Galaktik's Invigorating Tonic]);
-	printMPCost($item[Dyspepsi-Cola]);
-	printMPCost($item[Cloaca-Cola]);
-	printMPCost($item[phonics down]);
-	printMPCost($item[carbonated soy milk]);
-	printMPCost($item[tiny house]);
-	printMPCost($item[knob goblin seltzer]);
-	printMPCost($item[Notes from the Elfpocalypse, Chapter I]);
-	printMPCost($item[Mountain Stream soda]);
-	printMPCost($item[dueling turtle]);
-	printMPCost($item[elven magi-pack]);
-	print("Egnaro berry: " + floor(my_maxmp() / 2.0) + " @" + mall_price($item[Egnaro berry]) + " meat, " + (1.0 * mall_price($item[Egnaro berry]) / (my_maxmp() / 2)) + " meat/mp");
-}
-
-
-string mpCostHTML(item anItem) {
-	string rval = "";
-
-	int mallPrice = mall_price(anItem);
-	effect anEffect = effect_modifier(anItem, "Effect");
-	if (anEffect != $effect[none]) {
-		float mpPerTurn = (numeric_modifier(anEffect, "MP Regen Min") + numeric_modifier(anEffect, "MP Regen Max")) / 2;
-		int effectTurns = numeric_modifier(anItem, "Effect Duration");
-		rval = "<tr><td>" + anItem + "</td><td>" + to_string(mpPerTurn, "%.1f") + "mp/turn for " + effectTurns + " turns</td><td>" + mallPrice + "</td><td>" + to_string(mallPrice/(mpPerTurn * effectTurns), "%.3f") + "</td></tr>";
-	} else {
-		float avgMP = (anItem.minmp + anItem.maxmp) / 2;
-		rval = "<tr><td>" + anItem + "</td><td>" + to_string(avgMP, "%.1f") + "mp</td><td>" + mallPrice + "</td><td>" + to_string(mallPrice/avgMP, "%.3f") + "</td><tr>";
-	}
-
-	return rval;
-}
-
-void cheapestMPRegenHTML() {
-	string mpTable = "<table><thead><tr><td>name</td><td>mp restored</td><td>mall price</td><td>meat/mp</td></tr></thead><tbody>";
-	mpTable += "<tr><td>magical mystery juice</td><td>" + ((my_level() * 1.5) + 5) + "mp</td><td>45</td><td>" + to_string(45 / ((my_level() * 1.5) + 5), "%.3f") + "</td></tr>";
-	mpTable += mpCostHTML($item[mangled finger]);
-	mpTable += mpCostHTML($item[neurostim pill]);
-	mpTable += mpCostHTML($item[irradiated turtle]);
-	mpTable += mpCostHTML($item[orcish hand lotion]);
-	mpTable += mpCostHTML($item[carbonated water lily]);
-	mpTable += mpCostHTML($item[Monstar energy beverage]);
-	mpTable += "<tr></tr>";
-	mpTable += "<tr><td>Egnaro berry</td><td>" + floor(my_maxmp() / 2.0) + "</td><td>" + mall_price($item[Egnaro berry]) + " meat</td><td>" + to_string(1.0 * mall_price($item[Egnaro berry]) / (my_maxmp() / 2), "%.3f") + "</td></tr>";
-	mpTable += "<tr><td>april shower</td><td>1000mp</td><td>" + (3.5 * mall_price($item[shard of double-ice])) + " meat</td><td>" + to_string((3.5 * mall_price($item[shard of double-ice])) / 1000, "%.3f") + "</td></tr>";
-	mpTable += "<tr><td>gulp latte</td><td>" + floor(my_maxmp() / 2.0) + "</td><td>n/a</td><td>n/a</td></tr>";
-	mpTable += "</tbody></table>";
-
-	print_html(mpTable);
-	print("");
 }
 
 
@@ -1224,6 +1173,7 @@ void grindPoolSkill() {
 
 
 
+// returns priority items for burning free crafting turns
 // use the PSR mechanism. mpCost is actually the turn cost.
 PrioritySkillRecord [int] freeCraftingData(item nightcap) {
 	PrioritySkillRecord [int] psrArray;
@@ -1233,8 +1183,8 @@ PrioritySkillRecord [int] freeCraftingData(item nightcap) {
 	int i = 0;
 
 	// nightcap -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
-	tempPSR = new PrioritySkillRecord($skill[none], nightcap, 1, 0, 1);
-	tempPSR.usesAvailable = 1 - available_amount(nightcap); // only ever need 1
+	tempPSR = new PrioritySkillRecord($skill[none], nightcap, creatable_turns(nightcap, 1, false), 0, 1);
+	tempPSR.usesAvailable = max(0, 1 - available_amount(nightcap)); // only ever need 1
 	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats(nightcap);
 	psrArray[i++] = tempPSR;
 
@@ -1242,6 +1192,12 @@ PrioritySkillRecord [int] freeCraftingData(item nightcap) {
 	tempPSR = new PrioritySkillRecord($skill[none], $item[tempura air], 1, 0, 5);
 	tempPSR.usesAvailable = 1 - my_session_items($item[tempura air]);
 	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats($item[tempura air]);
+	psrArray[i++] = tempPSR;
+
+	// Buttery Boy -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
+	tempPSR = new PrioritySkillRecord($skill[none], $item[Buttery Boy], 1, 0, 5);
+	tempPSR.usesAvailable = 1 - my_session_items($item[Buttery Boy]);
+	tempPSR.isAvailableNow = availableFreeCraftTurns >= tempPSR.mpCost && have_mats($item[Buttery Boy]);
 	psrArray[i++] = tempPSR;
 
 	// haunted gimlet -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
@@ -1267,7 +1223,7 @@ PrioritySkillRecord [int] freeCraftingData(item nightcap) {
 
 // use the PSR mechanism. mpCost is actually the turn cost.
 PrioritySkillRecord [int] freeCraftingData() {
-	return freeCraftingData($item[sangria del diablo]);
+	return freeCraftingData(gkOverdrinkDrinkItem);
 }
 
 
@@ -1440,45 +1396,33 @@ void grindTotCostume(item costume) {
 
 
 
-void safe_mumming(familiar a_familiar, string mum_buff) {
-	if (get_property("_mummeryMods").contains_text(a_familiar))
-		print("familiar already has a mumming trunk buff", "red");
-	else {
-		if (!use_familiar(a_familiar)) abort("unable to switch to familiar");
-		boolean unused = cli_execute("mummery " + mum_buff);
-	}
-}
-
 void applyMummingBuffs() {
 	print("applyMummingBuffs", "green");
 	familiar old_familiar = my_familiar();
 	visit_url("/inv_use.php?which=3&pwd&whichitem=9592", true, false); // prime the pump
 
 	if (my_daycount() == 1) {
-		safe_mumming($familiar[Gelatinous Cubeling], "myst"); // extra mys gain
+		safeMumming($familiar[Gelatinous Cubeling], "myst"); // extra mys gain
 	}
 
 	if (inRonin()) {
-		safe_mumming($familiar[Cat Burglar], "item"); // extra mus (and stagger), mys, mox gain, bleed (item)
-		safe_mumming($familiar[Hobo Monkey], "meat"); // 1.25x leprechaun; extra mus, mys gain, extra item, meat drop
-		safe_mumming($familiar[Garbage Fire], "mp"); // hot dmg (mp)
-		safe_mumming($familiar[Robortender], "hp"); // extra mys gain, extra meat drop, extra hp
+		safeMumming($familiar[Cat Burglar], "item"); // extra mus (and stagger), mys, mox gain, bleed (item)
+		safeMumming($familiar[Hobo Monkey], "meat"); // 1.25x leprechaun; extra mus, mys gain, extra item, meat drop
+		safeMumming($familiar[Garbage Fire], "mp"); // hot dmg (mp)
+		safeMumming($familiar[Robortender], "hp"); // extra mys gain, extra meat drop, extra hp
 		if (my_daycount() != 1)
-			safe_mumming($familiar[Optimistic Candle], "myst"); // hot dmg (mp), extra mys gain
-	} else {
-		safe_mumming($familiar[Trick-or-Treating Tot], "item"); // extra meat, item drop, extra mys gain
-		safe_mumming($familiar[Robortender], "hp"); // extra mys gain, extra meat drop, extra hp
-		safe_mumming($familiar[Hobo Monkey], "meat"); // extra meat drop (and delevel), extra mus gain, extra item, extra mys gain
-		safe_mumming($familiar[Space Jellyfish], "mus"); // extra mus gain
-		safe_mumming($familiar[Chocolate Lab], "mox"); // extra mus, mys gain
-
-		if(to_int(get_property("garbageFireProgress")) / 30 > kPersueFamiliarIfOver)
-			safe_mumming($familiar[Garbage Fire], "mp"); // hot dmg (mp)
-		else
-			safe_mumming($familiar[Cat Burglar], "mp");
+			safeMumming($familiar[Optimistic Candle], "myst"); // hot dmg (mp), extra mys gain
+	} else { // TODO figure a fam to use hp, mys buffs
+		safeMumming($familiar[Trick-or-Treating Tot], "item"); // extra meat, item drop, extra mys gain
+		safeMumming($familiar[Robortender], "meat"); // extra mys gain, extra meat drop, extra hp
+// 		safeMumming($familiar[Robortender], "hp"); // extra mys gain, extra meat drop, extra hp
+// 		safeMumming($familiar[Hobo Monkey], "meat"); // extra meat drop (and delevel), extra mus gain, extra item, extra mys gain
+		safeMumming($familiar[Space Jellyfish], "mus"); // extra mus gain
+		safeMumming($familiar[Chocolate Lab], "mox"); // extra mus, mys gain
+		safeMumming($familiar[Cat Burglar], "mp"); // extra mus (and stagger), mys, mox gain, bleed (item)
 
 		if(to_int(get_property("optimisticCandleProgress")) / 30 > kPersueFamiliarIfOver)
-			safe_mumming($familiar[Optimistic Candle], "myst"); // hot dmg (mp), extra mys gain
+			safeMumming($familiar[Optimistic Candle], "myst"); // hot dmg (mp), extra mys gain
 	}
 
 	if (!use_familiar(old_familiar)) abort("unable to switch back to original familiar");
@@ -1840,6 +1784,9 @@ void setupItems() {
 	print("setupItems", "green");
 	boolean unused;
 
+	// do this early so we have a better chance at rare spots
+	burnFreeCombs(1); // save 1 for +fam
+
 	if (!to_boolean(get_property("_timeSpinnerReplicatorUsed"))) {
 		equip($slot[weapon], $item[none]); // ensure we aren't wearing anything that would mess with FarFuture
 		cli_execute("FarFuture memory");
@@ -1890,7 +1837,8 @@ void setupItems() {
 	} else if (to_boolean(get_property("_bastilleGamesLockedIn")) == false && to_int(get_property("_bastilleGames")) < 5 && (have_effect($effect[Shark-Tooth Grin]) > 0 || have_effect($effect[boiling determination]) > 0 || have_effect($effect[enhanced interrogation]) > 0))
 		print("have bastille buffs but not enough", "red");
 
-	use(1, $item[Bird-a-Day calendar]);
+	if (get_property("_birdOfTheDay") == "")
+		use($item[Bird-a-Day calendar], 1);
 
 	defaultZap();
 }
@@ -2048,7 +1996,7 @@ void tquillaEat(int numberToEat, boolean refillSpleen) {
 	assert(fullness_limit() - my_fullness() >= gkFoodItem.fullness, "we're too full, you're going to have to eat manually");
 	assert(my_spleen_use() >= gkEatSpleenReduction, "not enough spleen use!");
 
-	abort("do manually");
+// 	abort("do manually");
 
 	numberToEat = min(numberToEat, floor((fullness_limit() - my_fullness()) / to_float(gkFoodItem.fullness)));
 	numberToEat = min(numberToEat, floor(my_spleen_use() / to_float(gkEatSpleenReduction)));
@@ -2461,44 +2409,42 @@ void burn_sausages() {
 
 
 
-// fightMons is an ordered list of monsters we want to fight with the combat lover's locket
-// TODO
-void burnCombatLoversLocket(monster fightMon) {
-	if (3 - cllNumMonstersFought() <= 0) return;
 
-	advURL("/inventory.php?reminisce=1");
-	visit_url("/choice.php?whichchoice=1463&pwd&option=1&mid=" + fightMon.to_int(), true, false);
-	run_combat();
-	postAdventure();
-}
-
-// fight the default monsters
-void burnCombatLoversLocket() {
+// fight the default monsters #combatlocket #combat locket
+void getToNextCLLFight() {
+	assert(cllNumMonstersFought() < 3, "already use all combat lover's locket uses");
 	setCurrentMood("meat");
 
-	// mer-kin baker for mer-kin rolling pin
-	automate_dressup($location[none], "item", "robortender", "0.5 meat");
-	burnCombatLoversLocket($monster[mer-kin baker]);
-
 	// crimbylow
+	if (!cllHasFought($monster[crimbylow])) {
+		automate_dressup($location[none], "item", "robortender", "0.5 meat");
+		cllGetToFight($monster[crimbylow]);
+		return;
+	}
+
+	// bow-making mummy
+	if (!cllHasFought($monster[bow-making mummy])) {
+		automate_dressup($location[none], "item", "default", "0.5 meat");
+		cllGetToFight($monster[bow-making mummy]);
+		return;
+	}
+
+	// mer-kin baker for mer-kin rolling pin -- DO LAST, changes locket bonuses to +item
 	automate_dressup($location[none], "item", "robortender", "0.5 meat");
-	burnCombatLoversLocket($monster[crimbylow]);
+	cllGetToFight($monster[mer-kin baker]);
 
 	// gingerbread maw
-	automate_dressup($location[none], "item", "robortender", "0.5 meat");
-	burnCombatLoversLocket($monster[gingerbread maw]);
-
 	// Knob Goblin Embezzler meat
-// 	automate_dressup($location[none], "meat", "meat", "0.1 item");
-// 	burnCombatLoversLocket($monster[Knob Goblin Embezzler]);
-
 	// ice conceirge for bag of foreign bribes
-// 	automate_dressup($location[none], "item", "item", "0.1 meat");
-// 	burnCombatLoversLocket($monster[ice concierge]);
-
 	// swarm of scarab beatles for mojo filter
-// 	automate_dressup($location[none], "item", "item", "0.1 meat");
-// 	burnCombatLoversLocket($monster[swarm of scarab beatles]);
+}
+
+void burnCombatLoversLocket() {
+	while (cllNumMonstersFought() < 3) {
+		string cllPage = getToNextCLLFight();
+		customScriptWithDefaultKill(current_round(), last_monster(), cllPage, "skill Feel Nostalgic;");
+		postAdventure();
+	}
 }
 
 
@@ -2522,8 +2468,6 @@ void good_night_adv() {
 	//burnGenieWishes($item[bag of foreign bribes], "ice concierge"); // get ponies for now if we don't otherwise use it
 	burnScavengeDaycare(3);
 	burnCombatLoversLocket();
-
-	//burnBrokenChampagneBottle(); // may want to save until tomorrow so we can use +item from LOV tunnel, etc?
 
 	if (my_class() == $class[seal clubber])
 		grindSeals($item[figurine of an ancient seal]);
@@ -2575,12 +2519,14 @@ void burnFreeCombats() {
 void burnFreeUseItems() {
 	boolean unused;
 
-	burnGenieWishes($item[none], "pony");
-	burnGenieWishes($item[none], "pony");
-	burnGenieWishes($item[none], "pony");
+	while (get_property("_genieWishesUsed").to_int() < 3)
+		burnGenieWishes($item[none], "pony");
 
-	int combs = 11 - get_property("_freeBeachWalksUsed").to_int();
-	unused = cli_execute("combo " + combs);
+	if (!get_property("_defectiveTokenUsed").to_boolean())
+		use($item[defective Game Grid token], 1);
+
+	burnFreeCombs(0);
+
 	burnLicenseToChill();
 }
 
@@ -3505,15 +3451,23 @@ void maximizeForItemDrop(int turns) {
 
 
 
-void burnBrokenChampagneBottle(AdventureRecord advRecord) {
-	print("burnBrokenChampagneBottle: " + advRecord.toString(), "green");
+int garbageChampagneCharge() {
 	int chargesAvailable = to_int(get_property("garbageChampagneCharge"));
 	if (chargesAvailable == 0 && !to_boolean(get_property("_garbageItemChanged"))) {
 		cli_execute("tote 2");
-		chargesAvailable = to_int(get_property("garbageChampagneCharge"));
+		chargesAvailable = 11;
 	}
+	return chargesAvailable;
+}
 
-	int tries = 30;
+
+
+void burnBrokenChampagneBottle(AdventureRecord advRecord, int turns) {
+	print("burnBrokenChampagneBottle: " + advRecord.toString(), "green");
+	int chargesAvailable = garbageChampagneCharge();
+	chargesAvailable = min(chargesAvailable, turns); // don't spend more than turns
+
+	int tries = chargesAvailable + 5;
 	while (chargesAvailable > 0 && tries > 0) {
 		int turnsToBurn = chargesAvailable;
 		int otoscopeChargesAvailable = 3 - to_int(get_property("_otoscopeUsed"));
@@ -3538,11 +3492,7 @@ void burnBrokenChampagneBottle(AdventureRecord advRecord) {
 		getToAdventure(advRecord);
 		run_turn();
 
-		chargesAvailable = to_int(get_property("garbageChampagneCharge"));
-		if (available_amount($item[broken champagne bottle]) == 0 || chargesAvailable == 0) {
-			cli_execute("tote 2");
-			chargesAvailable = to_int(get_property("garbageChampagneCharge"));
-		}
+		chargesAvailable = garbageChampagneCharge();
 		tries--;
 	}
 }
@@ -3550,6 +3500,13 @@ void burnBrokenChampagneBottle(AdventureRecord advRecord) {
 // for the CLI
 void burnChampagneBottle(boolean drumMachine) {
 	AdventureRecord ar;
+
+	// combat lover's locket
+	while (cllNumMonstersFought() < 3 && garbageChampagneCharge() > 0) {
+		ar = new AdventureRecord($location[none], $skill[none], $item[none], "getToNextCLLFight");
+		burnBrokenChampagneBottle(ar, 1);
+	}
+
 	if (drumMachine)
 		ar = new AdventureRecord($location[none], $skill[none], $item[drum machine]);
 	else {
@@ -3558,7 +3515,7 @@ void burnChampagneBottle(boolean drumMachine) {
 		else
 			ar = new AdventureRecord($location[Dreadsylvanian Village], $skill[none], $item[none]);
 	}
-	burnBrokenChampagneBottle(ar);
+	burnBrokenChampagneBottle(ar, garbageChampagneCharge());
 }
 
 
@@ -5248,9 +5205,7 @@ void dressForSea(location seaLocation, boolean isGrinding) { // sea_quest sea qu
 	} else if ((seaLocation == $location[The Coral Corral] || seaLocation == $location[Anemone Mine]) && isGrinding) {
 		setCurrentMood("meat");
 		selectorString = "item";
-		maxString += ", +equip aquamariner's necklace, +equip aquamariner's ring";
-		if (can_equip($item[sea salt scrubs]))
-			maxString += ", +equip sea salt scrubs";
+		maxString += ", 0.5 meat";
 		if (can_equip($item[cozy scimitar]))
 			maxString += ", +equip cozy scimitar";
 
@@ -5478,6 +5433,23 @@ void grindHobopolisSewers(int maxPerTurnCost) {
 
 
 
+int slimeTubeTurnsToSpend() {
+	int turnsToSpend = have_effect($effect[Coated in Slime]);
+	if (turnsToSpend == 0)
+		turnsToSpend = max(1, 11 - ceil(monster_level_adjustment() / 100.0));
+	return turnsToSpend;
+}
+
+
+boolean clearCoatedInSlime() {
+	if (get_property("_hotTubSoaks") < 5)
+		cli_execute("hottub");
+	else
+		cli_execute("chamois");
+	return have_effect($effect[Coated in Slime]) == 0;
+}
+
+
 int expectedCoatedInSlimeDmg(int coatedTurns) {
 	int effective_turns = max(0, 11 - coatedTurns);
 	float res_percent = 100.0 - elemental_resistance($element[slime]);
@@ -5495,47 +5467,57 @@ int safeExpectedCoatedInSlimeDmg() {
 }
 
 
-// adventure in the slime tube with the current outfit until adventuring would cause us to be beaten up
-// then clear the Coated in Slime debuff with either a hottub soak or a chamois
-// buffs with free/cheap monster-level adjustment skills
-void slimetube(boolean wantEngulfed, boolean burnSpleen) {
+void prepForSlimeTube(int turnsToSpend, boolean wantEngulfed, boolean burnSpleen) {
 	int coatedTurns = have_effect($effect[Coated in Slime]);
-	print("slimetube with " + coatedTurns + " turns of Coated in Slime, Slime res: " + numeric_modifier("Slime Resistance"), "blue");
 
-	int turnsToSpend = coatedTurns;
-	if (coatedTurns == 0)
-		turnsToSpend = max(1, 11 - ceil(monster_level_adjustment() / 100.0));
+	max_mcd();
 
 	if (wantEngulfed)
 		setCurrentMood("ml, -combat");
 	else
 		setCurrentMood("ml, +combat");
-	if (my_spleen_use() < spleen_limit() && burnSpleen)
-		cli_execute_if_needed("synthesize crimbo fudge, senior mints", $effect[Synthesis: Strong], turnsToSpend); 
+
+	if (burnSpleen && my_spleen_use() < spleen_limit())
+		cli_execute_if_needed("synthesize Synthesis: Strong", $effect[Synthesis: Strong], turnsToSpend); 
+
 	if (isAsdonWorkshed())
 		safeFueledAsdonMartin($effect[Driving Recklessly], turnsToSpend);
-	max_mcd();
+}
+
+
+// adventure once in the slime tube
+void adv1SlimeTube() {
+	int expectedDmg = safeExpectedCoatedInSlimeDmg();
+	haveAtLeastHP(expectedDmg);
+	restore_mp(mp_cost($skill[saucestorm]) * 6);
+
+	print("entering combat with " + my_hp() + " hp, expecting " + expectedDmg + " dmg.");
+
+	adv1($location[The Slime Tube], -1, "");
+	assert(have_effect($effect[Beaten Up]) == 0, "unexpectedly beaten up! expected dmg: " + expectedDmg);
+	//if (!contains_monster($location[The Slime Tube], last_monster())) abort("wandering monster? " + last_monster());
+}
+
+
+// adventure in the slime tube with the current outfit until adventuring would cause us to be beaten up
+// then clear the Coated in Slime debuff with either a hottub soak or a chamois
+// buffs with free/cheap monster-level adjustment skills
+void slimetube(boolean wantEngulfed, boolean burnSpleen) {
+	print("slimetube with " + have_effect($effect[Coated in Slime]) + " turns of Coated in Slime, Slime res: " + numeric_modifier("Slime Resistance"), "blue");
+
+	prepForSlimeTube(slimeTubeTurnsToSpend(), wantEngulfed, burnSpleen);
 
 	int expectedDmg = safeExpectedCoatedInSlimeDmg();
 	int tries = 15;
 	while (expectedDmg < my_maxhp() && tries > 0) {
-		haveAtLeastHP(expectedDmg);
-		restore_mp(mp_cost($skill[saucestorm]) * 6);
-		print("entering combat with " + my_hp() + " hp, expecting " + expectedDmg + " dmg.");
-		adv1($location[The Slime Tube], -1, "");
-		if (have_effect($effect[Beaten Up]) > 0) abort("unexpectedly beaten up! expected dmg: " + expectedDmg);
-		//if (!contains_monster($location[The Slime Tube], last_monster())) abort("wandering monster? " + last_monster());
-
+		adv1SlimeTube();
 		expectedDmg = safeExpectedCoatedInSlimeDmg();
 		tries--;
 	}
 
 	print("exiting The Slime Tube with " + have_effect($effect[Coated in Slime]) + " turns of Coated in Slime", "green");
 
-	if (get_property("_hotTubSoaks") < 5)
-		cli_execute("hottub");
-	else
-		cli_execute("chamois");
+	clearCoatedInSlime();
 	assert(have_effect($effect[Coated in Slime]) == 0, "still have Coated in Slime!!!");
 }
 
@@ -5544,14 +5526,14 @@ void slimetube(boolean wantEngulfed, boolean burnSpleen) {
 // dresses in low-ml outfit for first adventure (i.e. without Coated in Slime)
 // otherwise, dresses in high-ml outfit
 void slimetubeWithDressup(boolean wantEngulfed, boolean burnSpleen, int runawayMaxCost) {
-	// getting the Coated in Slime debuff with the least ML means we can last longer
+	// GET the Coated in Slime debuff with the least ML means we can last longer
 	int coatedTurns = have_effect($effect[Coated in Slime]);
 	if (coatedTurns == 0) {
 		uneffect($effect[Ur-Kel's Aria of Annoyance]);
 		setCurrentMood("+combat");
 
 		boolean canRunaway = canFreeRunaway(runawayMaxCost);
-		string maxString = "-equip pantogram pants, -familiar";
+		string maxString = "-equip pantogram pants, -familiar, item";
 		if (canRunaway)
 			maxString += ", -equip mafia thumb ring";
 
@@ -5591,16 +5573,37 @@ void slimetubeWithDressup(boolean wantEngulfed, boolean burnSpleen, int runawayM
 		}
 
 // 		assert(last_monster() == $monster[slime tube monster], "wandering monster? " + last_monster());
-		assert(coatedTurns > 0, "didn't get Coated in Slime??");
+	}
+	assert(coatedTurns > 0, "didn't get Coated in Slime??");
+
+	// MAIN EVENT -- we will have Coated in Slime at this point
+	int slimeResPriority = 200 / (coatedTurns ** 1.5); // increase slime res with each less Coated in Slime turn
+
+	use_familiar($familiar[robortender]); equip($item[toggle switch (Bartend)]);
+	clear_automate_dressup(); // we're running close to the wire at the end of each run, so no auto dressup (TODO early turns could work)
+	maximize("0.1 ml, " + slimeResPriority + " slime res, -familiar, item", false);
+	maximize("0.1 ml, " + slimeResPriority + " slime res, -familiar, item", false);
+
+	prepForSlimeTube(slimeTubeTurnsToSpend(), wantEngulfed, burnSpleen);
+// 	assert(numeric_modifier("Slime Resistance") >= 3.0, "not enough slime resistance to proceed!");
+
+	int expectedDmg = safeExpectedCoatedInSlimeDmg();
+	int tries = 15;
+	while (expectedDmg < my_maxhp() && tries > 0) {
+		adv1SlimeTube();
+
+		coatedTurns = have_effect($effect[Coated in Slime]);
+		slimeResPriority = 200 / (coatedTurns ** 1.5); // increase slime res with each less Coated in Slime turn
+		maximize("0.1 ml, " + slimeResPriority + " slime res, -familiar, item", false);
+
+		expectedDmg = safeExpectedCoatedInSlimeDmg();
+		tries--;
 	}
 
-	clear_automate_dressup();
-	use_familiar($familiar[robortender]); equip($item[toggle switch (Bartend)]);
-	maximize("0.1 ml, 10 slime res, -familiar", false);
-	maximize("0.1 ml, 10 slime res, -familiar", false);
-	assert(numeric_modifier("Slime Resistance") >= 3.0, "not enough slime resistance to proceed!");
+	print("exiting The Slime Tube with " + have_effect($effect[Coated in Slime]) + " turns of Coated in Slime", "green");
 
-	slimetube(wantEngulfed, burnSpleen);
+	clearCoatedInSlime();
+	assert(have_effect($effect[Coated in Slime]) == 0, "still have Coated in Slime!!!");
 }
 
 
@@ -5890,19 +5893,8 @@ void dailyGrind() {
 	set_property("_smm.HighItemConfirmDone", "true");
 
 	// stuff that needs ITEM DROP
-	if (get_property("garbageChampagneCharge").to_int() > 0) {
-		AdventureRecord ar;
-		if (endGameTurnsSpent[$location[Dreadsylvanian Woods]] < 930 && (my_basestat($stat[muscle]) >= 200 && my_basestat($stat[mysticality]) >= 200 && my_basestat($stat[moxie]) >= 200)) {
-			if (have_item($item[maple magnet]))
-				ar = new AdventureRecord($location[Dreadsylvanian Woods], $skill[none], $item[none]);
-			else
-				ar = new AdventureRecord($location[Dreadsylvanian Village], $skill[none], $item[none]);
-		} else
-			ar = new AdventureRecord($location[none], $skill[none], $item[drum machine]);
-
-		burnBrokenChampagneBottle(ar);
-	}
-
+	if (garbageChampagneCharge() > 0)
+		burnChampagneBottle( ! (endGameTurnsSpent[$location[Dreadsylvanian Woods]] < 930 && (my_basestat($stat[muscle]) >= 200 && my_basestat($stat[mysticality]) >= 200 && my_basestat($stat[moxie]) >= 200)) );
 	grindScience(true); // useSweetSynthesis?
 	grindNeverendingParty(true); // useSweetSynthesis?
 

@@ -19,7 +19,7 @@ explicitly called for). Things that automated dressing might do:
 - wear mafia thumb ring
 - wear latte lovers member's mug if we're in a location with pending unlocks
 - wear a combat lover's locket in a location with pending unlocks
-- wear a melee weapon for mus classes and ranged for mox classes
+- wear a melee weapon for mus classes and ranged for mox classes ??? this is turned off right now
 - wear pantogram pants for hilarity
 In all cases, will respect "-equip" directives, e.g. -equip pantogram pants; will not overwrite
 existing equip directives (including outfits); and will prioritize better items first. The main
@@ -43,8 +43,8 @@ for auto redirection is redirectAdventure() or ra () on the gCLI.
 
 Monster targeting attempts to kill the target monsters a set number of times. It's original purpose
 was to finish New You quests, which need this kind of facility, but it turns out to be useful
-in Bounty quests and grinding as well. Uses automated dressing to equip banishing items and uses
-automated redirection while targeting. See targetMob() for more details.
+in Bounty quests, meat farming, and many other uses besides. Uses automated dressing to equip banishing
+items and uses automated redirection while targeting. See targetMob() for more details.
 
 You can get auto dressup without the auto redirection by setting the additionalMaxString argument to the empty string.
 Put your entire max string in the selector argument instead. You can get auto redirection without the auto dressup by
@@ -86,11 +86,12 @@ string [] kExtraLatteIngredients = {}; // extra ingredients to unlock (other tha
 
 // abstracts the notion of an adventure to include not just a location but also item uses and skill uses.
 // this uniquely identifies a single method to start an adventure
-// One and only one field should be filled out, all others should be none.
+// One and only one field should be filled out, all others should be none / empty.
 record AdventureRecord {
 	location locationToUse;
 	skill skillToUse;
 	item itemToUse;
+	string funcString; // name of a function called with "call"
 };
 
 
@@ -426,8 +427,11 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 	// equip the i voted sticker if we can get a free fight, or if we are in aftercore
 	// if we're not in aftercore and we don't have any more free fights, ensure we aren't
 	// wearing the sticker if it might trigger a wandering monster
-	if (voteMonsterNext() && !wanderingMonstersBad(maxString) && !wantsToNotEquip(maxString, $item[&quot;I Voted!&quot; sticker])
-		&& (!freeWanderingMonstersOnly() || to_int(get_property("_voteFreeFights")) < 3)
+	int freeVoteFightsDone = get_property("_voteFreeFights").to_int();
+	if (voteMonsterNext()
+		&& !wanderingMonstersBad(maxString) && !wantsToNotEquip(maxString, $item[&quot;I Voted!&quot; sticker])
+		&& (freeVoteFightsDone < 3 || !freeWanderingMonstersOnly())
+		&& (freeVoteFightsDone < 3 || get_property("_voteMonster") != "government bureaucrat")
 		&& count_accessories(maxString) < 3) {
 		maxString = maxStringAppend(maxString, "equip \"i voted\" sticker");
 		// no point in the thumb ring if it is a free fight
@@ -463,12 +467,6 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 			if (!wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[oyster basket]) && countHandsUsed(maxString) < 2)
 				maxString = maxStringAppend(maxString, "equip oyster basket");
 		}
-
-		// AEROGEL ATTACHE CASE if we restarted mafia, the aerogelAttacheCaseItemDrops count will be off so just don't equip if we've restarted
-		if (!haveRestartedMafia() && aerogelAttacheCaseItemDrops() < 5
-			&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[aerogel attache case])
-			&& countHandsUsed(maxString) < 2 && have_effect($effect[Fishy]) == 0)
-			maxString = maxStringAppend(maxString, "equip aerogel attache case");
 
 		// LIL' DOCTORS BAG need to wear the bag on the one turn that the quest comes up but not sure how to calc that
 		if (to_boolean(get_property("_wantLilDoctorBagQuest")) && get_property("questDoctorBag") == "unstarted" && count_accessories(maxString) < 3 && !wantsToNotEquip(maxString, $item[Lil' Doctor&trade; bag]))
@@ -535,10 +533,26 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 			maxString = maxStringAppend(maxString, "equip fishin' hat");
 	}
 
+	// AEROGEL ATTACHE CASE if we restarted mafia, the aerogelAttacheCaseItemDrops count will be off so just don't equip if we've restarted
+	if (!inRonin() && !haveRestartedMafia() && aerogelAttacheCaseItemDrops() < 4
+		&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[aerogel attache case])
+		&& countHandsUsed(maxString) < 2 && have_effect($effect[Fishy]) == 0)
+		maxString = maxStringAppend(maxString, "equip aerogel attache case");
+
 	// PANTOGRAM PANTS equip for occasional hilarity
 	if (!wantsToEquip(maxString, $slot[pants]) && !wantsToNotEquip(maxString, $item[pantogram pants])
 		&& get_property("_pantogramModifier").contains_text("Drops Items"))
 		maxString = maxStringAppend(maxString, "equip pantogram pants");
+
+	// FAMILIAR SCRAPBOOK -- default off-hand item???? -- right now just if the familiar needs xp
+	if (!inRonin()
+		&& (my_familiar() == $familiar[Pocket Professor] || my_familiar() == $familiar[Grey Goose]
+			|| (my_familiar() != $familiar[Trick-or-Treating Tot]
+				&& my_familiar() != $familiar[XO Skeleton]
+				&& my_familiar() != $familiar[Robortender]
+				&& my_familiar_weight() < 20))
+		&& !wantsToEquip(maxString, $slot[off-hand]) && !wantsToNotEquip(maxString, $item[familiar scrapbook]) && countHandsUsed(maxString) < 2)
+		maxString = maxStringAppend(maxString, "equip familiar scrapbook");
 
 	// melee vs ranged -- need to be careful with vote monsters as they scale, done last in case we equip any weapons during auto dressup
 	// TODO not sure if we actually want to do this
@@ -893,8 +907,10 @@ string toString(AdventureRecord advRecord) {
 		return advRecord.locationToUse.to_string();
 	else if (advRecord.itemToUse != $item[none])
 		return advRecord.itemToUse.to_string();
-	else
+	else if (advRecord.skillToUse != $skill[none])
 		return advRecord.skillToUse.to_string();
+	else
+		return advRecord.funcString;
 }
 
 
@@ -902,12 +918,18 @@ string toString(AdventureRecord advRecord) {
 string getToAdventure(AdventureRecord advRecord) {
 	if (advRecord.locationToUse != $location[none])
 		return advURL(advRecord.locationToUse);
+
 	else if (advRecord.itemToUse != $item[none]) {
 		preAdventureChecks();
 		return use(1, advRecord.itemToUse);
-	} else {
+
+	} else if (advRecord.skillToUse != $skill[none]) {
 		preAdventureChecks();
 		return use_skill(advRecord.skillToUse);
+
+	} else {
+		string callString = advRecord.funcString;
+		return call string callString ();
 	}
 }
 
@@ -940,6 +962,8 @@ string advURLWithWanderingMonsterRedirect(location aLocation) {
 
 	// REDIRECT
 	if (!inRonin()) { // no redirect in ronin, ever
+		int freeVoteFightsDone = get_property("_voteFreeFights").to_int();
+		monster voteMonster = get_property("_voteMonster").to_monster();
 
 		// SAUSAGE GOBLIN
 		if (chanceOfSausageGoblinNextTurn() >= 1.0) {
@@ -950,8 +974,9 @@ string advURLWithWanderingMonsterRedirect(location aLocation) {
 			print("advURLWithWanderingMonsterRedirect: redirecting to " + actualLocation + " for a sausage goblin", "red");
 
 		// VOTE MONSTER -- might take a turn
-		} else if (voteMonsterNext() && (!freeWanderingMonstersOnly() || to_int(get_property("_voteFreeFights")) < 3)) {
-			monster voteMonster = get_property("_voteMonster").to_monster();
+		} else if (voteMonsterNext()
+			&& (freeVoteFightsDone < 3 || !freeWanderingMonstersOnly())
+			&& (freeVoteFightsDone < 3 || voteMonster != $monster[government bureaucrat])) { // only want free government bureaucrats
 			// equip the i voted sticker if we can get a free fight, or if we are in aftercore
 			if (voteMonsterNext() && !wanderingMonstersBad(dressupMaxString) && !wantsToNotEquip(dressupMaxString, $item[&quot;I Voted!&quot; sticker]) && (!freeWanderingMonstersOnly() || to_int(get_property("_voteFreeFights")) < 3) && count_accessories(dressupMaxString) < 3) {
 				maxString = "equip \"i voted\" sticker";
@@ -1006,10 +1031,11 @@ string advURLWithWanderingMonsterRedirect(location aLocation) {
 	// ADVENTURE
 	string aPage = advURL(actualLocation);
 
-	if (actualLocation == $location[The Smut Orc Logging Camp] && aPage.contains_text("fight.php")) {
-		setSmutOrcPervertProgress(smutOrcPervertProgress() + 1);
-		print("setting smutOrcPervertProgress to: " + smutOrcPervertProgress() + ", turns spent in zone: " + $location[The Smut Orc Logging Camp].turns_spent + ", turns in zone for last pervert: " + to_int(get_property(kLastSmutOrcPervertTurnsSpentKey)));
-	}
+	// moved back to postAdventure()
+// 	if (actualLocation == $location[The Smut Orc Logging Camp] && aPage.contains_text("fight.php")) {
+// 		setSmutOrcPervertProgress(smutOrcPervertProgress() + 1);
+// 		print("setting smutOrcPervertProgress to: " + smutOrcPervertProgress() + ", turns spent in zone: " + $location[The Smut Orc Logging Camp].turns_spent + ", turns in zone for last pervert: " + to_int(get_property(kLastSmutOrcPervertTurnsSpentKey)));
+// 	}
 
 	return aPage;
 

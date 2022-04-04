@@ -411,6 +411,7 @@ string executeScriptAndExitOnWinFight(monster foe, string script) {
 
 // returns true if at least one drop of this given monster is pickpocketable and
 // we're not going to take too much damage by pickpocketing (too much = more than 50% our current hp)
+// TODO don't steal if no pp-only item and all items are both 100% pp AND 100% drop
 boolean pickpocketable(monster foe) {
 	// if it is a new monster, default to true since we have no idea
 	if (foe.image == "") return true;
@@ -1151,6 +1152,9 @@ string doItemsAndBuffs(monster foe, string scriptSoFar) {
 	if (my_familiar() == $familiar[space jellyfish])
 		scriptString += "skill extract jelly;";
 
+	if (get_property("_feelPrideUsed").to_int() < 3 && last_monster() == $monster[sausage goblin]) // any high-xp monster will do
+		scriptString += "skill Feel Pride;";
+
 	// SING ALONG
 	boolean shouldSingAlongWithBoomboxStats = get_property("boomBoxSong") == "Eye of the Giger" && canStagger;
 	boolean shouldSingAlongWithBoomboxSpell = get_property("boomBoxSong") == "Food Vibrations" && defaultAction(foe).skillToUse != $skill[none] && canStagger;
@@ -1169,6 +1173,8 @@ string doItemsAndBuffs(monster foe, string scriptSoFar) {
 		if (equipped_amount($item[Lil' Doctor&trade; bag]) >= 1 && to_int(get_property("_otoscopeUsed")) < 3) scriptString += "skill Otoscope;";
 		if (my_familiar() == $familiar[Pocket Professor]) scriptString += "if hasskill Lecture on mass;skill Lecture on mass;endif;";
 		if (have_skill($skill[Bowl Straight Up])) scriptString += "skill Bowl Straight Up;";
+		if (get_property("_hoboUnderlingSummons").to_int() < 5) scriptString += "skill Ask the hobo to dance for you;";
+
 	} else {
 		if (my_familiar() == $familiar[Pocket Professor] && monster_hp() >= 1296) scriptString += "if hasskill deliver your thesis!;skill deliver your thesis!;endif;";
 	}
@@ -1178,8 +1184,9 @@ string doItemsAndBuffs(monster foe, string scriptSoFar) {
 		scriptString += "use big book of pirate insults;";
 
 	// FEEL NOSTALGIC if the current monster is not the same as last monster and last monster is worth it TODO fix last_monster() is always == foe
-	if (foe != last_monster() && monsterCurrentItemMeatValue(foe) > kTurnValue / 2) {
-		print("feeling nostagic!", "blue");
+	monster nosMon = get_property("feelNostalgicMonster").to_monster();
+	if (foe != nosMon && monsterCurrentItemMeatValue(nosMon) > kTurnValue * 5) {
+		print("feeling nostagic for " + nosMon + "!", "blue");
 		scriptString += "skill feel nostalgic;";
 	}
 
@@ -1341,6 +1348,10 @@ ActionRecord chooseActionRecord(monster foe, ActionRecord attackDone, int damage
 
 	int expectedRounds = ceil(monster_hp(foe) / to_float(damageDone));
 	print("expecting " + expectedRounds + " rds", "blue");
+
+	// FEEL SUPERIOR
+	if (hippy_stone_broken() && monster_hp() < monster_hp(last_monster()) * 0.2 && get_property("_feelSuperiorUsed").to_int() < 3)
+		return new ActionRecord(false, false, $skill[Feel Superior]);
 
 	// DOING ENOUGH DAMAGE?
 	boolean notDoingEnoughDamage = false;

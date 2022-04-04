@@ -20,12 +20,13 @@ int gkDCOvershootAmount = get_property("smm.dcOvershootAmount") == "" ? 11 : get
 int gkDCSaveAmount = get_property("smm.dcSaveAmount") == "" ? 1 : get_property("smm.dcSaveAmount").to_int(); // amount to save from going into the display case
 
 
-// dc will call these functions (is_hatchling, is_gift, etc) on each item. if that function returns true for the item, dc will save
-// the associated number in this map instead of the default gkDCSaveAmount
+// dc will call these functions (is_hatchling, is_gift, etc) on each item. if that function returns true for
+// the item, dc will save the associated number in this map instead of the default gkDCSaveAmount
 int [string] gkTypeSaveMap = {
-	"is_hatchling" : 0, // hatchlings
+	"is_equipment" : 3, // any type of equipment TODO is_equipment is buggy right now
 	"is_gift" : 3, // gifts
 	"is_skillbook" : 0, // skillbooks
+	"is_hatchling" : 0, // hatchlings
 };
 
 
@@ -90,7 +91,7 @@ void dcPrintItemDetails(item anItem, int [int, string] top10List) {
 	int closetAmount = closet_amount(anItem);
 	int displayAmount = display_amount(anItem);
 	int shopAmount = shop_amount(anItem);
-	int total = equippedAmount + familiarEquippedAmount + itemAmount + storageAmount + closetAmount + shopAmount + displayAmount;
+	int total = equippedAmount + familiarEquippedAmount + itemAmount + storageAmount + closetAmount + displayAmount + shopAmount;
 
 	int availableAmount = available_amount(anItem);
 	if ((availableAmount + displayAmount + shopAmount) != total)
@@ -104,9 +105,9 @@ void dcPrintItemDetails(item anItem, int [int, string] top10List) {
 		IntRange top_10_range = collectionRange(top10List);
 		foreach rank, name, num in top10List {
 			if (name.contains_text(my_name()) && myRankString == "")
-				myRankString = " (my rank now: " + rank + ", ";
+				myRankString = " (my rank now: " + rank;
 			if (displayAmount >= num && myNewRankString == "")
-				myNewRankString = "will be: " + rank + ")";
+				myNewRankString = ", will be: " + rank + ")";
 		}
 
 		if (myNewRankString == "")
@@ -180,7 +181,7 @@ int calcMoveUpOneSpot(item anItem, int [int, string] top10List) {
 // (will be less than +11 if there aren't enough items)
 int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
 	int displayAmount = display_amount(anItem);
-	int availableAmount = available_amount(anItem) + shop_amount(anItem) - saveAmount(anItem);
+	int availableAmount = available_amount(anItem) - saveAmount(anItem);
 
 	int goalAmount = availableAmount + displayAmount;
 	if (goalAmount < rank10Amount(top10List)) {
@@ -234,10 +235,11 @@ int top10Item(item anItem, int [int, string] top10List) {
 			take_closet(min(closet_amount(anItem), putAmount - invAmount), anItem);
 			invAmount = item_amount(anItem);
 		}
-		if (putAmount > invAmount) {
-			take_shop(min(shop_amount(anItem), putAmount - invAmount), anItem);
-			invAmount = item_amount(anItem);
-		}
+		// DON'T take from the shop
+// 		if (putAmount > invAmount) {
+// 			take_shop(min(shop_amount(anItem), putAmount - invAmount), anItem);
+// 			invAmount = item_amount(anItem);
+// 		}
 
 		print("dc: putting " + putAmount + " " + anItem + " into display case", "green");
 		put_display(putAmount, anItem);
