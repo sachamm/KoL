@@ -2,7 +2,6 @@ script "basty";
 notify TQuilla;
 since r26135;
 
-import <smmUtils.ash>;
 import <bastille.ash>;
 import <relay/BastilleRelay.ash>;
 
@@ -11,9 +10,9 @@ string __basty_version = "0.8";
 /**
 Win Bastille Battalion (BB) for some definition of "win".
 
-Utilizes code for BB written by Ezandora
+"basty help" in the CLI for help or just "basty win" for default behaviour
 
-"basty help" in the CLI for help
+Utilizes code for BB written by Ezandora
 
 @author Sacha Mallais (TQuilla #2771003)
 */

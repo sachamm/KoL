@@ -10,12 +10,14 @@ To use any of the functions from the command line, do this:
 using smmConsult.ash
 */
 
-// TODO add Meteor Showered for Gingerbread Alligators
 // TODO add Army of Toddlers when wearing xp shirt
 
 // -------------------------------------
 // GLOBALS, DATA TYPES, CONSTANTS, AND DATA
 // -------------------------------------
+
+string kNostalgiaNextCombatKey = "_smm.NostalgiaNextCombat";
+string kSpikolodonNextCombatKey = "_smm.kSpikolodonNextCombat";
 
 record AbortRecord {
 	int missed;
@@ -61,9 +63,10 @@ string [] ltaNoPPMonsters = {
 };
 
 
-boolean gCannotDebuffEnough; // true if we should consider throwing out the idea of attacking physically
-int gkMonsterOriginalAttack = monster_attack();
-int gkMonsterOriginalDefense = monster_defense();
+string gAccumulatedResponse;
+
+int gkMonsterOriginalAttack;
+int gkMonsterOriginalDefense;
 
 
 
@@ -105,24 +108,61 @@ boolean macroAborted(string page) {
 
 
 
+int _gRealMonsterHP;
+
+// returns the monster's real hp as reported by KoL, not Mafia
+// call with the empty string (or other non-matching string) for the cached value
+// defaults to monster_hp() if it can't figure out the hp from the string and there is no cached value
+int real_monster_hp(string combatResult) {
+	int rval;
+	string attackResult = combatResult.to_lower_case();
+	//print("attack string: " + attackResult, "green");
+
+	matcher damageSectionMatcher = create_matcher("var monsterstats = \\{\"hp\":\"([0-9,]+)\",\"def\":\"([0-9,]+)\",\"off\":\"([0-9,]+)\"\\};", attackResult);
+	while (find(damageSectionMatcher))
+		rval = min(rval, to_int(group(damageSectionMatcher, 1)));
+
+	if (rval <= 0) {
+		matcher statblockMatcher = create_matcher("HP: ([0-9]+), Atk: [0-9]+], Def: [0-9]+, Type:", attackResult);
+		while (find(statblockMatcher))
+			rval = min(rval, to_int(group(statblockMatcher, 1)));
+	}
+
+	if (rval <= 0) {
+		if (_gRealMonsterHP != 0)
+			rval = _gRealMonsterHP;
+		else
+			rval = monster_hp();
+	}
+
+	_gRealMonsterHP = rval;
+	return _gRealMonsterHP;
+}
+
+int real_monster_hp() {
+	return real_monster_hp(visit_url("/fight.php"));
+}
+
+
+
 AbortRecord defaultAborts(monster foe) {
 	AbortRecord rval;
 
 	// conservative by default
 	rval.missed = 2;
-	rval.pastround = 20;
+	rval.pastround = 25;
 	rval.hpbelow = 50;
 	rval.hppercentbelow = 50;
 
 	if (my_class() == $class[seal clubber]) {
 		rval.missed = 5;
-		rval.pastround = 20;
+// 		rval.pastround = 20;
 		rval.hpbelow = 33;
 		rval.hppercentbelow = 33;
 
 	} else if (my_class() == $class[turtle tamer]) {
 		rval.missed = 8;
-		rval.pastround = 25;
+// 		rval.pastround = 25;
 		rval.hpbelow = 20;
 		rval.hppercentbelow = 20;
 
@@ -131,13 +171,13 @@ AbortRecord defaultAborts(monster foe) {
 
 	} else if (my_class() == $class[disco bandit]) {
 		rval.missed = 8;
-		rval.pastround = 25;
+// 		rval.pastround = 25;
 		rval.hpbelow = 25;
 		rval.hppercentbelow = 25;
 
 	} else if (my_class() == $class[accordion thief]) {
 		rval.missed = 4;
-		rval.pastround = 20;
+// 		rval.pastround = 20;
 		rval.hpbelow = 33;
 		rval.hppercentbelow = 33;
 
@@ -182,7 +222,7 @@ string toString(DamageRecord dr) {
 		elementString = elementString.joinString(anElement, ", ");
 	}
 
-	return dr.damage + " dmg, picking " + dr.damageTypes + "X from types " + elementString;
+	return dr.damage + " dmg, picking " + dr.damageTypes + " element from types " + elementString;
 }
 
 string toString(DamageRecord [] drs) {
@@ -195,14 +235,14 @@ string toString(DamageRecord [] drs) {
 }
 
 
-// returns the base expected damage done by the give skill, i.e. damage without any bonus damage or bonus percent damage
+// returns the base expected damage done by the give skill, i.e. damage without any damage resistance, bonus damage or bonus percent damage
 // skill none = attack
 DamageRecord [] baseExpectedDamageDone(skill dmgSkill) {
 	DamageRecord [int] rval;
 
 	if (dmgSkill == $skill[none]) {
-		int damage = max(my_buffedstat($stat[muscle]) - monster_defense(), 0);
-		rval[0] = new DamageRecord(my_buffedstat(current_hit_stat()), damage, {$element[none]});
+		int damage = max(my_buffedstat(current_hit_stat()) - monster_defense(), 0);
+		rval[0] = new DamageRecord(damage, 1, {$element[none]});
 
 	} else if (dmgSkill == $skill[Saucestorm]) {
 		rval[0] = new DamageRecord(min(50, 22 + floor(0.2 * my_buffedstat($stat[mysticality]))), 2, {$element[cold], $element[hot]});
@@ -219,9 +259,10 @@ DamageRecord [] baseExpectedDamageDone(skill dmgSkill) {
 
 
 
-// returns the expected damage done by the give skill
+// returns the expected damage done after any bonus damage and the element type of the damage of the given skill
+// does NOT consider foe resistance
 // skill none = attack
-DamageRecord [] expectedDamageDone(skill dmgSkill) {
+DamageRecord [] expectedDamageDoneAfterBuffs(skill dmgSkill) {
 	DamageRecord [int] rval;
 
 	int dmg;
@@ -229,14 +270,14 @@ DamageRecord [] expectedDamageDone(skill dmgSkill) {
 	float weaponBonusPercent = numeric_modifier("Weapon Damage Percent") / 100.0;
 	int spellBonus = numeric_modifier("Spell Damage");
 	float spellBonusPercent = numeric_modifier("Spell Damage Percent") / 100.0;
-	print("weapon damage: " + weaponBonus + ", weapon damage %: " + weaponBonusPercent + ", spell damage: " + spellBonus + ", spell damage %: " + spellBonusPercent);
+	print("weapon bonus damage: " + weaponBonus + ", weapon bonus damage %: " + (weaponBonusPercent * 100) + ", spell bonus damage: " + spellBonus + ", spell bonus damage %: " + (spellBonusPercent * 100));
 
 	if (dmgSkill == $skill[none]) {
-		int damage = (max(my_buffedstat($stat[muscle]) - monster_defense(), 0) + weaponBonus) * (1.0 + weaponBonusPercent);
-		rval[0] = new DamageRecord(my_buffedstat(current_hit_stat()), damage, {$element[none]});
+		int damage = (max(my_buffedstat(current_hit_stat()) - monster_defense(), 0) + weaponBonus) * (1.0 + weaponBonusPercent);
+		rval[0] = new DamageRecord(damage, 1, {$element[none]});
 
 	} else if (dmgSkill == $skill[Saucestorm]) {
-		dmg = (min(50, 22 + floor(0.2 * my_buffedstat($stat[mysticality]))) * (1.0 + spellBonusPercent)) + spellBonus;
+		dmg = min(50, 22 + floor(0.2 * my_buffedstat($stat[mysticality]) + spellBonus)) * (1.0 + spellBonusPercent);
 		rval[0] = new DamageRecord(dmg, 2, {$element[cold], $element[hot]});
 
 	} else if (dmgSkill == $skill[Saucegeyser]) {
@@ -251,8 +292,8 @@ DamageRecord [] expectedDamageDone(skill dmgSkill) {
 }
 
 
-
-// chooses which element to use against the given foe
+// chooses which element to use against the given foe from among the options of the damage we're evaluating
+// example: Saucegeyser will choose hot or cold depending on the foe's resistances
 element [] choseElements(DamageRecord dr, monster foe) {
 	element [int] usefulChoices;
 	int i = 0;
@@ -277,32 +318,59 @@ element [] choseElements(DamageRecord dr, monster foe) {
 }
 
 
+// DOES consider foe resistance
+// skill none = attack
+int expectedDamageDoneToMonsterBySkill(monster foe, skill dmgSkill) {
+	int [element] damageByElement;
+	element [int] sortableElements;
+	int i;
+
+	DamageRecord [] damageData = expectedDamageDoneAfterBuffs(dmgSkill);
+	assert(count(damageData) == 1, "not expecting more than 1 DamageRecord");
+	DamageRecord dr = damageData[0];
+
+	int elementsToChoose = dr.damageTypes;
+	int damageDone;
+	foreach idx, anElement in dr.dmgElements {
+		int damageResisted;
+		if (anElement == $element[none]) // physical res
+			damageResisted = max(0, dr.damage * (foe.physical_resistance / 100.0));
+		else if (monster_element(foe) == anElement) // strong against element
+			damageResisted = dr.damage - 1;
+		else if (weak_elements(foe.monster_element()) contains anElement) // weak against element
+			damageResisted = -dr.damage;
+
+		damageDone = max(0, (dr.damage - damageResisted));
+		damageByElement[anElement] += damageDone;
+		sortableElements[i++] = anElement;
+		print("possible damage done: " + damageDone + " by element " + anElement + " to foe: " + foe);
+	}
+
+	sort sortableElements by -damageByElement[value];
+
+	int totalDamage;
+	for idx from 0 to elementsToChoose - 1 {
+		element anElement = sortableElements[idx];
+		damageDone = damageByElement[anElement];
+		totalDamage += damageDone;
+		print("actual damage done: " + damageDone + " by element " + anElement + " to foe: " + foe);
+	}
+
+	print("total damage done: " + totalDamage + " to foe: " + foe);
+	return totalDamage;
+}
+
+
 
 // flat amount of hp we expect to remove from the given monster AFTER considering element defense and susceptibility
 int expectedDamageDone(ActionRecord anAction, monster foe) {
 	int totalDamage = 0;
 
+	// SKILL / ATTACK
 	if (anAction.skillToUse != $skill[none] || anAction.attack) {
-		foreach idx, dr in baseExpectedDamageDone(anAction.skillToUse) { // we're assuming here that we're getting a skill or we're attacking (in which case skillToUse will be none as expected by baseExpectedDamage)
-			print(dr.toString(), "green");
-			foreach idx, anElement in choseElements(dr, foe) {
-				print("evaluating: " + anElement, "green");
-				int actualAmount = dr.damage;
-				if (anElement != $element[none] && monster_element(foe) == anElement)
-					actualAmount = 1;
-				else {
-					foreach weakElement in weak_elements(foe.monster_element()) {
-						if (anElement == weakElement) {
-							actualAmount *= 2;
-							break;
-						}
-					}
-				}
+		totalDamage = expectedDamageDoneToMonsterBySkill(foe, anAction.skillToUse);
 
-				totalDamage += actualAmount;
-			}
-		}
-
+	// COMBAT ITEMS
 	} else if (anAction.itemToUse != $item[none]) {
 		// have to do this manually????
 		if (anAction.itemToUse == $item[Arr, M80]) {
@@ -346,42 +414,57 @@ boolean canInjureWithSpells(monster foe) {
 }
 
 
-int roundsUntilCanHit(monster foe) {
-	return 0;
+// does NOT take into consideration any debuffing that might happen
+int expectedRoundsToKill(monster foe, int monsterHP, int damageDone) {
+	if (damageDone == 0) damageDone++; // make sure we're not dividing by zero
+	return ceil(monsterHP / to_float(damageDone)); // int/int = int, which will truncate any fraction instead of rounding up
+}
+
+// does NOT take into consideration any debuffing that might happen
+int expectedRoundsToKill(monster foe, int monsterHP, ActionRecord anAttack) {
+	// if we're going to use an instaKill, we're going to kill it in 1 rd
+// 	if (instaKillSkillData().theSkill contains defAction.skillToUse) // TODO could be any insta kill
+	if (anAttack.skillToUse == $skill[Free-for-All])
+		return 1;
+
+	int expectedDamageDone = expectedDamageDone(anAttack, foe);
+	int expectedRoundsToKill = expectedRoundsToKill(foe, monsterHP, expectedDamageDone);
+
+	return expectedRoundsToKill;
 }
 
 
-boolean willKillBeforeTimeout(monster foe, int damageDone) {
-	int expectedRoundsToKill = ceil(monster_hp() / to_float(damageDone)); // int/int = int, which will truncate any fraction instead of rounding up
-	return expectedRoundsToKill <= maxRounds(foe);
+// does NOT take into consideration any debuffing that might happen
+boolean willKillBeforeTimeout(monster foe, int monsterHP, int damageDone) {
+	return expectedRoundsToKill(foe, monsterHP, damageDone) <= maxRounds(foe);
 }
 
 // uses estimates of future damage done
-boolean willKillBeforeTimeout(monster foe, ActionRecord anAttack) {
-	print("willKillBeforeTimeout");
+// does NOT take into consideration any debuffing that might happen
+boolean willKillBeforeTimeout(monster foe, int monsterHP, ActionRecord anAttack) {
 	int expectedDamageDone = expectedDamageDone(anAttack, foe);
-	return willKillBeforeTimeout(foe, expectedDamageDone);
+	return willKillBeforeTimeout(foe, monsterHP, expectedDamageDone);
 }
 
 
-boolean willKillBeforeDying(monster foe, int damageDone, int damageTaken) {
+// does NOT take into consideration any debuffing that might happen
+boolean willKillBeforeDying(monster foe, int monsterHP, int damageDone, int damageTaken) {
 	assert(damageDone > 0, "willKillBeforeDying got a zero damageDone");
 	assert(damageTaken > 0, "willKillBeforeDying got a zero damageTaken");
-	print("willKillBeforeDying(foe, int, int)");
 
 	// int/int = int, which will truncate any fraction instead of rounding up -- hence the conversion to float
-	int expectedRoundsToKill = ceil(monster_hp() / to_float(damageDone));
+	int expectedRoundsToKill = ceil(monsterHP / to_float(damageDone));
 	int expectedRoundsToDie = floor(my_hp() / to_float(damageTaken));
 	return expectedRoundsToKill <= expectedRoundsToDie;
 }
 
 // uses estimates of future damage taken and given
-boolean willKillBeforeDying(monster foe, ActionRecord anAttack) {
-	print("willKillBeforeDying(foe, ActionRecord)");
+// does NOT take into consideration any debuffing that might happen
+boolean willKillBeforeDying(monster foe, int monsterHP, ActionRecord anAttack) {
 	// ensure neither of these are assigned 0, which will result in a div by zero error
 	int expectedDamageDone = max(1, expectedDamageDone(anAttack, foe));
 	int expectedDamageTaken = max(1, safeExpectedDamageTaken());
-	return willKillBeforeDying(foe, expectedDamageDone, expectedDamageTaken);
+	return willKillBeforeDying(foe, monsterHP, expectedDamageDone, expectedDamageTaken);
 }
 
 
@@ -458,18 +541,19 @@ int monsterDefenseDebuffNeededAbsolute() {
 }
 
 
-// returns the status of all debuff skills in an array
+// returns an array of debuff actions we will use to achieve the needed debuffs
 // all debuffs will cause staggering with the possible exception of when a non-staggering debuff was the last to bring us over debuffNeeded
-DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction, float monsterDefenseDebuffNeededFraction) {
+// TODO Stealth Mistletoe
+DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction, float monsterDefenseDebuffNeededFraction, int wantedStatisRounds) {
 	DebuffMonsterRecord rval = new DebuffMonsterRecord(1.0, 1.0, 1.0, 1.0, 0, 0);
   	float debuffNeeded = min(monsterAttackDebuffNeededFraction, monsterDefenseDebuffNeededFraction);
 
 	item [] kDelevelNoStaggerItems = {
+		$item[Zombo's empty eye],
 		$item[Miniborg hiveminder],
 		$item[Miniborg Destroy-O-Bot],
 		$item[Miniborg strangler],
 		$item[spectre scepter],
-		$item[Zombo's empty eye],
 		$item[spectre scepter],
 		$item[spectre scepter],
 		$item[spectre scepter],
@@ -486,8 +570,9 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 
 	float fractionDone = 1.00;
 	int numberOfTurns = 0;
+	int statisRounds = 0;
 	item tempItem;
-	int i = 1; // start at 1 to leave room for weaksauce at the start
+	int i = 1; // index, start at 1 to leave room for weaksauce at index 0
 	int tempItemIndex;
 	boolean didWeaksauce = false;
 
@@ -496,11 +581,14 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 		delevellingMultiplier += 0.5;
 	if (equipped_amount($item[dark porquoise ring]) > 0)
 		delevellingMultiplier += 1.0;
+	if (last_monster() == $monster[Moleman]) // some monsters seem to get less debuffing (recent change?)
+		delevellingMultiplier = delevellingMultiplier / 6.0;
 
 	ActionRecord [int] actions;
 
 	// HOA CITATION PAD
-	if (have_item($item[HOA citation pad]) && fractionDone > debuffNeeded && (monster_phylum() == $phylum[dude] || monster_phylum() == $phylum[hippy] || monster_phylum() == $phylum[orc])) {
+	if (have_item($item[HOA citation pad]) && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)
+		&& (monster_phylum() == $phylum[dude] || monster_phylum() == $phylum[hippy] || monster_phylum() == $phylum[orc])) {
 		if (tempItem == $item[none]) {
 			tempItemIndex = i;
 			actions[i++] = new ActionRecord(false, false, $skill[none], $item[HOA citation pad]);
@@ -511,10 +599,12 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 			tempItem = $item[none];
 		}
 		fractionDone = fractionDone * (1.0 - (0.3 * delevellingMultiplier));
+		statisRounds++;
 	}
 
 	// MAYOR GHOST'S SCISSORS
-	if (have_item($item[Mayor Ghost's scissors]) && fractionDone > debuffNeeded && monster_phylum() == $phylum[undead]) {
+	if (have_item($item[Mayor Ghost's scissors]) && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)
+		&& monster_phylum() == $phylum[undead]) {
 		if (tempItem == $item[none]) {
 			tempItemIndex = i;
 			actions[i++] = new ActionRecord(false, false, $skill[none], $item[Mayor Ghost's scissors]);
@@ -525,81 +615,94 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 			tempItem = $item[none];
 		}
 		fractionDone = fractionDone * (1.0 - (0.3 * delevellingMultiplier));
+		statisRounds++;
 	}
 
 	// DETECT WEAKNESS
-	if (have_skill($skill[Detect Weakness]) && fractionDone > debuffNeeded) {
+	if (have_skill($skill[Detect Weakness]) && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)) {
 		actions[i++] = new ActionRecord(false, false, $skill[Detect Weakness], $item[none]);
 		numberOfTurns++;
 		fractionDone = fractionDone * (1.0 - (0.1 * delevellingMultiplier));
+		statisRounds++;
 	}
 
 	// TIME-SPINNER
-	if (have_item($item[time-spinner]) && fractionDone > debuffNeeded) {
+	if (have_item($item[time-spinner]) && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)) {
 		actions[i++] = new ActionRecord(false, false, $skill[none], $item[time-spinner], kDelevelNoStaggerItems[delevelNoStaggerIndex++]);
 		numberOfTurns++;
 		fractionDone = fractionDone * (1.0 - (0.05 * delevellingMultiplier));
+		statisRounds++;
 	}
 
 	// LITTLE RED BOOK
-	if (have_item($item[little red book]) && fractionDone > debuffNeeded) {
+	if (have_item($item[little red book]) && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)) {
 		actions[i++] = new ActionRecord(false, false, $skill[none], $item[little red book], kDelevelNoStaggerItems[delevelNoStaggerIndex++]);
 		numberOfTurns++;
 		fractionDone = fractionDone * (1.0 - (0.05 * delevellingMultiplier));
+		statisRounds++;
 	}
 
 	// BOOMBOX
-	if (have_skill($skill[Sing Along]) && get_property("boomBoxSong") == "Remainin' Alive" && fractionDone > debuffNeeded) {
+	if (have_skill($skill[Sing Along]) && get_property("boomBoxSong") == "Remainin' Alive" && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)) {
 		actions[i++] = new ActionRecord(false, false, $skill[Sing Along], $item[none]);
 		numberOfTurns++;
 		fractionDone = fractionDone * (1.0 - (0.15 * delevellingMultiplier));
+		statisRounds++;
 	}
 
 	// MICROMETEORITE
-	if (have_skill($skill[micrometeorite]) && fractionDone > debuffNeeded) {
+	if (have_skill($skill[micrometeorite]) && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)) {
 		actions[i++] = new ActionRecord(false, false, $skill[micrometeorite], $item[none]);
 		numberOfTurns++;
 		fractionDone = fractionDone * (1.0 - (micrometerorite_percent() * delevellingMultiplier));
+		statisRounds++;
 	}
 
 	// WEAKSAUCE check LAST to see how many combat turns we've used debuffing, then insert the actual debuff at the START of the script so we get all those turns of auto-debuffing
-	if (have_skill($skill[curse of weaksauce]) && (fractionDone > debuffNeeded || my_class() == $class[sauceror])) {
+	if (have_skill($skill[curse of weaksauce])) { // use CoW no matter what -- if we debuff at all we will need it either because we're not doing enough damage or we need it to hit in the first place
+// 	   && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds || my_class() == $class[Sauceror] || count(actions) >= 1)) { // use weaksauce if we debuffed at all before??? free debuffing seems like a good idea if we need it
 		actions[0] = new ActionRecord(false, false, $skill[curse of weaksauce], $item[none]);
 		numberOfTurns++;
+		statisRounds++;
 		didWeaksauce = true;
-		fractionDone = fractionDone - (0.03 * delevellingMultiplier * numberOfTurns); // weaksauce will take 3% of the initial stats each turn, so use MINUS instead of multiplying
-		rval.repeatingAttackAbsolute += monster_attack() * 0.03;
-		rval.repeatingDefenseAbsolute += monster_defense() * 0.03;
+		rval.repeatingAttackAbsolute += min(monster_attack() * 0.04, 66); // weaksauce debuffs by 4% and caps out at ~66 stats debuffed / turn (contra the wiki)???????????????????????????????
+		rval.repeatingDefenseAbsolute += min(monster_defense() * 0.04, 66);
+		float weaksauceFraction = min(rval.repeatingAttackAbsolute / monster_attack(), rval.repeatingDefenseAbsolute / monster_defense());
+		fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier * numberOfTurns); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
 
 		// NON-DELEVELING but staggering for weaksauce -- assuming no further useful items, so fill up funksling hand with a divine item to do damage
 		// NASTY-SMELLING MOSS stagger for debuff with weaksauce -- if there's an item to throw left over from above, use that
-		if (have_item($item[nasty-smelling moss]) && fractionDone > debuffNeeded) { // stagger for weaksauce
+		if (have_item($item[nasty-smelling moss]) && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)) { // stagger for weaksauce
 			actions[i++] = new ActionRecord(false, false, $skill[none], $item[nasty-smelling moss], kDelevelNoStaggerItems[delevelNoStaggerIndex++]);
 			numberOfTurns++;
-			fractionDone = fractionDone - (0.03 * delevellingMultiplier); // weaksauce will take 3% of the initial stats each turn, so use MINUS instead of multiplying
+			fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
+			statisRounds++;
 		}
 		// ENTANGLING NOODLES
-		if (my_class() != $class[pastamancer] && fractionDone > debuffNeeded) { // if we're not going to use it for stunning, use it for debuff with weaksauce due to staggering
+		if (my_class() != $class[pastamancer] && (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds)) { // if we're not going to use it for stunning, use it for debuff with weaksauce due to staggering
 			actions[i++] = new ActionRecord(false, false, $skill[Entangling Noodles], $item[none]);
 			numberOfTurns++;
-			fractionDone = fractionDone - (0.03 * delevellingMultiplier); // weaksauce will take 3% of the initial stats each turn, so use MINUS instead of multiplying
+			fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
+			statisRounds++;
 		}
 		// SILENT knife stagger for debuff with weaksauce
-		if (fractionDone > debuffNeeded) {
+		if (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds) {
 			actions[i++] = new ActionRecord(false, false, $skill[Silent Knife], $item[none]);
 			numberOfTurns++;
-			fractionDone = fractionDone - (0.03 * delevellingMultiplier); // weaksauce will take 3% of the initial stats each turn, so use MINUS instead of multiplying
+			fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
+			statisRounds++;
 		}
 		// SILENT skill stagger for debuff with weaksauce TODO figure best one ----- DOESN'T STAGGER?
-		if (fractionDone > debuffNeeded) {
+		if (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds) {
 // 			if (equipped_item($slot[weapon]).type == "knife" || )
 			actions[i++] = new ActionRecord(false, false, $skill[Silent Slice], $item[none]);
 			numberOfTurns++;
-			fractionDone = fractionDone - (0.03 * delevellingMultiplier); // weaksauce will take 3% of the initial stats each turn, so use MINUS instead of multiplying
+			fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
+			statisRounds++;
 		}
 
 		// CHEAPEST STAGGER ITEM
-		if (fractionDone > debuffNeeded) { // stagger for weaksauce
+		if (fractionDone > debuffNeeded || statisRounds < wantedStatisRounds) { // stagger for weaksauce
 			item [] kStaggerItems = {
 				$item[Battlie Light Saver],
 				$item[big boom],
@@ -620,7 +723,8 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 			item cheapestStaggerItem = kStaggerItems[0];
 			actions[i++] = new ActionRecord(false, false, $skill[none], cheapestStaggerItem, kDelevelNoStaggerItems[delevelNoStaggerIndex++]);
 			numberOfTurns++;
-			fractionDone = fractionDone - (0.03 * delevellingMultiplier); // weaksauce will take 3% of the initial stats each turn, so use MINUS instead of multiplying
+			fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
+			statisRounds++;
 		}
 	}
 
@@ -723,14 +827,14 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 
 
 // TODO add survivable rounds to debuff needed
-DebuffMonsterRecord debuffMonsterRecords() {
+DebuffMonsterRecord debuffMonsterRecords(int wantedStatisRounds) {
 	float monsterAttackDebuffNeededFraction = monsterAttackDebuffNeededFraction();
 	float monsterDefenseDebuffNeededFraction = monsterDefenseDebuffNeededFraction();
 
-	print("fraction to always defend: " + monsterAttackDebuffNeededFraction + ", buffed moxie: " + my_buffedstat($stat[moxie]) + ", monster attack + 10: " + (monster_attack() + 10.0));
-	print("fraction to always hit: " + monsterDefenseDebuffNeededFraction + ", buffed attack stat: " + my_buffedstat(attackStat()) + ", monster defense + 5: " + (monster_defense() + 5.0));
+	print("fraction to always defend: " + monsterAttackDebuffNeededFraction + ", buffed moxie: " + my_buffedstat($stat[moxie]) + ", monster attack + 10: " + (monster_attack() + 10.0), "blue");
+	print("fraction to always hit: " + monsterDefenseDebuffNeededFraction + ", buffed attack stat: " + my_buffedstat(attackStat()) + ", monster defense + 5: " + (monster_defense() + 5.0), "blue");
 
-	return debuffMonsterRecords(monsterAttackDebuffNeededFraction, monsterDefenseDebuffNeededFraction);
+	return debuffMonsterRecords(monsterAttackDebuffNeededFraction, monsterDefenseDebuffNeededFraction, wantedStatisRounds);
 }
 
 
@@ -791,18 +895,196 @@ int roundsBeforeHit(DebuffMonsterRecord dmr, monster foe) {
 	return maxRounds(foe);
 }
 
-
-
 // similar to will_usually_miss() but returns true if we can ALWAYS hit the monster
 // uses attackStat() which wraps current_hit_stat() to consider the Cosplay sabre.
 boolean willAlwaysHit() {
-	return my_buffedstat(attackStat()) >= (monster_defense() + 5.0);
+	return my_buffedstat(attackStat()) >= (monster_defense() + 5.0) || equipped_amount($item[June cleaver]) >= 1;
 }
 
-boolean shouldDebuff() {
-	print("willAlwaysHit: " + willAlwaysHit() + ", gCannotDebuffEnough: " + gCannotDebuffEnough + ", will_usually_dodge " + will_usually_dodge() + ", safeExpectedDamageTaken: " + safeExpectedDamageTaken(), "blue");
-	return (!willAlwaysHit() && !gCannotDebuffEnough) || (!will_usually_dodge() && safeExpectedDamageTaken() * 20 > my_hp());
-// 	return true;
+
+boolean willHitInTime(DebuffMonsterRecord dmr, monster foe) {
+	int roundsBeforeHit = roundsBeforeHit(dmr, foe);
+	if (roundsBeforeHit >= 15)
+		return false;
+	return true;
+}
+
+
+// true if we should attack this monster, i.e. if we can hit and do enough damage to kill it while staying alive ourselves
+boolean shouldAttack(monster foe, DebuffMonsterRecord dmr, int monsterHP) {
+// 	int expectedDmgDone = expectedDamageDone($skill[none]); // none = attack
+// 	if (expectedDmgDone > monster_hp() * 1.25)
+// 		return true;
+// 
+	// if debuffing takes too long, don't attack
+	if (!willHitInTime(dmr, foe)) {
+		print("shouldAttack: false, will take so many rds to debuff to the point we can't attack successfully!", "green");
+		return false;
+	}
+
+	// if debuffing takes more rounds than we have available, don't attack
+	// assumes 5 rounds for attacking
+	if (count(dmr.actions) + 5 >= 25) {
+		print("shouldAttack: false, debuffing will not leave us enough time to kill!", "green");
+		return false;
+	}
+
+	// if debuffing takes longer than we can survive, don't attack
+	int roundsBeforeDefend = roundsBeforeDefend(dmr, foe);
+	int safeExpectedDamageTaken = safeExpectedDamageTaken(foe);
+	if (roundsBeforeDefend * safeExpectedDamageTaken > my_hp()) { // if we're debuffing, this amount will go down over rds, so don't include any more safety factor
+		print("shouldAttack: false, we'll die while debuffing!", "green");
+		return false;
+	}
+
+	// if we can't stagger, we can't really debuff safely and we have to be able to kill fast
+	if (!canStagger(foe) && safeExpectedDamageTaken * 10 > my_hp()) {
+		print("shouldAttack: false, can't stagger and taking too much damage to withstand during debuffing", "green");
+		return false;
+	}
+
+	// if foe's physical resistance is too high, don't attack
+	if ((foe.physical_resistance > 50 && buffed_hit_stat() < 3 * foe.base_defense) // can we overwhelm resistance with 3 times the required stat???????????????????????????????
+		|| foe.physical_resistance > 75) {
+		print("shouldAttack: false, foe physical resistance " + foe.physical_resistance + ", which is > 50!", "green");
+		return false;
+	}
+
+	return true;
+}
+
+
+// return the default attack
+// the basic idea is that any monster susceptible to attacks should be attacked unless they do
+// too much damage or if they don't take physical damage.
+// most monsters are susceptible to attack, even if their stats are much higher
+ActionRecord defaultAttack(monster foe, int monsterHP) { // #defaultAction
+	ActionRecord theAction;
+	DebuffMonsterRecord dmr = debuffMonsterRecords(0);
+	boolean shouldAttack = shouldAttack(foe, dmr, monsterHP);
+
+	// NORMAL HOBO special override because we don't want too much overdamage to normal hobos
+	if (foe == $monster[Normal hobo])
+		theAction.skillToUse = $skill[Saucestorm];
+
+	// DRIPPY MONSTER drippy monsters only susceptible to attacks
+	else if (foe == $monster[drippy tree] || foe == $monster[drippy bat] || foe == $monster[drippy reveler])
+		theAction.attack = true;
+
+	// SAUCEROR saucerors gain MP from overkilling with Curse of Weaksauce
+	else if (my_class() == $class[Sauceror] && my_mp() >= mp_cost($skill[Saucegeyser]))
+		theAction.skillToUse = $skill[Saucegeyser];
+
+	// PIG SKINNER every 25 turns, use a Free-for-all for a free kill
+	else if (my_class() == $class[Pig Skinner] && foe != $monster[sausage goblin]
+		&& !foe.boss && have_effect($effect[Everything Looks Red]) == 0 && my_mp() >= mp_cost($skill[Free-for-all])
+		&& !(gkNoInstaKillMonsters contains foe)) {
+		theAction.skillToUse = $skill[Free-for-all];
+
+	// CANNOT DEBUFF ENOUGH OR PHYSICAL RES TOO HIGH
+	} else if (!shouldAttack) {
+		print("recommending escalation immediately", "orange");
+		theAction.skillToUse = $skill[Saucestorm];
+
+		// will saucestorm take too many rounds, irrespective of the foe's attack/defence -- typically not mana efficient
+		if (expectedRoundsToKill(foe, monsterHP, theAction) > 4)
+			theAction.skillToUse = $skill[Saucegeyser];
+
+		// these elements will 1/2 our damage, but should be incorporated into other calcs??
+// 		if (foe.monster_element() == $element[cold] || foe.monster_element() == $element[hot])
+// 			theAction.skillToUse = $skill[Saucegeyser];
+
+		if (!willKillBeforeDying(foe, monsterHP, theAction) || !willKillBeforeTimeout(foe, monsterHP, theAction))
+			theAction.skillToUse = $skill[Saucegeyser];
+
+		int expectedRds = expectedRoundsToKill(foe, monsterHP, theAction);
+		if (my_mp() < (mp_cost(theAction.skillToUse) * expectedRds))
+			abort("we'd like to escalate to " + theAction.skillToUse + " but we don't have enough mp!");
+
+	// WEAPON OF THE PASTALORD ???
+// 	} else if (foe.physical_resistance > 80 && my_mp() >= mp_cost($skill[Weapon of the Pastalord])) {
+// 		print("recommending escalation to Weapon of the Pastalord immediately", "blue");
+// 		theAction.skillToUse = $skill[Weapon of the Pastalord];
+
+	// STAR STARFISH
+	} else if (wantToStasis()) { // if everything looks good and we've got a starfish, do minimal dmg to maximize mp regen
+		print("star starfish technique!", "blue");
+		theAction.itemToUse = $item[seal tooth];
+
+	// if we have a bunch of Arr, M80s, use those up
+	} else if (item_amount($item[Arr, M80]) >= 50
+		&& foe.monster_element() != $element[hot]
+		&& monsterHP <= (50 * 2 * 15)) { // Arr, M80s do ~50 hot dmg avg and drop items worth more than an Arr, M80(?)
+		checkIfRunningOut($item[Arr, M80], 10000);
+		theAction.itemToUse = $item[Arr, M80];
+		theAction.item2ToUse = $item[Arr, M80];
+
+	// if we're a TT, try out the Kneebutt
+	} else if (my_class() == $class[turtle tamer]) {
+		if (expected_damage() < monsterHP && safeExpectedDamageTaken(foe) > (my_maxhp() / 25) && mp_cost($skill[Kneebutt]) < my_mp()) // TODO if we take more damage than we heal
+			theAction.skillToUse = $skill[Kneebutt];
+		else
+			theAction.attack = true;
+
+	// DEFAULT
+	} else {
+		theAction.attack = true;
+	}
+
+	if (theAction.skillToUse != $skill[none] && mp_cost(theAction.skillToUse) > my_mp())
+		abort("not enough mp to use default attack " + macroForAction(theAction));
+
+	return theAction;
+}
+
+
+
+boolean doingEnoughDamage(monster foe, int currentMonHp, int damageDone) {
+	int expectedRounds = ceil(currentMonHp / to_float(damageDone));
+	int roundsRemaining = maxRounds(foe) - current_round();
+	print("expecting to take " + expected_damage() + " damage (or " + safeExpectedDamageTaken() + " with the safety margin) per round. rounds remaining: " + roundsRemaining, "green");
+
+	// SAFE FIGHT
+	if (expectedRounds < roundsRemaining // doing enough damage
+		&& (my_hp() / 2) > safeExpectedDamageTaken() * (expectedRounds - 1)) // and not taking too much damage -- never want to take more than 1/2 hp in a fight TODO figure the amount of hp we're regaining?
+		return true;
+
+	// ONE HIT KILL
+	if (damageDone > currentMonHp)
+		return true;
+
+	return false;
+}
+
+
+
+// true if we should try to debuff this monster for melee/ranged
+// false when debuffing would not be profitable, either because we can't debuff enough, 
+// we don't need to debuff, 
+boolean shouldDebuff(monster foe, DebuffMonsterRecord dmr, int monsterHP) {
+	print("willAlwaysHit: " + willAlwaysHit() + ", will_usually_dodge " + will_usually_dodge() + ", safeExpectedDamageTaken: " + safeExpectedDamageTaken(), "blue");
+	int expectedDamageDone = expectedDamageDone(new ActionRecord(true), foe);
+
+	// if we're not going to attack, we shouldn't debuff
+	// captures a lot of the logic that used to be in this function (via shouldAttack())
+	if (!defaultAttack(foe, monsterHP).attack) {
+		print("shouldDebuff: false, we're not attacking", "green");
+		return false;
+	}
+
+	// if we're attacking and we won't do enough damage by default, debuff
+	if (!doingEnoughDamage(foe, monsterHP, expectedDamageDone)) {
+		print("shouldDebuff: true, we're not doing enough damage", "green");
+		return true;
+	}
+
+	// if we're already always hitting, no need to debuff
+	if (willAlwaysHit()) {
+		print("shouldDebuff: false, we're always hitting", "green");
+		return false;
+	}
+
+	return true;
 }
 
 // the fraction of the monster's defense that needs to remain before an attack would be successful
@@ -820,7 +1102,8 @@ boolean isDebuffEnoughToDefend(float offFraction) {
 	return offFraction <= fractionNeededToSuccessfullyDefend;
 }
 
-boolean canDebuffEnough(DebuffMonsterRecord dmr, monster foe) {
+// true if the given debuffs will debuff enough to hit before the combat times out
+boolean debuffsEnough(DebuffMonsterRecord dmr, monster foe) {
 	int damageTakenBeforeCanHit = roundsBeforeHit(dmr, foe) * safeExpectedDamageTaken();
 // 	print("weaksauceTurnsUntilHit: " + weaksauceTurnsUntilHit(dmr.expectedDefenseFraction) + ", damageTakenBeforeCanHit: " + damageTakenBeforeCanHit, "blue");
 // 	return isDebuffEnoughToHit(defFraction) && isDebuffEnoughToDefend(offFraction);
@@ -860,7 +1143,7 @@ string isMonsterFromLocationScript(location aLocation, string conditionalFunctio
 // 		print("monster: " + m + ", changed to: " + monsterName, "blue");
 
 		boolean conditional = (conditionalFunction == "") ? true : call boolean conditionalFunction(m);
-		if (m != $monster[none] && monsterMap[m] > 0 && conditional)
+		if (m != $monster[none] && conditional)
 			rval = rval.joinString("monstername " + monsterName, " || ");
 	}
 	return rval;
@@ -870,66 +1153,6 @@ string isMonsterFromLocationScript(location aLocation, string conditionalFunctio
 // returns a string with a conditional that returns true iff the monster we're fighting is one from the given location
 string isMonsterFromLocationScript(location aLocation) {
 	return isMonsterFromLocationScript(aLocation, "");
-}
-
-
-
-// return the default attack action
-ActionRecord defaultAction(monster foe) {
-	ActionRecord theAction;
-
-	// NORMAL HOBO override
-	if (foe == $monster[Normal hobo]) // special override because we don't want too much overdamage to normal hobos
-		theAction.skillToUse = $skill[Saucestorm];
-
-	// DRIPPY MONSTER override
-	else if (foe == $monster[drippy tree] || foe == $monster[drippy bat] || foe == $monster[drippy reveler]) // drippy monsters only susceptible to attacks
-		theAction.attack = true;
-
-	// SAUCEROR override
-	else if (my_class() == $class[Sauceror] && my_mp() >= mp_cost($skill[Saucegeyser])) // saucerors gain MP from overkilling with Curse of Weaksauce
-		theAction.skillToUse = $skill[Saucegeyser];
-
-	// CANNOT DEBUFF ENOUGH OR PHYSICAL RES TOO HIGH
-	else if (gCannotDebuffEnough || foe.physical_resistance > 80) {
-		print("recommending escalation immediately, cannot debuff enough: " + gCannotDebuffEnough + ", physical res: " + foe.physical_resistance + "%", "blue");
-		theAction.skillToUse = $skill[Saucestorm];
-		if ((!willKillBeforeDying(foe, theAction) || foe.monster_element() == $element[cold] || foe.monster_element() == $element[hot]) && my_mp() >= mp_cost($skill[Saucegeyser]))
-			theAction.skillToUse = $skill[Saucegeyser];
-		else if (!willKillBeforeDying(foe, theAction) || foe.monster_element() == $element[cold] || foe.monster_element() == $element[hot])
-			abort("we'd like to escalate to saucegeyser but we don't have enough mp");
-
-	// WEAPON OF THE PASTALORD ???
-	} else if ((gCannotDebuffEnough || foe.physical_resistance > 80) && my_mp() >= mp_cost($skill[Weapon of the Pastalord])) {
-		print("recommending escalation to Weapon of the Pastalord immediately", "blue");
-		theAction.skillToUse = $skill[Weapon of the Pastalord];
-
-	// STAR STARFISH
-	} else if (wantToStasis()) { // if everything looks good and we've got a starfish, do minimal dmg to maximize mp regen
-		theAction.itemToUse = $item[seal tooth];
-
-	// DEFAULT
-	} else {
-		if (item_amount($item[Arr, M80]) >= 2
-			&& foe.monster_element() != $element[hot]
-			&& foe.monster_hp() <= (50 * 2 * 15)) { // Arr, M80s do ~50 hot dmg avg and drop items worth more than an Arr, M80(?)
-			checkIfRunningOut($item[Arr, M80], 10000);
-			theAction.itemToUse = $item[Arr, M80];
-			theAction.item2ToUse = $item[Arr, M80];
-
-		} else if (my_class() == $class[turtle tamer]) {
-			if (expected_damage() < monster_hp() && safeExpectedDamageTaken(foe) > my_maxhp() * 0.02) // TODO if we take more damage than we heal
-				theAction.skillToUse = $skill[Kneebutt];
-			else
-				theAction.attack = true;
-		} else
-			theAction.attack = true;
-	}
-
-	if (theAction.skillToUse != $skill[none] && mp_cost(theAction.skillToUse) > my_mp())
-		abort("not enough mp to use default attack " + macroForAction(theAction));
-
-	return theAction;
 }
 
 
@@ -944,7 +1167,7 @@ string setupAborts(monster foe) {
 		rval += "abort missed " + ar.missed + ";";
 	if (ar.pastround > 0)
 		rval += "abort pastround " + ar.pastround + ";";
-	if (ar.hpbelow > 0)
+	if (ar.hpbelow > 0 && my_maxhp() > ar.hpbelow) // TODO check if macro language can do this: abort my_maxhp() > ar.hpbelow || hpbelow X;
 		rval += "abort hpbelow " + ar.hpbelow + ";";
 	if (ar.hppercentbelow > 0)
 		rval += "abort hppercentbelow " + ar.hppercentbelow + ";";
@@ -962,18 +1185,15 @@ string setupAborts(monster foe) {
 // mafia may not capture the new monster's stats correctly
 // do something to update mafia's knowledge of the stats, which will allow
 // the consult script to calculate things properly
-// returns the unexecuted part of the script, same as the rest
-string resyncMonsterStats(monster foe, string scriptSoFar) {
+string resyncMonsterStats() {
 	print("REFRESH!", "orange");
-	string scriptString = scriptSoFar;
-
-	visit_url("/fight.php", false, false);
+	return visit_url("/fight.php", true, false);
 
 // 	if (scriptString != "" && scriptString != setupAborts(foe)) {
 // 		// if we're pickpocketing or something else, that will suffice
 // 	} else { // otherwise do some kind of default action
 // 		if (inRonin())
-// 			scriptString += macroForAction(defaultAction(foe)); // means we're doing the default action twice -- TODO figure something else to do?
+// 			scriptString += macroForAction(defaultAttack(foe)); // means we're doing the default action twice -- TODO figure something else to do?
 // 		else {
 // 			if (my_hp() < 200)
 // 				scriptString += "skill Silent Treatment;";
@@ -981,10 +1201,8 @@ string resyncMonsterStats(monster foe, string scriptSoFar) {
 // 				scriptString += "skill Blood Bucatini;";
 // 		}
 // 	}
-// 	executeScript(scriptString);
+// 	gAccumulatedResponse += executeScript(scriptString);
 // 	scriptString = "";
-
-	return scriptString;
 }
 
 
@@ -1006,10 +1224,9 @@ string startFight(monster foe) {
 	string scriptString = "";
 
 	if (!inRonin()) {
-		// YELLOW RAY
+		// YELLOW RAY swarm of scarab beatles
 		if (item_amount($item[Yellow Rocket]) > 0 && have_effect($effect[Everything Looks Yellow]) == 0) {
-			if (foe == $monster[swarm of scarab beatles]
-				|| foe == $monster[slime blob]) {
+			if (foe == $monster[swarm of scarab beatles]) {
 				// don't need to pickpocket, Disintegrate will get it all
 // 				use_skill($skill[Disintegrate]);
 				throw_item($item[Yellow Rocket]);
@@ -1025,37 +1242,37 @@ string startFight(monster foe) {
 
 
 
-string doDebuff(monster foe, string scriptSoFar) {
+string doDebuff(monster foe, int monsterHP, string scriptSoFar) {
 	print("doDebuff");
-	string scriptString;
+	string scriptString = scriptSoFar;
 
-	if (shouldDebuff()) {
-		print("safeExpectedDamageTaken: " + safeExpectedDamageTaken(), "blue");
-		if (canStagger(foe) || safeExpectedDamageTaken() * 20 < my_hp()) { // if we can't stagger we should just abort if we can't handle the damage output
-			DebuffMonsterRecord dmr = debuffMonsterRecords();
-// 			if (canDebuffEnough(dmr)) {
-				scriptString = scriptSoFar + macroForActions(dmr.actions);
-				print("debuffing: " + scriptString, "blue");
-// 			} else {
-// 				print("recommending escalation to spells: we can't debuff enough: " + dmr.expectedAttackFraction + " offense fraction, " + dmr.expectedDefenseFraction + " def fraction", "blue");
-// 				gCannotDebuffEnough = true; // if we can't debuff enough, cast spells instead
-// 			}
-		} else { // if we need to debuff and can't stagger, cast spells TODO: see if a single debuff will cross the threshold to safe (in which case staggering isn't necessary)
-			print("recommending escalation to spells: we can't stagger and monster is doing too much damage (" + safeExpectedDamageTaken() + ") to absorb it while debuffing!", "blue");
-			gCannotDebuffEnough = true;
-		}
+	// water balloon
+// 	scriptString += "use water balloon;";
+	int statisRounds = 0;
+
+	DebuffMonsterRecord dmr = debuffMonsterRecords(statisRounds);
+
+	if (shouldAttack(foe, dmr, monsterHP) || statisRounds > 0) {
+		// might not want to debuff even if we're attacking -- we're always hitting, for example
+		if (shouldDebuff(foe, dmr, monsterHP) || statisRounds > 0) {
+			print("we want to statis for " + statisRounds, "blue");
+			scriptString += macroForActions(dmr.actions);
+
+		// if we don't debuff, Sauceror won't have cast Curse of Weaksauce, which we want
+		} else if (my_class() == $class[Sauceror])
+			scriptString += "skill Curse of Weaksauce;";
 	}
 
 	return scriptString;
 }
 
 
-string doPickpocket(monster foe, string scriptSoFar) {
-	print("doPickpocket");
+string doPickpocket(monster foe, int monsterHP, string scriptSoFar) {
+	print("doPickpocket, round: " + current_round());
 	string scriptString = scriptSoFar;
 
 	// PICKPOCKET
-	if (pickpocketable(foe) && current_round() == 1) {
+	if (pickpocketable(foe) && current_round() <= 1) {
 		if (my_class() == $class[disco bandit] || my_class() == $class[accordion thief]
 			|| equipped_amount($item[tiny black hole]) > 0 || equipped_amount($item[mime army infiltration glove]) > 0) {
 			scriptString += "pickpocket;";
@@ -1069,46 +1286,34 @@ string doPickpocket(monster foe, string scriptSoFar) {
 
 
 
-// TODO
-string doDiscoPickpocket(monster foe, string scriptSoFar) {
-	return scriptSoFar;
-}
-
-
-
 // pickpocketing and debuffing are together because we have to pickpocket first but
 // we'd like to debuff before trying any potential Disco Combo
-string doPickpocketAndDebuff(monster foe, string scriptSoFar) {
+string doPickpocketAndDebuff(monster foe, int monsterHP, string scriptSoFar) {
 	print("doPickpocketAndDebuff");
 
 	// PICKPOCKET
 	string scriptString = scriptSoFar;
-	scriptString = doPickpocket(foe, scriptString);
+	scriptString = doPickpocket(foe, monsterHP, scriptString);
 
 	// WORKAROUND: KoL stats are not consistent with reality until we interact with the monster -- do that here before we get to the main debuff calculations
-	scriptString = resyncMonsterStats(foe, scriptString);
+	string pageString = resyncMonsterStats();
 
 	// DEBUFF
-	scriptString = doDebuff(foe, scriptString);
-
-	boolean tryDiscoCombo = my_class() == $class[Disco Bandit];
-	if (tryDiscoCombo) {
-		scriptString = doDiscoPickpocket(foe, scriptString);
-	}
+	scriptString = doDebuff(foe, real_monster_hp(pageString), scriptString);
 
 	return scriptString;
 }
 
 
 
-string doClassStun(monster foe, string scriptSoFar) {
+string doClassStun(monster foe, int monsterHP, string scriptSoFar) {
 	print("doClassStun");
 	skill stunSkill = stun_skill();
 	boolean shouldUseStunSkill = have_skill(stunSkill);
 
 	if (stunSkill == $skill[Accordion Bash] && !atAccordionEquipped())
 		shouldUseStunSkill = false;
-	if (safeExpectedDamageTaken() < my_maxhp() * 0.05 || expectedDamageDone(defaultAction(foe), foe) > monster_hp())
+	if (safeExpectedDamageTaken() < my_maxhp() * 0.05 || expectedDamageDone(defaultAttack(foe, monsterHP), foe) > monsterHP)
 		shouldUseStunSkill = false;
 	if (my_class() == $class[sauceror] && my_soulsauce() < 5)
 		shouldUseStunSkill = false;
@@ -1138,13 +1343,15 @@ string doOlfaction(monster foe, string scriptSoFar) {
 	}
 	if (to_monster(get_property("_latteMonster")) != foe && have_skill($skill[Offer Latte to Opponent]))
 		scriptSoFar += "skill Offer Latte to Opponent;";
+	if (to_monster(get_property("mokeyPointMonster")) != foe && have_skill($skill[Monkey Point]))
+		scriptSoFar += "skill Monkey Point;";
 	return scriptSoFar;
 }
 
 
 
 // assumes the class stun is either done or not needed
-string doItemsAndBuffs(monster foe, string scriptSoFar) {
+string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 	print("doItemsAndBuffs");
 	string scriptString = scriptSoFar;
 	boolean canStagger = canStagger(foe);
@@ -1152,12 +1359,35 @@ string doItemsAndBuffs(monster foe, string scriptSoFar) {
 	if (my_familiar() == $familiar[space jellyfish])
 		scriptString += "skill extract jelly;";
 
-	if (get_property("_feelPrideUsed").to_int() < 3 && last_monster() == $monster[sausage goblin]) // any high-xp monster will do
+	if (get_property("_feelPrideUsed").to_int() < 3 && equipped_amount($item[makeshift garbage shirt]) > 0
+		&& monsterHP >= 625) // any high-xp monster will do
 		scriptString += "skill Feel Pride;";
+
+	if ("_feelNostalgicUsed".get_property().to_int() < 3) {
+		// FEEL NOSTALGIC -- if we set it manually, do it here
+		if (kNostalgiaNextCombatKey.get_property().to_boolean()) {
+			scriptString += "skill Feel Nostalgic;";
+			kNostalgiaNextCombatKey.set_property("false");
+		} else {
+			// FEEL NOSTALGIC if the current monster is not the same as last monster and last monster is worth it
+			monster nosMon = get_property("feelNostalgicMonster").to_monster();
+			int nosMonValue = monsterCurrentItemMeatValue(nosMon);
+			if (nosMon != $monster[none] && foe != nosMon && nosMonValue > kTurnValue * 10) {
+				print("feeling nostagic for " + nosMon + ", valued at " + nosMonValue, "blue");
+				scriptString += "skill feel nostalgic;";
+			}
+		}
+	}
+
+	// SPIKOLODON
+	if (kSpikolodonNextCombatKey.get_property().to_boolean()) {
+		scriptString += "skill Launch spikolodon spikes;";
+		kSpikolodonNextCombatKey.set_property("false");
+	}
 
 	// SING ALONG
 	boolean shouldSingAlongWithBoomboxStats = get_property("boomBoxSong") == "Eye of the Giger" && canStagger;
-	boolean shouldSingAlongWithBoomboxSpell = get_property("boomBoxSong") == "Food Vibrations" && defaultAction(foe).skillToUse != $skill[none] && canStagger;
+	boolean shouldSingAlongWithBoomboxSpell = get_property("boomBoxSong") == "Food Vibrations" && defaultAttack(foe, monsterHP).skillToUse != $skill[none] && canStagger;
 	boolean shouldSingAlongWithBoomboxMeat = get_property("boomBoxSong") == "Total Eclipse of Your Meat" && foe.min_meat > 0;
 	if (have_skill($skill[sing along])
 		&& (shouldSingAlongWithBoomboxStats || shouldSingAlongWithBoomboxSpell || shouldSingAlongWithBoomboxMeat))
@@ -1167,27 +1397,34 @@ string doItemsAndBuffs(monster foe, string scriptSoFar) {
 	if (have_skill($skill[a new habit]))
 		scriptString += "skill a new habit;";
 
-	// +ITEM things
+	// BROKEN CHAMPAGNE BOTTLE: maximum item!
 	if (equipped_amount($item[broken champagne bottle]) >= 1) {
 		if (equipped_amount($item[vampyric cloake]) >= 1 && to_int(get_property("_vampyreCloakeFormUses")) < 10) scriptString += "skill Become a bat;";
 		if (equipped_amount($item[Lil' Doctor&trade; bag]) >= 1 && to_int(get_property("_otoscopeUsed")) < 3) scriptString += "skill Otoscope;";
 		if (my_familiar() == $familiar[Pocket Professor]) scriptString += "if hasskill Lecture on mass;skill Lecture on mass;endif;";
-		if (have_skill($skill[Bowl Straight Up])) scriptString += "skill Bowl Straight Up;";
-		if (get_property("_hoboUnderlingSummons").to_int() < 5) scriptString += "skill Ask the hobo to dance for you;";
+		if (get_property("_hoboUnderlingSummons").to_int() < 5 && is_wearing_outfit("Hodgman's Regal Frippery")) scriptString += "skill Ask the hobo to dance for you;";
 
+	// things that we only want to do when NOT wearing the champagne bottle
 	} else {
-		if (my_familiar() == $familiar[Pocket Professor] && monster_hp() >= 1296) scriptString += "if hasskill deliver your thesis!;skill deliver your thesis!;endif;";
+		if (my_familiar() == $familiar[Pocket Professor] && monster_hp(foe) >= 625) scriptString += "if hasskill deliver your thesis!;skill deliver your thesis!;endif;";
+	}
+
+	if ((have_item($item[cosmic bowling ball]) || have_skill($skill[Bowl Straight Up]))
+		&& have_effect($effect[Cosmic Ball in the Air]) < 1000)
+		scriptString += "skill Bowl Straight Up;";
+
+	// DRESSUP SELECTOR: item
+	if (get_property(kDressupSelectorKey).contains_text("item")) {
 	}
 
 	// BIG BOOK OF PIRATE INSULTS for pirates TODO only if we need it
-	if (monster_phylum(foe) == $phylum[pirate] && have_item($item[The Big Book of Pirate Insults]))
-		scriptString += "use big book of pirate insults;";
-
-	// FEEL NOSTALGIC if the current monster is not the same as last monster and last monster is worth it TODO fix last_monster() is always == foe
-	monster nosMon = get_property("feelNostalgicMonster").to_monster();
-	if (foe != nosMon && monsterCurrentItemMeatValue(nosMon) > kTurnValue * 5) {
-		print("feeling nostagic for " + nosMon + "!", "blue");
-		scriptString += "skill feel nostalgic;";
+	if (monster_phylum(foe) == $phylum[pirate]) {
+		if (have_item($item[The Big Book of Pirate Insults]))
+			scriptString += "use big book of pirate insults;";
+		else {
+			print("wanted to insult a pirate but don't have the book!", "red");
+			waitq(10);
+		}
 	}
 
 	// order is stun, olfaction, items, so do the stagger-able items last to get as many rounds of stun as possible
@@ -1201,25 +1438,118 @@ string doItemsAndBuffs(monster foe, string scriptSoFar) {
 			scriptString += "skill Gulp Latte;";
 	}
 
-	// SIGNAL QUEST https://kol.coldfront.net/thekolwiki/index.php/Signal_fragment_puzzle
+	// SIGNAL FRAGMENT PUZZLE https://kol.coldfront.net/thekolwiki/index.php/Signal_fragment_puzzle
 	if (!inRonin()) {
-		if (my_location() == $location[Anemone Mine] || my_location() == $location[The Dive Bar] || my_location() == $location[The Marinara Trench])
-			scriptString += "use New Age hurting crystal;";
-		if (my_location() == $location[The Bubblin' Caldera])
-			scriptString += "use PADL Phone;";
-		if (my_location() == $location[The Hole in the Sky])
-			scriptString += "use superamplified boom box;";
-		if (foe == $monster[rampaging adding machine])
-			scriptString += "use short calculator;";
-		if (my_location() == $location[The Ice Hotel])
-			scriptString += "use photoprotoneutron torpedo;";
+		item tempItem;
+		switch(my_location()) {
+			case $location[Anemone Mine]:
+			case $location[The Dive Bar]:
+			case $location[The Marinara Trench]:
+				tempItem = $item[New Age hurting crystal];
+				break;
+
+			case $location[The Hole in the Sky]:
+				tempItem = $item[superamplified boom box];
+				break;
+
+			case $location[The Valley of Rof L'm Fao]:
+				if (foe == $monster[rampaging adding machine])
+					tempItem = $item[short calculator];
+				break;
+
+			case $location[The Bubblin' Caldera]:
+				tempItem = $item[PADL Phone];
+				break;
+
+			case $location[The Ice Hotel]:
+				tempItem = $item[photoprotoneutron torpedo];
+				break;
+		}
+		if (tempItem != $item[none]) {
+			checkIfRunningOut(tempItem, 500);
+			int times = min(11, item_amount(tempItem) / 2);
+			if (times > 0)
+				scriptString += "mark IaB;if !times " + times + ";use " + tempItem + ", " + tempItem + ";goto IaB;endif;";
+		}
 	}
+
+	// PRO SKATEBOARD -- doubles drops
+	if (equipped_amount($item[pro skateboard]) >= 1)
+		scriptString += "skill Do an epic McTwist!;";
+
+	// SUBURBS OF DIS
+	if (appearance_rates($location[The Glacier of Jerks], false) contains foe)
+		scriptString += "skill Tattle;";
+	//if (appearance_rates($location[The Clumsiness Grove], false) contains foe)
+	//	scriptString += "skill Tormet Plant;";
+	//if (appearance_rates($location[The Maelstrom of Lovers], false) contains foe)
+	//	scriptString += "skill Pinch Ghost;";
+
+	// MP RESTORE -- BLUE ROCKET
+	if (!inRonin() && have_effect($effect[Everything Looks Blue]) <= 0)
+		scriptString += "use blue rocket;";
+
+	// SILENT TREATMENT this is strictly a debuff but do here to take advantage of a possible stun
+	if (!inRonin() && !foe.boss && (foe.physical_resistance >= 66.0 && bestElementalResistance(foe) >= 66.0)
+		&& my_buffedstat(my_primestat()) < monster_defense() * 1.33  // if we have that much stat advantage, we probably don't need to worry about resistance(?)
+		&& defaultAttack(foe, monster_hp()).attack) // only do it if we're going to try to debuff and attack
+		scriptString += "skill Silent Treatment;";
+
+	// identify POTIONS OF DOOM #potion of doom #dungeon of doom #dungeons of doom #dod #pod
+	if (!potionsOfDoomIdentified()) {
+		print("*** identifying Potions of Doom ***", "blue");
+		item [int] sortedPots;
+		int idx;
+
+		foreach it in $items[bubbly potion, cloudy potion, dark potion, effervescent potion, fizzy potion, milky potion, murky potion, smoky potion, swirly potion]
+			sortedPots[idx++] = it;
+		sort sortedPots by current_price(value);
+
+		// this will (deliberately) not use the most expensive item since it is automatically discovered based on the other ones
+		boolean firstHandFull = false;
+		item firstHandItem = $item[none];
+		foreach i, it in sortedPots {
+			// skip this potion if we already have it (could happen with auto-damage that kills a monster before using all the potions)
+			if (get_property("lastBangPotion" + it.to_int()) != "")
+				continue;
+
+			if (firstHandFull) {
+				scriptString += "use " + firstHandItem + ", " + it + ";";
+				firstHandFull = false;
+			} else {
+				firstHandItem = it;
+				firstHandFull = true;
+			}
+		}
+	}
+
+	// FRANKEN STEIN
+	if (have_skill($skill[Toast your enemy]))
+		scriptString += "skill Toast your enemy;";
 
 	return scriptString;
 }
 
 
-string doClassSkills(monster foe, string scriptSoFar) {
+
+string raveComboScript(int comboNumber) {
+	string storedValue = get_property("raveCombo" + comboNumber);
+	assert(storedValue != "", "we haven't learned the combo " + comboNumber);
+	string [] skills = storedValue.split_string(",");
+	return "skill " + skills.joinString("; skill ") + ";";
+}
+
+string raveConcentrationScript() {
+	return raveComboScript(1);
+}
+
+string raveNirvanaScript() {
+	return raveComboScript(2);
+}
+
+
+
+string doClassSkills(monster foe, int monsterHP, string scriptSoFar) {
 	print("doClassSkills");
 	string scriptString = scriptSoFar;
 
@@ -1237,12 +1567,11 @@ string doClassSkills(monster foe, string scriptSoFar) {
 			if (have_skill($skill[Disco Dance II: Electric Boogaloo])) scriptString += "skill Disco Dance II: Electric Boogaloo;";
 			if (have_skill($skill[Disco Dance 3: Back in the Habit])) scriptString += "skill Disco Dance 3: Back in the Habit;";
 			if (have_skill($skill[pop and lock it]) && have_skill($skill[break it on down]) && have_skill($skill[run like the wind])) {
-				//scriptString = default_rave_combo_set_sub() + rval;
-				//scriptString += " call rave_steal; call rave_item; call rave_meat; call rave_stats;";
+				scriptString += raveConcentrationScript();
+				scriptString += raveNirvanaScript();
 			}
 		}
-	}
-	else if (my_class() == $class[accordion thief]) {
+	} else if (my_class() == $class[accordion thief]) {
 		scriptString += "if hasskill steal accordion; skill steal accordion; endif;";
 		if (have_skill($skill[Cadenza]) && atAccordionEquipped())
 			scriptString += "skill Cadenza;";
@@ -1271,22 +1600,22 @@ string doLocationSpecific(string scriptSoFar) {
 
 
 
-int parseDamage(string combatResult, int hpBeforeStart) {
+// returns the damage per action averaged over all the damage done in the given combat result string
+int parseDamagePerAction(string combatResult, int hpBeforeStart) {
 	string attackResult = combatResult.to_lower_case();
 	//print("attack string: " + attackResult, "green");
 
   	int damage = 0;
 
 	print("before macro, hp is now: " + hpBeforeStart + ", def is now: " + monster_defense() + ", off is now: " + monster_attack());
-	matcher damageSectionMatcher = create_matcher("<!-- macroaction: (.+?) -->.+?var monsterstats = \\{\"hp\":\"([0-9,]+)\",\"def\":\"([0-9,]+)\",\"off\":\"([0-9,]+)\"\\};", attackResult);
+	matcher damageSectionMatcher = create_matcher("var monsterstats = \\{\"hp\":\"([0-9,]+)\",\"def\":\"([0-9,]+)\",\"off\":\"([0-9,]+)\"\\};", attackResult);
 	int turnsTaken = 0;
 	while (find(damageSectionMatcher)) {
-		string macroAction = group(damageSectionMatcher, 1);
-		int hpAfterMacro = to_int(group(damageSectionMatcher, 2));
-		int defAfterMacro = to_int(group(damageSectionMatcher, 3));
-		int offAfterMacro = to_int(group(damageSectionMatcher, 4));
-		print("after macro action '" + macroAction + "', hp are now: " + hpAfterMacro + ", def is now: " + defAfterMacro + ", off is now: " + offAfterMacro + ", total damage done: " + damage);
-		damage = hpBeforeStart - hpAfterMacro;
+		int hpAfterAction = to_int(group(damageSectionMatcher, 1));
+		int defAfterAction = to_int(group(damageSectionMatcher, 2));
+		int offAfterAction = to_int(group(damageSectionMatcher, 3));
+		print("after the action, hp are now: " + hpAfterAction + ", def is now: " + defAfterAction + ", off is now: " + offAfterAction + ", total damage done: " + damage);
+		damage = hpBeforeStart - hpAfterAction;
 		turnsTaken++;
 	}
 
@@ -1330,32 +1659,27 @@ int parseDamage(string combatResult, int hpBeforeStart) {
 // 		}
 // 	}
 
-	// fumble?
-	if (attackResult.contains_text("fumble"))
-		print("FUMBLE!", "orange");
-	else
-		print("parsed damage: " + damage, "green");
-
-	return damage;
+	print("parsed damage: " + damage + " over " + turnsTaken + " turns", "green");
+	return damage / turnsTaken;
 }
 
 
 
 // given an attack we already did and the damage we did with it, return the next attack to do
-ActionRecord chooseActionRecord(monster foe, ActionRecord attackDone, int damageDone) {
+ActionRecord chooseActionRecord(monster foe, int monsterHP, ActionRecord attackDone, int damageDone) {
 	if (attackDone.isEmptyAction())
-		return defaultAction(foe);
+		return defaultAttack(foe, monsterHP);
 
-	int expectedRounds = ceil(monster_hp(foe) / to_float(damageDone));
+	int expectedRounds = ceil(monsterHP / to_float(damageDone));
 	print("expecting " + expectedRounds + " rds", "blue");
 
 	// FEEL SUPERIOR
-	if (hippy_stone_broken() && monster_hp() < monster_hp(last_monster()) * 0.2 && get_property("_feelSuperiorUsed").to_int() < 3)
+	if (hippy_stone_broken() && monsterHP < monster_hp(foe) * 0.2 && monsterHP > 5 && get_property("_feelSuperiorUsed").to_int() < 3)
 		return new ActionRecord(false, false, $skill[Feel Superior]);
 
 	// DOING ENOUGH DAMAGE?
 	boolean notDoingEnoughDamage = false;
-	if (maxRounds(foe) - current_round() == 0 || damageDone < monster_hp(foe) / (maxRounds(foe) - current_round())) {
+	if (maxRounds(foe) - current_round() == 0 || damageDone < monsterHP / (maxRounds(foe) - current_round())) {
 		print("we're not doing enough damage!", "orange");
 		notDoingEnoughDamage = true;
 	}
@@ -1371,8 +1695,9 @@ ActionRecord chooseActionRecord(monster foe, ActionRecord attackDone, int damage
 	if (takingTooMuchDamage
 		|| (notDoingEnoughDamage && attackDone.itemToUse != $item[none]) // if we're using items, we have no hope of increasing dmg down the line
 		|| ((notDoingEnoughDamage || !wantToStasis()) && (maxRounds(foe) - current_round()) < 5)) { // TODO: figure out how to include increasing debuff from curse of weaksauce? will the current round > maxRounds() work?
-		print("not enough damage (" + damageDone + "), and/or taking too much damage (" + safeExpectedDamageTaken() + ") expected rounds: " + expectedRounds + ", recommending escalation", "blue");
-		ActionRecord [] escalationProfile = { // attack, pickpocket, skillToUse, itemToUse, item2Touse
+		print("not enough damage (" + damageDone + "), and/or taking too much damage (" + safeExpectedDamageTaken() + ") expected rounds: " + expectedRounds + ", recommending escalation", "orange");
+
+		ActionRecord [int] escalationProfile = { // attack, pickpocket, skillToUse, itemToUse, item2Touse
 			new ActionRecord(true), // attack
 			new ActionRecord(false, false, $skill[Saucestorm]),
 			new ActionRecord(false, false, $skill[Saucegeyser]),
@@ -1393,81 +1718,72 @@ ActionRecord chooseActionRecord(monster foe, ActionRecord attackDone, int damage
 			print("escalating to " + returnAction.toString());
 // 		} until (currentEscalation >= count(escalationProfile) - 1 || willKillBeforeDying(foe, returnAction)); // willKillBeforeDying isn't always right, instead of trying to calc dmg, test one attack and use the result as dmg done
 
-		if (!willKillBeforeDying(foe, returnAction))
-			print("we aren't doing enough damage with the same attack " + macroForAction(returnAction) + " (and/or we don't have the mp to cast that many times)", "red");
+		if (!willKillBeforeDying(foe, monsterHP, returnAction))
+			print("we aren't doing enough damage with the same action: '" + macroForAction(returnAction) + "' (and/or we don't have the mp to cast that many times)", "red");
 		return returnAction;
 	}
 
-	if (!willKillBeforeDying(foe, attackDone))
+	if (!willKillBeforeDying(foe, monsterHP, attackDone))
 		print("we aren't doing enough damage with the same attack " + macroForAction(attackDone) + " (and/or we don't have the mp to cast that many times)", "red");
 	return attackDone; // return the last attack by default
 }
 
 
 
-int attackHelper(monster foe, int hpBeforeScript, string scriptString) {
-	print("main loop; current round: " + current_round(), "blue");
-	logMonsterCombatStats();
+int parseDamage(monster foe, int hpBeforeScript, string resultSoFar) {
+	int damageDone;
 
-	string resultSoFar = executeScript(scriptString);
+	// DIRECT
+// 	damageDone = hpBeforeScript - monster_hp(); // mafia seems braindead on God Lobster's hp AND OTHERS
 
-	boolean didAbortMacro = macroAborted(resultSoFar);
-	if (!inCombat() || didAbortMacro) {
-		print("stopping automation, in combat: " + inCombat() + ", aborted: " + didAbortMacro, "orange");
-		return -1;
+	// PARSE
+	if (damageDone <= 0) { // if that didn't work, try parsing the HTML directly
+		damageDone = parseDamagePerAction(resultSoFar, hpBeforeScript);
 	}
 
-	int damageDone = hpBeforeScript - monster_hp();
-	if (damageDone == 0) { // if that didn't work, try parsing the HTML directly
-		damageDone = parseDamage(resultSoFar, hpBeforeScript);
-	}
-	if (damageDone < 3) { // that didn't work either, try resync'ing the page
-		print("detected too little damage ( " + damageDone + ")... something's wrong -- resyncing", "red");
-		scriptString = resyncMonsterStats(foe, scriptString);
-		damageDone = hpBeforeScript - monster_hp();
+	// RESYNC
+	if (damageDone <= 0) { // that didn't work either, try resync'ing the page
+		string pageString = resyncMonsterStats();
+		damageDone = hpBeforeScript - real_monster_hp(pageString);
 	}
 
-	assert(damageDone != 0, "we should not have done zero damage with an attack");
+	assert(damageDone > 0, "we should have done damage:\n" + resultSoFar);
 	print("damage done: " + damageDone, "blue");
 
 	return damageDone;
 }
 
 
-boolean doingEnoughDamage(monster foe, int currentMonHp, int damageDone) {
-	int expectedRounds = ceil(currentMonHp / to_float(damageDone));
-	int roundsRemaining = maxRounds(foe) - current_round();
-	print("expecting to take " + expected_damage() + " damage (or " + safeExpectedDamageTaken() + " with the safety margin) per round. rounds remaining: " + roundsRemaining, "green");
+string attackHelper(monster foe, int hpBeforeScript, string scriptString) {
+	print("attackHelper current round: " + current_round(), "blue");
+	logMonsterCombatStats();
 
-	// SAFE FIGHT
-	if (expectedRounds < roundsRemaining // doing enough damage
-		&& (my_hp() / 2) > safeExpectedDamageTaken() * (expectedRounds - 1)) // and not taking too much damage -- never want to take more than 1/2 hp in a fight TODO figure the amount of hp we're regaining?
-		return true;
+	string resultPage = executeScript(scriptString);
 
-	// ONE HIT KILL
-	if (damageDone > currentMonHp)
-		return true;
+	boolean didAbortMacro = macroAborted(resultPage);
+	if ((inCombat() && !in_multi_fight()) || didAbortMacro)
+		abort("stopping automation, in combat: " + inCombat() + ", aborted: " + didAbortMacro);
 
-	return false;
+	return resultPage;
 }
 
 
-
-ActionRecord reconMonsterDefenses(monster foe, ActionRecord lastAttack, int damageDone) {
-	int hpBeforeScript = monster_hp();
+ActionRecord reconMonsterDefenses(monster foe, int monHPBeforeScript, ActionRecord lastAttack, int damageDone) {
 	int roundsRemaining = maxRounds(foe) - current_round();
-	ActionRecord theAttack = chooseActionRecord(foe, lastAttack, damageDone);
+	ActionRecord theAttack = chooseActionRecord(foe, monHPBeforeScript, lastAttack, damageDone);
 
 	while (inCombat() && roundsRemaining > 0) {
 		print("recon script current round: " + current_round(), "blue");
 		string scriptString = setupAborts(foe) + macroForAction(theAttack);
-		damageDone = attackHelper(foe, hpBeforeScript, scriptString);
-		hpBeforeScript -= damageDone;
-		int expectedRounds = ceil(hpBeforeScript / to_float(damageDone));
+		string resultPage = attackHelper(foe, monHPBeforeScript, scriptString);
+		gAccumulatedResponse += resultPage;
+		damageDone = parseDamage(foe, monHPBeforeScript, resultPage);
+		monHPBeforeScript -= damageDone;
+		int expectedRounds = ceil(monHPBeforeScript / to_float(damageDone));
 
 		if (damageDone < 0) return theAttack; // combat's over
 
-		if (doingEnoughDamage(foe, hpBeforeScript, damageDone)) {
+		if (doingEnoughDamage(foe, monHPBeforeScript, damageDone)) {
 			if (expectedRounds * mp_cost(theAttack.skillToUse) > my_mp()) {
 				// escalation will only make mp problems worse
 				print("will run out of mp before killing, aborting consult", "red");
@@ -1478,7 +1794,7 @@ ActionRecord reconMonsterDefenses(monster foe, ActionRecord lastAttack, int dama
 
 		else { // ESCALATE
 			lastAttack = theAttack;
-			theAttack = chooseActionRecord(foe, lastAttack, damageDone);
+			theAttack = chooseActionRecord(foe, monHPBeforeScript, lastAttack, damageDone);
 		}
 
 		roundsRemaining = maxRounds(foe) - current_round();
@@ -1487,17 +1803,19 @@ ActionRecord reconMonsterDefenses(monster foe, ActionRecord lastAttack, int dama
 	return theAttack;
 }
 
-boolean reconAndKill(monster foe, ActionRecord lastAttack, int damageDone) {
+boolean reconAndKill(monster foe, int monHPBeforeScript, ActionRecord lastAttack, int damageDone) {
 	// ATTACK ONCE repeatedly, escalating skills until we get something that does enough damage
-	ActionRecord theAttack = reconMonsterDefenses(foe, lastAttack, damageDone);
+	ActionRecord theAttack = reconMonsterDefenses(foe, monHPBeforeScript, lastAttack, damageDone);
 
 	// SPAM THE CHOSEN ACTION
 	int maxRounds = maxRounds(foe) - current_round(); // was: ceil((maxRounds(foe) - current_round()) / 2.0);
-	string scriptString = setupAborts(foe) + "mark a1;if !times " + maxRounds + ";" + macroForAction(theAttack) + ";goto a1;endif;";
-	damageDone = attackHelper(foe, monster_hp(), scriptString);
+	string scriptString = setupAborts(foe) + "mark RAK;if !times " + maxRounds + ";" + macroForAction(theAttack) + ";goto RAK;endif;";
+	string resultPage = attackHelper(foe, monHPBeforeScript, scriptString);
+	gAccumulatedResponse += resultPage;
+	boolean didAbortMacro = macroAborted(resultPage);
 
 	print("exiting main loop, current round: " + current_round(), "red");
-	return !inCombat() && !isBeatenUp();
+	return (!inCombat() || in_multi_fight()) && !didAbortMacro;
 }
 
 
@@ -1506,59 +1824,77 @@ boolean reconAndKill(monster foe, ActionRecord lastAttack, int damageDone) {
 // 2. attack once, parsing the damage we've done
 // 3. if the attack didn't do enough damage to kill in time, escalate the skill (see chooseActionRecord) and try again
 // 4. use the optimal skill to construct a script to kill the monster and execute
-boolean escalationStrategy(monster foe, int hpBeforeScript, string scriptSoFar) {
-	print("basicStrategy, hpBeforeScript: " + hpBeforeScript);
+boolean escalationStrategy(monster foe, int monHPBeforeScript, string scriptSoFar) {
+	print("escalationStrategy, monHPBeforeScript: " + monHPBeforeScript, "green");
 	string scriptString = scriptSoFar;
 
 	// FIRST, EXECUTE THE GIVEN SCRIPT, which is presumably a debuff or otherwise non-damaging script
 	logMonsterCombatStats();
+
 	string resultSoFar = executeScript(scriptString); // empty script is fine
+	gAccumulatedResponse += resultSoFar;
+
 	boolean didAbortMacro = macroAborted(resultSoFar);
 	if (!inCombat() || didAbortMacro) {
 		print("doMainLoop: stopping automation at the first execution. in combat? " + inCombat() + ", aborted? " + didAbortMacro, "orange");
-		return !isBeatenUp();
+		return !didAbortMacro;
 	}
 
-	return reconAndKill(foe, new ActionRecord(), 0);
+	return reconAndKill(foe, real_monster_hp(resultSoFar), new ActionRecord(), 0);
 }
 
 
 // Basic strategy: execute everything we have up until this point with the
 // default action a number times equal to the numbers of turns remaining minus 5.
 // If the monster isn't dead at that point, execute the basic strategy
-boolean basicStrategy(monster foe, int hpBeforeScript, string scriptSoFar) {
-	print("attackStrategy, hpBeforeScript: " + hpBeforeScript);
+boolean basicStrategy(monster foe, int monHPBeforeScript, string scriptSoFar) {
+	print("basicStrategy, monHPBeforeScript: " + monHPBeforeScript, "green");
 	string scriptString = scriptSoFar;
 
 	// FIRST, EXECUTE THE EXISTING SCRIPT
 	logMonsterCombatStats();
+
 	string resultSoFar = executeScript(scriptString); // empty script is fine
+	gAccumulatedResponse += resultSoFar;
+
 	boolean didAbortMacro = macroAborted(resultSoFar);
 	if (!inCombat() || didAbortMacro) {
 		print("doMainLoop: stopping automation at the first execution. in combat? " + inCombat() + ", aborted? " + didAbortMacro, "orange");
-		return !isBeatenUp();
+		return !didAbortMacro;
 	}
 
 	// figure out how many rounds we have left and bash the default action that many times (less 5 for emergencies)
 	logMonsterCombatStats();
-	int maxRounds = maxRounds(foe) - current_round() - 5; // leave 5 rounds for the basic strat
-	ActionRecord theAttack = defaultAction(foe);
-	scriptString = "mark a1;if !times " + maxRounds + ";" + macroForAction(theAttack) + ";goto a1;endif;";
+	int maxRounds = maxRounds(foe) - current_round(); // leave 5 rounds for the basic strat
+	ActionRecord theAttack = defaultAttack(foe, monHPBeforeScript);
+	scriptString = "mark BS;if !times " + maxRounds + ";" + macroForAction(theAttack) + ";goto BS;endif;";
 
-	int damageDone = attackHelper(foe, hpBeforeScript, scriptString);
-	if (damageDone < 0) return !isBeatenUp(); // combat's over
+	string resultPage = attackHelper(foe, monHPBeforeScript, scriptString);
+	gAccumulatedResponse += resultPage;
+	didAbortMacro = macroAborted(resultPage);
+	int damageDone = parseDamage(foe, monHPBeforeScript, resultPage);
+
+	// combat's over
+	if (damageDone < 0 || !inCombat())
+		return !didAbortMacro;
 
 	// we're still in combat
-	resyncMonsterStats(foe, "");
-	return reconAndKill(foe, theAttack, damageDone);
+	string pageString = resyncMonsterStats();
+
+	return reconAndKill(foe, real_monster_hp(pageString), theAttack, damageDone);
 }
 
 
-string doMainLoop(monster foe, string scriptSoFar) {
+// try to finish the fight. returns the accumulated response after the execution of the given script and the main loop
+string doMainLoop(monster foe, int monHPBeforeScript, string scriptSoFar) {
+	assert(foe != $monster[Guy Made Of Bees], "do Guy Made Of Bees manually -- try polar vortex!");
+
 	print("doMainLoop");
 	string scriptString = scriptSoFar;
 
-	return basicStrategy(foe, monster_hp(), scriptSoFar);
+	basicStrategy(foe, monHPBeforeScript, scriptSoFar);
+
+	return gAccumulatedResponse;
 
 	// ATTACK WITH OPTIMAL SKILL
 // 	roundsRemaining = maxRounds(foe) - current_round();
@@ -1570,10 +1906,11 @@ string doMainLoop(monster foe, string scriptSoFar) {
 // 
 // 		// if we recommend the same action as last time, use up 1/2 the rounds to the maxRound doing the same action
 // 		if (ceil((maxRounds(foe) - current_round()) / 2.0) >= 1)
-// 			scriptString = "mark a1;if !times " + ceil((maxRounds(foe) - current_round()) / 2.0) + ";" + scriptString + ";goto a1;endif;";
+// 			scriptString = "mark ML;if !times " + ceil((maxRounds(foe) - current_round()) / 2.0) + ";" + scriptString + ";goto ML;endif;";
 // 
 // 		hpBeforeScript = monster_hp();
 // 		resultSoFar = executeScript(scriptString);
+// 		gAccumulatedResponse += resultSoFar;
 // 
 // 		didAbortMacro = macroAborted(resultSoFar);
 // 		if (!inCombat() || didAbortMacro) {
@@ -1630,65 +1967,67 @@ string doMainLoop(monster foe, string scriptSoFar) {
 
 
 
-void init(monster foe) {
-	gCannotDebuffEnough = false;
+void initConsult(monster foe) {
+	gkMonsterOriginalAttack = foe.base_attack;
+	gkMonsterOriginalDefense = foe.base_defense;
 
-	print("init: attackStat: "+ attackStat() + ", canStagger: " + canStagger(foe) + ", shouldDebuff: " + shouldDebuff()
-		+ ", wantToStasis: " + wantToStasis() + ", original attack: " + gkMonsterOriginalAttack + ", original defense: " + gkMonsterOriginalDefense, "green");
+// 	if (!in_multi_fight())
+// 		gAccumulatedResponse = "";
+	gAccumulatedResponse = "";
+
+	print("initConsult hit stat: "+ attackStat() + ", canStagger: " + canStagger(foe) + ", wantToStasis: " + wantToStasis() + ", original attack: " + gkMonsterOriginalAttack + ", original defense: " + gkMonsterOriginalDefense, "blue");
 }
 
 
+// returns the script so far
 string customScriptWithDefaultKillHelperTop(int initround, monster foe, string aPage) {
 	int currentRound = initround;
-	init(foe);
+	initConsult(foe);
 	string scriptString = startFight(foe);
+	int monsterHP = real_monster_hp("");
 
 	if (currentRound == 1)
-		scriptString = doPickpocketAndDebuff(foe, scriptString);
+		scriptString = doPickpocketAndDebuff(foe, monsterHP, scriptString);
 	else {
-		// WORKAROUND: KoL stats are not consistent with reality until we interact with the monster -- do that here before we get to the main debuff calculations
-		scriptString = resyncMonsterStats(foe, scriptString);
-
-		scriptString = doDebuff(foe, scriptString);
+		// TODO redo this WORKAROUND: KoL stats are not consistent with reality until we interact with the monster -- do that here before we get to the main debuff calculations
+		string pageString = resyncMonsterStats();
+		monsterHP = real_monster_hp(pageString);
+		scriptString = doDebuff(foe, monsterHP, scriptString);
 	}
 	currentRound = current_round();
 
 	if ((expected_damage() > (my_maxhp() * 0.02)) && canStagger(foe)) // TODO expected_damage() > the amount healed at the end of a fight
-		scriptString = doClassStun(foe, scriptString);
+		scriptString = doClassStun(foe, monsterHP, scriptString);
 
 	return scriptString;
 }
 
-string customScriptWithDefaultKillHelperBottom(string scriptString, int initround, monster foe, string aPage, string customScript) {
-	scriptString = doItemsAndBuffs(foe, scriptString);
-	scriptString = doClassSkills(foe, scriptString);
+// returns the script so far
+string customScriptWithDefaultKillHelperBottom(string scriptString, int initround, monster foe, int monsterHP, string aPage, string customScript) {
+	scriptString = doItemsAndBuffs(foe, monsterHP, scriptString);
+	scriptString = doClassSkills(foe, monsterHP, scriptString);
 	scriptString = doLocationSpecific(scriptString);
 
-	scriptString += customScript + ";";
+	scriptString += customScript;
 
-	scriptString = doMainLoop(foe, scriptString);
-	return scriptString;
+	return doMainLoop(foe, monsterHP, scriptString);
 }
 
 // inserts a custom script at the end of the usual preamble stuff, then kills the monster with
 // whatever would have normally done so
+// returns the accumulated response pages across all requests to attempt to finish combat
 string customScriptWithOlfactAndDefaultKill(int initround, monster foe, string aPage, string customScript) {
 	print("customScriptWithOlfactAndDefaultKill: " + foe + ", script: '" + customScript + "'", "green");
 	string scriptString = customScriptWithDefaultKillHelperTop(initround, foe, aPage);
 	scriptString = doOlfaction(foe, scriptString);
-	scriptString = customScriptWithDefaultKillHelperBottom(scriptString, initround, foe, aPage, customScript);
-	if (scriptString != "")
-		executeScript(scriptString);
-	return "abort";
+	return customScriptWithDefaultKillHelperBottom(scriptString, initround, foe, real_monster_hp(""), aPage, customScript);
 }
 
+// returns the accumulated response pages across all requests to attempt to finish combat
 string customScriptWithDefaultKill(int initround, monster foe, string aPage, string customScript) {
 	print("customScriptWithDefaultKill: " + foe + ", script: '" + customScript + "'", "green");
 	string scriptString = customScriptWithDefaultKillHelperTop(initround, foe, aPage);
-	scriptString = customScriptWithDefaultKillHelperBottom(scriptString, initround, foe, aPage, customScript);
-	if (scriptString != "")
-		executeScript(scriptString);
-	return "abort";
+	return customScriptWithDefaultKillHelperBottom(scriptString, initround, foe, real_monster_hp(""), aPage, customScript);
 }
 
 
@@ -1702,12 +2041,16 @@ string instaKillWithOlfact(int initround, monster foe, string aPage) {
 }
 
 
-string instaKill(int initround, monster foe, string aPage) {
+string customScriptWithInstaKill(int initround, monster foe, string aPage, string customScript) {
 	PrioritySkillRecord instaKillSkill = chooseInstaKillSkill();
 	if (instaKillSkill.theSkill == $skill[none])
 		abort("no insta kill skill!");
 
-	return customScriptWithDefaultKill(initround, foe, aPage, "skill " + instaKillSkill.theSkill + ";");
+	return customScriptWithDefaultKill(initround, foe, aPage, customScript + ";skill " + instaKillSkill.theSkill + ";");
+}
+
+string instaKill(int initround, monster foe, string aPage) {
+	return customScriptWithInstaKill(initround, foe, aPage, "");
 }
 
 string instaKill() {
@@ -1732,7 +2075,7 @@ string defaultKill() {
 
 
 void main(int initround, monster foe, string aPage) {
-	string scriptString = defaultKill(initround, foe, aPage);
+	string resultPage = defaultKill(initround, foe, aPage);
 }
 
 

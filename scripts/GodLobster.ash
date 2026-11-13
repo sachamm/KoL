@@ -1,4 +1,5 @@
 import <smmUtils.ash>
+import <smmAutomation.ash>
 string __godlobster_version = "0.9";
 
 
@@ -25,7 +26,7 @@ void GodLobsterOutputHelp() {
 
 
 
-item best_regalia() {
+item bestRegalia() {
 	if (available_amount($item[God Lobster's Crown]) > 0)
 		return $item[God Lobster's Crown];
 	else if (available_amount($item[God Lobster's Robe]) > 0)
@@ -44,7 +45,11 @@ item best_regalia() {
 
 void dressupForGodLobster() {
 	use_familiar($familiar[God Lobster]);
-	maximize("exp, mainstat, effective, equip " + best_regalia(), false);
+	item bestRegalia = bestRegalia();
+	string regaliaString;
+	if (bestRegalia != $item[none])
+		regaliaString = ", equip " + bestRegalia;
+	automate_dressup($location[none], "exp", "God Lobster", "mainstat, effective" + regaliaString);
 }
 
 
@@ -59,11 +64,11 @@ void verify_arguments(string [] argv) {
     } else if (arguments == "mp" || arguments == "mp regen") {
 		return;
 	} else if (arguments == "regalia" || arguments == "equipment") {
-		if (best_regalia() == $item[God Lobster's Crown])
+		if (bestRegalia() == $item[God Lobster's Crown])
 			abort("Already have all regalia!");
 		return;
     } else if (arguments == "xp" || arguments == "exp") {
-		if (best_regalia() != $item[God Lobster's Crown])
+		if (bestRegalia() != $item[God Lobster's Crown])
 			abort("Don't have all regalia!");
 		return;
 	} else if (arguments == "-combat") {
@@ -132,7 +137,7 @@ void main(string arguments) {
 			restore_mp(5 * mp_cost($skill[Saucegeyser]) + mp_cost($skill[Cannelloni Cocoon]) + mp_cost($skill[Tongue of the Walrus]));
 
 			if (arguments == "regalia" || arguments == "equipment") {
-				equip($slot[familiar], best_regalia());
+				equip($slot[familiar], bestRegalia());
 				visit_url("/main.php?fightgodlobster=1", true, false);
 	// 			run_combat("consult smmKoL_consult.ash");
 				run_combat();
@@ -164,7 +169,7 @@ void main(string arguments) {
 				run_choice(2);
 
 			} else if (arguments == "xp" || arguments == "exp") {
-				equip($slot[familiar], best_regalia());
+				equip($slot[familiar], bestRegalia());
 				visit_url("/main.php?fightgodlobster=1", true, false);
 	// 			run_combat("consult smmKoL_consult.ash");
 				run_combat();
@@ -178,7 +183,7 @@ void main(string arguments) {
 		}
 
 	} finally {
-		restoreOutfit(true);
+		restoreOutfit();
 	}
 }
 
