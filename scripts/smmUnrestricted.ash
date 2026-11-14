@@ -1243,24 +1243,22 @@ void grindDrip(location dripLoc, string dressupTweak) {
 
 void grindDrip() {
 	if (have_item($item[maple magnet])) {
-		saveAndSetProperty("choiceAdventure1406", "4"); // drippy plum(?)
-		fullAcquire($item[drippy truncheon]); // for a drippy stake
-
-		grindDrip($location[the dripping trees], "equip maple magnet");
-
-		restoreSavedProperty("choiceAdventure1406");
+		try {
+			saveAndSetProperty("choiceAdventure1406", "4"); // drippy plum(?)
+			fullAcquire($item[drippy truncheon]); // for a drippy stake
+			grindDrip($location[the dripping trees], "equip maple magnet");
+		} finally {
+			restoreSavedProperty("choiceAdventure1406");
+		}
 	} else {
-		// 	set_property("choiceAdventure1411", "1"); // door 1: staff and maybe drippy orb
-		// 	set_property("choiceAdventure1411", "2"); // door 2: candy bar or driplets
-		set_property("choiceAdventure1411", "3"); // door 3: drippy grub
-		// 	set_property("choiceAdventure1411", "4"); // door 4: trade drippy stein for drippy pilsner
-		// 	set_property("choiceAdventure1411", "5"); // door 5: driplets
-		set_property("choiceAdventure1415", "1"); // buy drippy candy bar
-
-		grindDrip($location[the dripping hall], "");
-
-		remove_property("choiceAdventure1411");
-		remove_property("choiceAdventure1415");
+		try {
+			saveAndSetProperty("choiceAdventure1411", "3"); // door 3: drippy grub
+			saveAndSetProperty("choiceAdventure1415", "1"); // buy drippy candy bar
+			grindDrip($location[the dripping hall], "");
+		} finally {
+			restoreSavedProperty("choiceAdventure1411");
+			restoreSavedProperty("choiceAdventure1415");
+		}
 	}
 }
 
@@ -4532,7 +4530,6 @@ void grindSpacegate(string gateString) {
 	else {
 		// put into the closet if they can be accidentally used
 		put_closet(item_amount($item[alien rock sample]), $item[alien rock sample]);
-		put_closet(item_amount($item[alien rock sample]), $item[alien rock sample]);
 		put_closet(item_amount($item[alien toenails]), $item[alien toenails]);
 		put_closet(item_amount($item[alien zoological sample]), $item[alien zoological sample]);
 		put_closet(item_amount($item[complex alien zoological sample]), $item[complex alien zoological sample]);
@@ -6119,8 +6116,10 @@ void dailyFishingGrind(int [location] endGameTurnsSpent, int maxPerTurnCost) {
 						grindMadnessReef(maxPerTurnCost); // jamfish, magic dragonfish
 						break;
 				}
-			} else
+			} else {
 				set_property("_smm.DoSeaQuest", "false");
+				return;
+			}
 		}
 
 		assert(have_effect($effect[Fishy]) == 0 || breatheWaterTurns() == 0, "we should have used all the Fishy OR all the breathing buff by now!");
@@ -6217,25 +6216,24 @@ void dailyGrind() {
 	grindGhostCostume(); // 5-11 adv, 9 banishers
 
 	// stuff that doesn't need item drop or banishes
-	string previousSpacegateChoice = get_property("choiceAdventure1251");
 	try {
-		set_property("choiceAdventure1251", "6");
+		saveAndSetProperty("choiceAdventure1251", "6");
 		grindSpacegate(gkSpacegateCoordinates);
 	} finally {
-		set_property("choiceAdventure1251", previousSpacegateChoice);
+		restoreSavedProperty("choiceAdventure1251");
 	}
 
 	// FANTASYREALM
 	item frTargetItem = $item[scepter of the Skeleton Lord];
-	if (!(my_session_items() contains frTargetItem) && !"_fantasyRealmDone".get_property().to_boolean())
+	if (my_session_items(frTargetItem) <= 0 && !"_fantasyRealmDone".get_property().to_boolean())
 		cli_execute("fr " + frTargetItem); // 	// also need a few ring of the Skeleton Lord, and Master Thief's utility belt (not likely to ever catch Master Thief's utility belt)
-	assert(my_session_items() contains frTargetItem || "_fantasyRealmDone".get_property().to_boolean(), "didn't get " + frTargetItem);
+	assert(my_session_items(frTargetItem) > 0 || "_fantasyRealmDone".get_property().to_boolean(), "didn't get " + frTargetItem);
 	set_property("_fantasyRealmDone", "true");
 	unused = cli_execute("dc top10 " + frTargetItem);
 
 	// PIRATE REALM
 	item prGoalItem = $item[Red Roger's reliquary];
-	if (!(my_session_items() contains prGoalItem) && !"_pirateRealmDone".get_property().to_boolean())
+	if (my_session_items(prGoalItem) <= 0 && !"_smm.PirateRealmDone".get_property().to_boolean())
     	cli_execute("pr short"); // grind PirateRealm
 
 	grindDailyDungeon();
