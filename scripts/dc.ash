@@ -298,6 +298,8 @@ void printHelp() {
 	print_html("<strong style=\"color:blue;\">snipeminshelf <i>[max-number-to-buy]</i> <i>name</i></strong>: run snipemin on each item of the named shelf (unimplemented)");
 	print_html("<br/>Shelf operations that make changes will print a receipt of operations done. They follow the item save rules (below).");
 
+    print_html("<br/><strong>target item</strong>: report the first-place target, reserves, and additional items needed; never moves or buys items.");
+    print_html("<strong>top1 item</strong>: add owned items toward first place plus smm.dcOvershootAmount (default 11), respecting reserves; supports --dry-run and never buys or pulls shop stock.");
 	print_html("<h4>Item saving rules:</h4>");
 	print_html("<br/>If the item is not one or more of: equipment, gift, familiar hatchling, or skillbook then at least <i>smm.dcSaveAmount</i> (default 1) of the items will be saved from going into the display case.");
 	print_html("Familiar hatchlings, skillbooks save 0 items in the inventory, gifts and equipment save 3 items in the inventory.");
@@ -371,6 +373,99 @@ void dcPrintItemDetails(item anItem) {
 
 
 // returns the number of items to add to the display case that would increase our position one spot, WITHOUT overshooting.
+// Shared first-place policy for dc and crafting. Museum groups tied collectors
+// in one row, so use player IDs when finding the highest other collection.
+int dcHighestOther(string page, int ourId) {
+    if (!contains_text(to_lower_case(page), "</table>")) return -1;
+    matcher rows = create_matcher("(?is)<tr\\b[^>]*>(.*?)</tr>", page);
+    boolean sawLeader;
+    while (find(rows)) {
+        string row = group(rows, 1);
+        matcher players = create_matcher("href\\s*=\\s*['\"]/player/([0-9]+)['\"]", row);
+        if (!find(players)) continue;
+        boolean hasOther = to_int(group(players, 1)) != ourId;
+        while (find(players)) if (to_int(group(players, 1)) != ourId) hasOther = true;
+        row = replace_all(create_matcher("(?is)<style\\b[^>]*>.*?</style>", row), "");
+        matcher cells = create_matcher("(?is)<td\\b[^>]*>(.*?)</td>", row);
+        string [int] values;
+        int idx;
+        while (find(cells)) {
+            string text = entity_decode(replace_all(create_matcher("(?s)<[^>]*>", group(cells, 1)), ""));
+            values[idx++] = replace_all(create_matcher("^\\s+|\\s+$", text), "");
+        }
+        if (idx < 3 || (!sawLeader && values[0] != "🥇" && values[0] != "#1")) return -1;
+        string amount = replace_string(values[2], ",", "");
+        if (!amount.is_integer() || to_int(amount) < 1) return -1;
+        sawLeader = true;
+        if (hasOther) return to_int(amount);
+    }
+    return sawLeader ? 0 : -1;
+}
+
+record DCFirstPlacePlan {
+    item result;
+    int highestOther;
+    int target;
+    int displayed;
+    int owned;
+    int reserved;
+    int needed;
+};
+
+DCFirstPlacePlan dcFirstPlacePlan(item it, int highestOther) {
+    DCFirstPlacePlan plan;
+    plan.result = it;
+    plan.highestOther = highestOther;
+    plan.target = -1;
+    if (highestOther < 0 || !have_display() || !is_displayable(it)) return plan;
+    plan.target = highestOther + gkDCOvershootAmount;
+    plan.displayed = display_amount(it);
+    plan.owned = item_amount(it) + closet_amount(it) + (can_interact() ? storage_amount(it) : 0);
+    plan.reserved = saveAmount(it);
+    // dc's established policy keeps reserved items out and does not pull shop stock.
+    int displayShortfall = max(0, plan.target - plan.displayed);
+    plan.needed = displayShortfall > 0 ? max(0, displayShortfall + plan.reserved - plan.owned) : 0;
+    return plan;
+}
+
+DCFirstPlacePlan dcFirstPlacePlan(item it) {
+    int highestOther = -1;
+    if (have_display() && is_displayable(it)) {
+        string key = "_smm.DCFirstRivalFor" + to_int(it);
+        string cached = get_property(key);
+        if (cached.is_integer() && to_int(cached) >= 0)
+            highestOther = to_int(cached);
+        else {
+            highestOther = dcHighestOther(visit_url("https://museum.loathers.net/item/" + to_int(it), false, false), to_int(my_id()));
+            if (highestOther >= 0) set_property(key, highestOther);
+        }
+    }
+    return dcFirstPlacePlan(it, highestOther);
+}
+
+void dcPrintFirstPlacePlan(DCFirstPlacePlan plan) {
+    // Stable, numeric-only interface for other scripts; target is -1 when unknown.
+    print("DC_TARGET:" + to_int(plan.result) + ":" + plan.highestOther + ":" + plan.target
+        + ":" + plan.displayed + ":" + plan.owned + ":" + plan.reserved + ":" + plan.needed);
+}
+
+int dcFillFirstPlace(item it, boolean dryRun) {
+    DCFirstPlacePlan plan = dcFirstPlacePlan(it);
+    dcPrintFirstPlacePlan(plan);
+    if (plan.target < 0) return -1;
+    int toMove = min(max(0, plan.target - plan.displayed), max(0, plan.owned - plan.reserved));
+    print("dc top1: " + it + ", target " + plan.target + " (highest other " + plan.highestOther
+        + " + " + gkDCOvershootAmount + "), reserve " + plan.reserved + ", "
+        + (dryRun ? "would add " : "adding ") + toMove);
+    if (dryRun || toMove == 0) return 0;
+    int missing = max(0, toMove - item_amount(it));
+    if (missing > 0 && can_interact()) take_storage(min(missing, storage_amount(it)), it);
+    missing = max(0, toMove - item_amount(it));
+    if (missing > 0) take_closet(min(missing, closet_amount(it)), it);
+    if (item_amount(it) < toMove || !put_display(toMove, it)) return -1;
+    return toMove;
+}
+
 int neededToMoveUpOneRank(item anItem, int [int, string] top10List) {
 	int invAmount = item_amount(anItem);
 	int availableAmount = item_amount(anItem) + storage_amount(anItem) + closet_amount(anItem) - saveAmount(anItem);
@@ -556,7 +651,7 @@ void main(string arguments) {
 
 	// PROCESS ARGS: everything else
 	boolean [string] kAcceptedOptions = {"--dry-run": true};
-	boolean [string] kAcceptedCommands = {"top10": true, "auto": true, "addall": true, "rankup": true,
+	boolean [string] kAcceptedCommands = {"target": true, "top1": true, "top10": true, "auto": true, "addall": true, "rankup": true,
 		"iotm": true, "iotmtop10": true, "loc": true, "top10loc": true, "list": true, "snipe": true, "snipemin": true, "shelf": true, "shelves": true, "top10shelf": true, "addallshelf": true};
 
 	// options
@@ -584,7 +679,7 @@ void main(string arguments) {
 
 	// optional number argument will be the max price per item of rankup or the max number to buy of snipe and snipemin
 	int numberArgument;
-	if (tempArgv[0].is_integer()) {
+	if (tempArgv[0].is_integer() && command != "target" && command != "top1") {
 		numberArgument = tempArgv[0].to_int();
 		tempArgv = cdr(tempArgv);
 		tempString = tempArgv.joinString(" ");
@@ -603,6 +698,13 @@ void main(string arguments) {
 	int [int, string] top10List;
 	string pageString;
 	switch (command) {
+        case "target":
+            dcPrintFirstPlacePlan(dcFirstPlacePlan(anItem));
+            return;
+        case "top1":
+            if (dcFillFirstPlace(anItem, dryRun) < 0 && !dryRun)
+                abort("dc top1: rankings unavailable or transfer failed");
+            return;
 		case "top10":
 		case "auto":
 			top10List = lookupCollection(anItem, false);

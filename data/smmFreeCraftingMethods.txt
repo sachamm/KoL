@@ -1,0 +1,587 @@
+17-alarm Saucepan	SMITH
+3vi1 pr0n m4nic0tti	COOK_FANCY
+7-inch discus	SSMITH
+A Light that Never Goes Out	SMITH
+Alexy sauce	COOK_FANCY
+Aqua Citrulanatae	COOK_FANCY
+Beefy Crunch Pastaco	COOK_FANCY
+Belt of Loathing	SMITH
+Boris's key lime pie	COOK_FANCY
+Brain Food Pastaco	COOK_FANCY
+Buttery Boy	MIX_FANCY
+Chelonian Morningstar	SMITH
+Connery's Elixir of Audacity	COOK_FANCY
+Cool Brunch Pastaco	COOK_FANCY
+Crimbo hat	SMITH
+Crimbo pants	SMITH
+Crimbo sword	SMITH
+Crimbojito	MIX_FANCY
+Crimbonium fuel rod	SMITH
+Devil's Elbow Hot Sauce	COOK_FANCY
+Divine	MIX_FANCY
+Dreadsylvanian cold pocket	COOK_FANCY
+Dreadsylvanian cold-fashioned	MIX_FANCY
+Dreadsylvanian dank and stormy	MIX_FANCY
+Dreadsylvanian grimlet	MIX_FANCY
+Dreadsylvanian hot pocket	COOK_FANCY
+Dreadsylvanian hot toddy	MIX_FANCY
+Dreadsylvanian sleaze pocket	COOK_FANCY
+Dreadsylvanian slithery nipple	MIX_FANCY
+Dreadsylvanian spooky pocket	COOK_FANCY
+Dreadsylvanian stink pocket	COOK_FANCY
+Energy Buzz Pastaco	COOK_FANCY
+Ferrigno's Elixir of Power	COOK_FANCY
+Fettris	COOK_FANCY
+Frankly Mr. Shank	SMITH
+Frogade	COOK_FANCY
+Frost&trade; brand sword	SMITH
+Ghiaccio Colada	MIX_FANCY
+Gin Mint	MIX_FANCY
+Goggles of Loathing	SMITH
+Gordon Bennett	MIX_FANCY
+Greek Pasta Spoon of Peril	SMITH
+Hairpiece On Fire	SMITH
+Half a Purse	SMITH
+Hammer of Smiting	SMITH
+Hand in Glove	SMITH
+Hand that Rocks the Ladle	SMITH
+Hawking's Elixir of Brilliance	COOK_FANCY
+Hell broth	COOK_FANCY
+Hell ramen	COOK_FANCY
+Himalayan Hidalgo sauce	COOK_FANCY
+Jarlsberg's key lime pie	COOK_FANCY
+Jeans of Loathing	SMITH
+Kentucky-fried meat crossbow	SMITH
+Kentucky-fried meat staff	SMITH
+Kentucky-fried meat sword	SMITH
+Knob cake	COOK_FANCY
+Knob lo mein	COOK_FANCY
+Knob stir-fry	COOK_FANCY
+Knob stroganoff	COOK_FANCY
+Knob stuffed shells	COOK_FANCY
+Knoll lo mein	COOK_FANCY
+Knoll stir-fry	COOK_FANCY
+Ludovico Pastaco	COOK_FANCY
+Mae West	MIX_FANCY
+Meat Tenderizer is Murder	SMITH
+Medical Pastaco	COOK_FANCY
+Melonade Spritz	MIX_FANCY
+Mint Yulep	MIX_FANCY
+Mon Tiki	MIX_FANCY
+Monkey Congress	MIX_FANCY
+Mountain Stream gastrique	COOK_FANCY
+Neuromancer	MIX_FANCY
+Nog-on-the-Cob	MIX_FANCY
+Ouija Board, Ouija Board	SMITH
+PVC staff	SSMITH
+Quickquince	COOK_FANCY
+Quincea&ntilde;era Cooler	MIX_FANCY
+Russian Ice	MIX_FANCY
+Salsa Libre	COOK_FANCY
+Salsa de las Epocas	COOK_FANCY
+Sangria de Menthe	MIX_FANCY
+Saucepanic	SMITH
+Scepter of Loathing	SMITH
+Shagadelic Disco Banjo	SMITH
+Shakespeare's Sister's Accordion	SMITH
+Sheila Take a Crossbow	SMITH
+Sneaky Pete's key lime pie	COOK_FANCY
+Sourfinger	MIX_FANCY
+Southern yam	MIX_FANCY
+Special&trade; Sauce	COOK_FANCY
+Spirit Precipice	SSMITH
+Squeezebox of the Ages	SMITH
+Staff of the Headmaster's Victuals	SMITH
+Staff of the November Jack-O-Lantern	SMITH
+Steamboat	MIX_FANCY
+Stick-Knife of Loathing	SMITH
+Super Magic Power Sword X	SMITH
+Tequiz Navidad	MIX_FANCY
+Treads of Loathing	SMITH
+Tropical Crimbo Hat	SMITH
+Tropical Crimbo Shorts	SMITH
+Tropical Crimbo Sword	SMITH
+Vicar's Tutu	SMITH
+Vodka Matryoshka	MIX_FANCY
+Work is a Four Letter Sword	SMITH
+a little sump'm sump'm	MIX_FANCY
+agnolotti arboli	COOK_FANCY
+ancient turtle shell helmet	SSMITH
+asbestos crossbow	SSMITH
+asbestos helmet turtle	SSMITH
+asbestos meat stack	SSMITH
+asbestos staff	SSMITH
+asbestos sword	SSMITH
+asparagus lo mein	COOK_FANCY
+asparagus stir-fry	COOK_FANCY
+b&auml;tzle	COOK_FANCY
+banana quintessence	COOK_FANCY
+banana smoothie	COOK_FANCY
+baneful bandolier	SMITH
+bar whip	SSMITH
+barskin buckler	SSMITH
+barskin cloak	SSMITH
+barskin hat	SMITH
+barskin loincloth	SMITH
+basic meat crossbow	SMITH
+basic meat fez	SMITH
+basic meat foon	SMITH
+basic meat helmet	SMITH
+basic meat kilt	SMITH
+basic meat pants	SMITH
+basic meat skirt	SMITH
+basic meat spork	SMITH
+basic meat staff	SMITH
+basic meat sword	SMITH
+bat hat	SSMITH
+bat whip	SSMITH
+bat-ass leather jacket	SSMITH
+berry-infused sake	MIX_FANCY
+bitter pill	COOK_FANCY
+black belt	SSMITH
+black cowboy hat	SSMITH
+blackberry polite	COOK_FANCY
+blended frozen swill	MIX_FANCY
+blood-red mushroom wine	MIX_FANCY
+bodyslam	MIX_FANCY
+boring spaghetti	COOK_FANCY
+bottle of drinkin' gas	MIX_FANCY
+bow staff	SMITH
+bowlegged pants	SMITH
+bowler	SMITH
+bubble bauble bow	SMITH
+bubblewrap bottlecap turtleban	SSMITH
+bubblewrap crossbow	SMITH
+bubblewrap staff	SMITH
+bubblewrap sword	SMITH
+buffalo blade	SMITH
+bungle in the jungle	MIX_FANCY
+buzzing mushroom wine	MIX_FANCY
+caipifruta	MIX_FANCY
+calle de miel	MIX_FANCY
+can cannon	SMITH
+candy carrot cake	COOK_FANCY
+cardboard box turtle	SSMITH
+cardboard crossbow	SMITH
+cardboard staff	SMITH
+cardboard sword	SMITH
+carob cannon	SSMITH
+catskin buckler	SSMITH
+catskin cap	SSMITH
+cheesy eagle sauce	COOK_FANCY
+cherry bomb	MIX_FANCY
+chocotini	MIX_FANCY
+chrome crossbow	SSMITH
+chrome helmet turtle	SSMITH
+chrome meat stack	SSMITH
+chrome staff	SSMITH
+chrome sword	SSMITH
+citrus-infused sake	MIX_FANCY
+clown whip	SSMITH
+clown wig	SMITH
+clownskin belt	SMITH
+clownskin buckler	SSMITH
+clownskin harness	SSMITH
+club of the five seasons	SSMITH
+cold and sour sauce	COOK_FANCY
+cold hi mein	COOK_FANCY
+cold wad	COOK_FANCY
+cologne of contempt	COOK_FANCY
+complex mushroom wine	MIX_FANCY
+concentrated cordial of concentration	COOK_FANCY
+concentrated watermelon juice	COOK_FANCY
+concoction of clumsiness	COOK_FANCY
+cool mushroom wine	MIX_FANCY
+cordial of concentration	COOK_FANCY
+corroded breeches	SMITH
+corrosive cowl	SMITH
+cranberry cordial	COOK_FANCY
+creepy-ass club	SSMITH
+crudles	COOK_FANCY
+curdflinger	SMITH
+delicious noodles	COOK_FANCY
+delicious spicy noodles	COOK_FANCY
+demon buckler	SSMITH
+demon whip	SSMITH
+demon-horned hat	SMITH
+demonskin jacket	SSMITH
+demonskin trousers	SMITH
+dense meat crossbow	SMITH
+dense meat staff	SMITH
+dense meat sword	SMITH
+depleted Grimacite astrolabe	SMITH
+depleted Grimacite grappling hook	SMITH
+depleted Grimacite gravy boat	SMITH
+depleted Grimacite hammer	SMITH
+depleted Grimacite ninja mask	SMITH
+depleted Grimacite shinguards	SMITH
+depleted Grimacite weightlifting belt	SMITH
+devil hair pasta	COOK_FANCY
+dew yoana lei	MIX_FANCY
+dew yoana salacious lei	MIX_FANCY
+diabolical crossbow	SMITH
+dirty martini	MIX_FANCY
+dripping meat crossbow	SMITH
+dripping meat staff	SMITH
+dripping meat sword	SMITH
+drug cocktail sauce	COOK_FANCY
+ducha de oro	MIX_FANCY
+dueling banjo	SMITH
+eXtreme meat crossbow	SMITH
+eXtreme meat staff	SMITH
+eXtreme meat sword	SMITH
+eelskin hat	SSMITH
+eelskin pants	SSMITH
+eelskin shield	SSMITH
+eldritch essence	COOK_FANCY
+elevenderizing hammer	SMITH
+elevennis shoes	SMITH
+elevent	SMITH
+enchantlers	SMITH
+essential banana decoction	COOK_FANCY
+evil boring spaghetti	COOK_FANCY
+evil delicious noodles	COOK_FANCY
+evil delicious spicy noodles	COOK_FANCY
+evil eyedrops of the ermine	COOK_FANCY
+evil libation of liveliness	COOK_FANCY
+evil ointment of the occult	COOK_FANCY
+evil painful penne pasta	COOK_FANCY
+evil philter of phorce	COOK_FANCY
+evil potion of potency	COOK_FANCY
+evil ravioli della hippy	COOK_FANCY
+evil serum of sarcasm	COOK_FANCY
+evil spicy noodles	COOK_FANCY
+evil tomato juice of powerful power	COOK_FANCY
+evil-ass club	SSMITH
+eyedrops of newt	COOK_FANCY
+eyedrops of the ermine	COOK_FANCY
+eyedrops of the ocelot	COOK_FANCY
+fancy schmancy cheese sauce	COOK_FANCY
+fettucini Inconnu	COOK_FANCY
+fez of etymology	SMITH
+fishy fish lasagna	COOK_FANCY
+flaming cardboard sword	SMITH
+flaming mushroom wine	MIX_FANCY
+flat mushroom wine	MIX_FANCY
+floaty rock helmet	SSMITH
+floaty rock pants	SSMITH
+fluid of fudge-finding	COOK_FANCY
+flypaper staff	SMITH
+foon of fearfulness	SMITH
+foon of fleshiness	SMITH
+foon of foulness	SMITH
+foon of frigidity	SMITH
+foon of fulmination	SMITH
+frigid-ass club	SSMITH
+fruity girl swill	MIX_FANCY
+furry green earmuffs	SSMITH
+furry kilt	SSMITH
+furry pants	SSMITH
+furry skirt	SSMITH
+fusilli marrownarrow	COOK_FANCY
+fusillocybin	COOK_FANCY
+fuzzbump	MIX_FANCY
+gatorskin umbrella	SSMITH
+gelatinous meat mass	SMITH
+ghast iron Garibaldi	SSMITH
+ghast iron cleaver	SSMITH
+ghast iron codpiece	SSMITH
+ghast iron heater shield	SSMITH
+ghast iron ingot	SMITH
+ghuol guolash	COOK_FANCY
+giant cheesestick	SMITH
+giant green gummi ingot	SSMITH
+giant red gummi ingot	SSMITH
+giant yellow gummi ingot	SSMITH
+gibson	MIX_FANCY
+gimlet	MIX_FANCY
+gin and tonic	MIX_FANCY
+glistening staff	SMITH
+gloomy mushroom wine	MIX_FANCY
+gnat lasagna	COOK_FANCY
+gnauga hide buckler	SSMITH
+gnauga hide chaps	SSMITH
+gnauga hide kilt	SSMITH
+gnauga hide skirt	SSMITH
+gnauga hide vest	SSMITH
+gnauga hide whip	SSMITH
+gnocchetti di Nietzsche	COOK_FANCY
+good gravy	COOK_FANCY
+goulauncher	SMITH
+grass blade	SMITH
+grass hat	SMITH
+grass skirt	SMITH
+gravyskin buckler	SSMITH
+gravyskin hat	SSMITH
+gravyskin pants	SSMITH
+gravyskin skirt	SSMITH
+grease gun	SMITH
+grisly shield	SMITH
+grogtini	MIX_FANCY
+grue egg omelette	COOK_FANCY
+hairy staff	SSMITH
+haunted gimlet	MIX_FANCY
+hippo skin buckler	SSMITH
+hippo whip	SSMITH
+hippopotamus kilt	SSMITH
+hippopotamus pants	SSMITH
+hippopotamus skirt	SSMITH
+hipposkin poncho	SSMITH
+horizontal tango	MIX_FANCY
+hot and sour sauce	COOK_FANCY
+hot cross bow	SSMITH
+hot hi mein	COOK_FANCY
+hot wad	COOK_FANCY
+hot-ass club	SSMITH
+icy mushroom wine	MIX_FANCY
+icy-hot katana	SMITH
+illicit fish sauce	COOK_FANCY
+knob mushroom wine	MIX_FANCY
+knobby kneepads	SSMITH
+knoll mushroom wine	MIX_FANCY
+libation of liveliness	COOK_FANCY
+libertagliatelle	COOK_FANCY
+linguini immondizia bianco	COOK_FANCY
+linguini of the sea	COOK_FANCY
+linoleum crossbow	SSMITH
+linoleum helmet turtle	SSMITH
+linoleum meat stack	SSMITH
+linoleum staff	SSMITH
+linoleum sword	SSMITH
+long pork lasagna	COOK_FANCY
+lotion of coldness	COOK_FANCY
+lotion of hotness	COOK_FANCY
+lotion of sleaziness	COOK_FANCY
+lotion of spookiness	COOK_FANCY
+lotion of stench	COOK_FANCY
+lychee chuhai	MIX_FANCY
+lynyrdskin breeches	SSMITH
+lynyrdskin cap	SSMITH
+lynyrdskin tunic	SSMITH
+malevolent medallion	SMITH
+mandarina colada	MIX_FANCY
+meat cowboy hat	SMITH
+meat shield	SSMITH
+meatloaf helmet	SMITH
+meatspout staff	SSMITH
+meaty helmet turtle	SSMITH
+melon-infused sake	MIX_FANCY
+menudo ravioli	COOK_FANCY
+milk of magnesium	COOK_FANCY
+mimosette	MIX_FANCY
+muculent machete	SMITH
+nasty rat mask	SSMITH
+nasty-ass club	SSMITH
+nega-mushroom wine	MIX_FANCY
+nicksilver spurs	SMITH
+non-stick pugil stick	SSMITH
+ocean motion	MIX_FANCY
+oil of expertise	COOK_FANCY
+oil of oiliness	COOK_FANCY
+oil of slipperiness	COOK_FANCY
+oil of stability	COOK_FANCY
+oily mushroom wine	MIX_FANCY
+ointment of the occult	COOK_FANCY
+olive lo mein	COOK_FANCY
+olive stir-fry	COOK_FANCY
+overpowering mushroom wine	MIX_FANCY
+oyster sauce	COOK_FANCY
+painful penne pasta	COOK_FANCY
+painted shield	SSMITH
+papotion of papower	COOK_FANCY
+parisian cathouse	MIX_FANCY
+peach lozenge	COOK_FANCY
+pear lozenge	COOK_FANCY
+penguin shorts	SSMITH
+penguin skin buckler	SSMITH
+penguin whip	SSMITH
+penguinskin mini-kilt	SSMITH
+penguinskin mini-skirt	SSMITH
+perfume of prejudice	COOK_FANCY
+pernicious cudgel	SMITH
+perpendicular hula	MIX_FANCY
+pestoblade	SMITH
+phial of coldness	COOK_FANCY
+phial of hotness	COOK_FANCY
+phial of sleaziness	COOK_FANCY
+phial of spookiness	COOK_FANCY
+phial of stench	COOK_FANCY
+philter of phorce	COOK_FANCY
+pimpin' meat hat	SMITH
+pink pinkslip slip	SSMITH
+pink pony	MIX_FANCY
+plum lozenge	COOK_FANCY
+pointy mushroom wine	MIX_FANCY
+potato pistol	SMITH
+potent potion of potency	COOK_FANCY
+potion of potency	COOK_FANCY
+potion of temporary gr8ness	COOK_FANCY
+poutine pole	SMITH
+pr0n m4nic0tti	COOK_FANCY
+prescription noodles	COOK_FANCY
+pressurized potion of perception	COOK_FANCY
+pressurized potion of perspicacity	COOK_FANCY
+pressurized potion of pneumaticity	COOK_FANCY
+pressurized potion of possessiveness	COOK_FANCY
+pressurized potion of proficiency	COOK_FANCY
+pressurized potion of puissance	COOK_FANCY
+pressurized potion of pulchritude	COOK_FANCY
+projectile icemaker	SSMITH
+prussian cathouse	MIX_FANCY
+quicksilver spurs	SMITH
+quince quaff	COOK_FANCY
+rabbit punch	MIX_FANCY
+rainbow crossbow	SSMITH
+rainbow sauce	COOK_FANCY
+ram-battering staff	SMITH
+raspberry beret	SMITH
+ratini	COOK_FANCY
+ratskin belt	SSMITH
+rattail whip	SSMITH
+ravioli della hippy	COOK_FANCY
+reinforced furry underpants	SSMITH
+repeating crossbow	SMITH
+rockin' wagon	MIX_FANCY
+roll in the hay	MIX_FANCY
+rusty staff	SSMITH
+salacious lychee chuhai	MIX_FANCY
+salacious screwdiver	MIX_FANCY
+salamander slurry	COOK_FANCY
+salt plum sake	MIX_FANCY
+samurai turtle helmet	SSMITH
+sangria del diablo	MIX_FANCY
+sauce of the ages	COOK_FANCY
+sausage wonton	COOK_FANCY
+savory crossbow	SMITH
+savory dry noodles	COOK_FANCY
+savory staff	SMITH
+savory sword	SMITH
+screwdiver	MIX_FANCY
+sea chaps	SMITH
+sea cowboy hat	SMITH
+sea holster	SSMITH
+seared dino steak	COOK_FANCY
+sebaceous shield	SSMITH
+sentient meat mass	SSMITH
+sequined fez	SMITH
+serum of sarcasm	COOK_FANCY
+shells a la shellfish	COOK_FANCY
+shin gourds	SMITH
+shuddersword	SSMITH
+sicksilver spurs	SMITH
+simple AI	SMITH
+six-rainbow shield	SSMITH
+skewered cherry	MIX_FANCY
+skewered jumbo olive	MIX_FANCY
+skewered lime	MIX_FANCY
+slap and tickle	MIX_FANCY
+sleaze wad	COOK_FANCY
+sleazy and sour sauce	COOK_FANCY
+sleazy hi mein	COOK_FANCY
+slicksilver spurs	SMITH
+slip 'n' slide	MIX_FANCY
+smoldering staff	SSMITH
+smooth mushroom wine	MIX_FANCY
+soft green echo eyedrop antidote martini	MIX_FANCY
+soup-chucks	SMITH
+soylent staff	SMITH
+space beast fur hat	SMITH
+space beast fur pants	SMITH
+space beast fur whip	SMITH
+spagecialetti	COOK_FANCY
+spaghetti con calaveras	COOK_FANCY
+spaghetti with Skullheads	COOK_FANCY
+spaghetti with ghost balls	COOK_FANCY
+spicy noodles	COOK_FANCY
+spiky turtle helmet	SSMITH
+spiky turtle shield	SSMITH
+spiky turtle shoulderpads	SSMITH
+sponge helmet	SSMITH
+spongy shield	SSMITH
+spooky and sour sauce	COOK_FANCY
+spooky hi mein	COOK_FANCY
+spooky lo mein	COOK_FANCY
+spooky mushroom wine	MIX_FANCY
+spooky stir-fry	COOK_FANCY
+spooky wad	COOK_FANCY
+square sponge pants	SSMITH
+squeaky staff	SMITH
+staph of homophones	SSMITH
+star key lime pie	COOK_FANCY
+starchy crossbow	SMITH
+starchy staff	SMITH
+starchy sword	SMITH
+stench and sour sauce	COOK_FANCY
+stench wad	COOK_FANCY
+sticky meat kilt	SMITH
+sticky meat pants	SMITH
+sticky meat skirt	SMITH
+stinky hi mein	COOK_FANCY
+stinky mushroom wine	MIX_FANCY
+styrofoam crossbow	SMITH
+styrofoam staff	SMITH
+styrofoam sword	SMITH
+suggestive strozzapreti	COOK_FANCY
+sweet potato o' mine	MIX_FANCY
+sweet potato punch	MIX_FANCY
+swirling mushroom wine	MIX_FANCY
+sword behind inappropriate prepositions	SSMITH
+sword of static	SMITH
+tail o' nine cats	SSMITH
+tangarita	MIX_FANCY
+teflon shield	SSMITH
+teflon spatula	SSMITH
+teflon swim fins	SMITH
+tempura air	COOK_FANCY
+tempura avocado	COOK_FANCY
+tempura broccoli	COOK_FANCY
+tempura carrot	COOK_FANCY
+tempura cauliflower	COOK_FANCY
+tempura cucumber	COOK_FANCY
+tempura green and red bean	COOK_FANCY
+tempura radish	COOK_FANCY
+teqiwila	MIX_FANCY
+teqiwila slammer	MIX_FANCY
+tequila sunset	MIX_FANCY
+thicksilver spurs	SMITH
+ticksilver spurs	SMITH
+tighty whiteys	SMITH
+time helmet	SMITH
+time sword	SMITH
+time trousers	SMITH
+tofu wonton	COOK_FANCY
+tomato juice of powerful power	COOK_FANCY
+tortoboggan shield	SSMITH
+tropical swill	MIX_FANCY
+turkish mostaccioli	COOK_FANCY
+tuxedo shirt	SSMITH
+unfortunate dumplings	COOK_FANCY
+unstable fulminate	COOK_FANCY
+velcro boots	SSMITH
+velcro broadsword	SSMITH
+velcro paddle ball	SSMITH
+velcro shield	SSMITH
+vesper	MIX_FANCY
+villainous scythe	SMITH
+vinyl boots	SSMITH
+vinyl shield	SSMITH
+vodka and tonic	MIX_FANCY
+vodka gibson	MIX_FANCY
+vodka stratocaster	MIX_FANCY
+whiskey bittersweet	MIX_FANCY
+white belt	SMITH
+white snakeskin duster	SSMITH
+white whip	SSMITH
+wicksilver spurs	SMITH
+wiffle-flail	SMITH
+wok lobster	COOK_FANCY
+yak anorak	SSMITH
+yak toupee	SSMITH
+yak whip	SSMITH
+yakskin buckler	SSMITH
+yakskin kilt	SSMITH
+yakskin pants	SSMITH
+yakskin skirt	SSMITH
+yellow brick road	MIX_FANCY
+zmobie	MIX_FANCY
+zombie dinosaur egg	SSMITH

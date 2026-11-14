@@ -1724,144 +1724,376 @@ void grindPoolSkill() {
 
 
 
-// returns priority items for burning free crafting turns
-// use the PSR mechanism. mpCost is actually the turn cost.
-PrioritySkillRecord [int] freeCraftingData(item nightcap) {
-	PrioritySkillRecord [int] psrArray;
-	PrioritySkillRecord tempPSR;
-	int kBaseUsesAvailable = 33; // use this to balance between 2 or more items with kBaseUsesAvailable - my_session_items(<my item>);
+// One recipe execution, priced using the full output and ingredient quantities.
+record FreeCraftingChoice {
+	item result;
+	int quantity;
+	int turns;
+	float profit;
+	float profitPerTurn;
+    float score;
+    boolean forDisplayCase;
+    int collectionTarget;
+    int collectionNeed;
+    int salesUnits14d;
+    int salesDays14d;
+};
 
-	int universalFreeCraftingTurns = availableFreeCraftTurns("universal");
-	int foodableFreeCraftingTurns = availableFreeCraftTurns("food");
-	int drinkableFreeCraftingTurns = availableFreeCraftTurns("drink");
-	int meatableFreeCraftingTurns = availableFreeCraftTurns("paste");
-	int foodOnlyFreeCraftingTurns = availableFreeCraftTurns("food-only");
-	int drinkOnlyFreeCraftingTurns = availableFreeCraftTurns("drink-only");
-	int meatOnlyFreeCraftingTurns = availableFreeCraftTurns("paste-only");
-	int i = 0;
-
-	// nightcap -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
-	tempPSR = new PrioritySkillRecord($skill[none], nightcap, creatable_turns(nightcap, 1, false), 0, 1);
-	tempPSR.usesAvailable = max(0, 1 - available_amount(nightcap)); // only ever need 1
-	tempPSR.isAvailableNow = drinkableFreeCraftingTurns >= tempPSR.mpCost && have_mats(nightcap);
-	psrArray[i++] = tempPSR;
-
-	// pressurized potion of pneumaticity -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
-	tempPSR = new PrioritySkillRecord($skill[none], $item[pressurized potion of pneumaticity], 1, 0, 5);
-	tempPSR.usesAvailable = max(0, -my_session_items($item[pressurized potion of pneumaticity])); // replace any used
-	tempPSR.isAvailableNow = foodableFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[pressurized potion of pneumaticity]);
-	psrArray[i++] = tempPSR;
-
-	// tempura air -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
-	tempPSR = new PrioritySkillRecord($skill[none], $item[tempura air], 1, 0, 5);
-	tempPSR.usesAvailable = max(0, 1 - my_session_items($item[tempura air])); // make 1/day
-	tempPSR.isAvailableNow = foodableFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[tempura air]);
-	psrArray[i++] = tempPSR;
-
-	// haunted gimlet COSTS A TURN TO CRAFT!! unlike all the other haunted stuff -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
-	tempPSR = new PrioritySkillRecord($skill[none], $item[haunted gimlet], 1, 0, 10);
-	tempPSR.usesAvailable = 2 - my_session_items($item[haunted gimlet]); // make 2/day
-	tempPSR.isAvailableNow = drinkableFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[haunted gimlet]);
-	psrArray[i++] = tempPSR;
-
-	// for use with haunted hell ramen -- skill, item, mpCost, meatCost, priority -- mp cost is the turn cost to create
-	tempPSR = new PrioritySkillRecord($skill[none], $item[Hell ramen], 2, 0, 11);
-	tempPSR.usesAvailable = kBaseUsesAvailable - my_session_items($item[Hell ramen]); // as many as we can
-	tempPSR.isAvailableNow = foodableFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[Hell ramen]);
-	psrArray[i++] = tempPSR;
-
-	// backstop items: create these if nothing else is available, should be 1 turn to create
-	// should probably have some food, since we have free food-only crafting turns from the Cookbookbat
-	// main backstop item -- we have lots of MSG and dry noodles are cheap and easy to buy
-	tempPSR = new PrioritySkillRecord($skill[none], $item[savory dry noodles], 1, 0, 95);
-	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = foodableFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[savory dry noodles]);
-	psrArray[i++] = tempPSR;
-
-	// meatsmithing
-	tempPSR = new PrioritySkillRecord($skill[none], $item[dense meat staff], 1, 0, 97);
-	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = meatOnlyFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[dense meat staff]);
-	psrArray[i++] = tempPSR;
-
-	tempPSR = new PrioritySkillRecord($skill[none], $item[sea cowboy hat], 1, 0, 99);
-	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = meatOnlyFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[sea cowboy hat]);
-	psrArray[i++] = tempPSR;
-
-	// meat pasting
-	tempPSR = new PrioritySkillRecord($skill[none], $item[linoleum meat stack], 1, 0, 98);
-	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = meatOnlyFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[linoleum meat stack]);
-	psrArray[i++] = tempPSR;
-
-	// cooking
-	tempPSR = new PrioritySkillRecord($skill[none], $item[stench and sour sauce], 1, 0, 98);
-	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = foodOnlyFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[stench and sour sauce]);
-	psrArray[i++] = tempPSR;
-
-	tempPSR = new PrioritySkillRecord($skill[none], $item[drug cocktail sauce], 1, 0, 99);
-	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = foodOnlyFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[drug cocktail sauce]);
-	psrArray[i++] = tempPSR;
-
-	tempPSR = new PrioritySkillRecord($skill[none], $item[sauce of the ages], 1, 0, 98);
-	tempPSR.usesAvailable = kMaxInt;
-	tempPSR.isAvailableNow = foodOnlyFreeCraftingTurns >= tempPSR.mpCost && have_mats($item[sauce of the ages]);
-	psrArray[i++] = tempPSR;
-
-	return psrArray;
+// Batch yields from the installed KoLmafia recipe data. New recipes default
+// to one output; generate_yields.py refreshes explicit yield and SX3 exceptions.
+int freeCraftingYield(item result) {
+    int quantity = 1;
+    switch (result) {
+    case $item[bottle of gin]: quantity = 3; break;
+    case $item[bottle of rum]: quantity = 3; break;
+    case $item[bottle of sake]: quantity = 3; break;
+    case $item[bottle of tequila]: quantity = 3; break;
+    case $item[bottle of vodka]: quantity = 3; break;
+    case $item[bottle of whiskey]: quantity = 3; break;
+    case $item[boxed wine]: quantity = 3; break;
+    case $item[glob of cream cheese]: quantity = 3; break;
+    case $item[grubby woolball]: quantity = 3; break;
+    case $item[mediocre lager]: quantity = 6; break;
+    case $item[pumpkin beer]: quantity = 3; break;
+    case $item[pumpkin juice]: quantity = 3; break;
+    case $item[space port]: quantity = 3; break;
+    case $item[stick of firewood]: quantity = 10; break;
+    case $item[tropical orchid]: quantity = 6; break;
+    }
+    if (my_class() == $class[Sauceror]) {
+        switch (result) {
+        case $item[Connery's Elixir of Audacity]:
+        case $item[Ferrigno's Elixir of Power]:
+        case $item[Frogade]:
+        case $item[Hawking's Elixir of Brilliance]:
+        case $item[banana smoothie]:
+        case $item[blackberry polite]:
+        case $item[cologne of contempt]:
+        case $item[concentrated cordial of concentration]:
+        case $item[cordial of concentration]:
+        case $item[cranberry cordial]:
+        case $item[eyedrops of newt]:
+        case $item[eyedrops of the ermine]:
+        case $item[eyedrops of the ocelot]:
+        case $item[libation of liveliness]:
+        case $item[lotion of coldness]:
+        case $item[lotion of hotness]:
+        case $item[lotion of sleaziness]:
+        case $item[lotion of spookiness]:
+        case $item[lotion of stench]:
+        case $item[milk of magnesium]:
+        case $item[oil of expertise]:
+        case $item[oil of oiliness]:
+        case $item[oil of slipperiness]:
+        case $item[oil of stability]:
+        case $item[ointment of the occult]:
+        case $item[papotion of papower]:
+        case $item[peach lozenge]:
+        case $item[pear lozenge]:
+        case $item[perfume of prejudice]:
+        case $item[philter of phorce]:
+        case $item[plum lozenge]:
+        case $item[potent potion of potency]:
+        case $item[potion of potency]:
+        case $item[potion of temporary gr8ness]:
+        case $item[salamander slurry]:
+        case $item[serum of sarcasm]:
+        case $item[tomato juice of powerful power]:
+            quantity *= 3;
+        }
+    }
+    return quantity;
 }
 
-// use the PSR mechanism. mpCost is actually the turn cost.
-PrioritySkillRecord [int] freeCraftingData() {
-	return freeCraftingData(gkOverdrinkDrinkItem);
+int [item] freeCraftingYields() {
+    int [item] yields;
+    foreach result in $items[]
+        if (result.tradeable && count(get_ingredients(result)) > 0)
+            yields[result] = freeCraftingYield(result);
+    return yields;
+}
+
+// Cache market quotes for this run, so rescanning recipes doesn't repeat searches.
+int freeCraftingPrice(item it, int [item] prices) {
+	if (!(prices contains it)) prices[it] = it.tradeable ? mall_price(it) : 0;
+	return prices[it];
+}
+
+// NPC prices can be lower than mall prices; keep output sale quotes separate.
+int freeCraftingIngredientPrice(item ingredient, int [item] prices) {
+    int market = freeCraftingPrice(ingredient, prices);
+    int npc = npc_price(ingredient);
+    return npc > 0 && (market <= 0 || npc < market) ? npc : market;
+}
+
+// All figures use Pricegun's default fourteen daily history buckets.
+int [item] freeCraftingSalesUnits;
+int [item] freeCraftingSalesDays;
+void freeCraftingReadSalesVolume(item result, string response) {
+    freeCraftingSalesUnits[result] = 0;
+    freeCraftingSalesDays[result] = 0;
+    matcher history = create_matcher("(?s)\"history\"\\s*:\\s*\\[(.*?)\\]", response);
+    if (!find(history)) return;
+    matcher volumes = create_matcher("\"volume\"\\s*:\\s*([0-9]+)", group(history, 1));
+    while (find(volumes)) {
+        int units = to_int(group(volumes, 1));
+        if (units > 0) {
+            freeCraftingSalesUnits[result] += units;
+            freeCraftingSalesDays[result]++;
+        }
+    }
+    freeCraftingSalesDays[result] = min(14, freeCraftingSalesDays[result]);
 }
 
 
+// Pricegun's value is a time-weighted completed-sale estimate. Its default
+// history contains 14 days of trades; require recent evidence, not just an
+// old accumulator. Missing, invalid or unavailable data is worth zero here.
+float freeCraftingParseSalePrice(item result, string response) {
+    matcher identity = create_matcher("\"itemId\"\\s*:\\s*([0-9]+)", response);
+    if (!find(identity) || to_int(group(identity, 1)) != to_int(result)) return 0;
+    matcher sales = create_matcher("\"sales\"\\s*:\\s*\\[\\s*\\{", response);
+    matcher history = create_matcher("\"history\"\\s*:\\s*\\[\\s*\\{", response);
+    if (!find(sales) || !find(history)) return 0;
+    matcher value = create_matcher("\"value\"\\s*:\\s*\\{\\s*\"__decimal__\"\\s*:\\s*\"([0-9]+(?:\\.[0-9]+)?)\"\\s*\\}", response);
+    if (!find(value)) return 0;
+    return max(0.0, to_float(group(value, 1)));
+}
+
+float [item] freeCraftingSalePrices;
+float freeCraftingExpectedSalePrice(item result) {
+    if (!(freeCraftingSalePrices contains result)) {
+        string response = visit_url("https://pricegun.loathers.net/api/" + to_int(result), false, false);
+        freeCraftingSalePrices[result] = freeCraftingParseSalePrice(result, response);
+        freeCraftingReadSalesVolume(result, freeCraftingSalePrices[result] > 0 ? response : "");
+    }
+    return freeCraftingSalePrices[result];
+}
+
+// Recipe methods are extracted from the installed Mafia data. Keeping this
+// separate from creatable_turns avoids charging turns for ingredients we buy.
+string [item] freeCraftingMethods;
+string freeCraftingMethod(item result) {
+	if (count(freeCraftingMethods) == 0)
+		assert(file_to_map("smmFreeCraftingMethods.txt", freeCraftingMethods), "Could not load smmFreeCraftingMethods.txt");
+	return freeCraftingMethods[result];
+}
+
+int freeCraftingRecipeTurns(item result) {
+	string method = freeCraftingMethod(result);
+	if (method == "SMITH" || method == "SSMITH") {
+		if (method == "SMITH" && knoll_available()) return 0;
+		return availableFreeCraftTurns("universal") > 0 ? 1 : 0;
+	}
+	// Servants make these crafts intrinsically free; they don't burn free turns.
+	if (method == "COOK_FANCY" && !have_chef() && !to_boolean(get_property("autoRepairBoxServants")))
+		return availableFreeCraftTurns("food") > 0 ? 1 : 0;
+	if (method == "MIX_FANCY" && !have_bartender() && !have_skill($skill[Cocktail Magic]) && !to_boolean(get_property("autoRepairBoxServants")))
+		return availableFreeCraftTurns("drink") > 0 ? 1 : 0;
+	return 0;
+}
+
+// Stored ingredients can be moved without spending turns or crafting anything.
+int freeCraftingOwned(item ingredient) {
+	return item_amount(ingredient) + closet_amount(ingredient) + (can_interact() ? storage_amount(ingredient) : 0);
+}
+
+boolean acquireFreeCraftingIngredients(FreeCraftingChoice choice, int [item] prices) {
+	foreach ingredient, amount in get_ingredients(choice.result) {
+		int missing = max(0, amount - item_amount(ingredient));
+		if (missing > 0 && closet_amount(ingredient) > 0)
+			take_closet(min(missing, closet_amount(ingredient)), ingredient);
+		missing = max(0, amount - item_amount(ingredient));
+		if (missing > 0 && can_interact() && storage_amount(ingredient) > 0)
+			take_storage(min(missing, storage_amount(ingredient)), ingredient);
+		missing = max(0, amount - item_amount(ingredient));
+		if (missing > 0) {
+			int limit = freeCraftingIngredientPrice(ingredient, prices);
+			if (limit <= 0 || buy(missing, ingredient, limit) < missing) {
+				print("Could not buy " + ingredient + " at the ranked price; stopping free crafting.", "orange");
+				return false;
+			}
+		}
+		if (item_amount(ingredient) < amount) return false;
+	}
+	return true;
+}
+
+// Cache stock checks per quoted price. Apply the same market-depth standard
+// to finished goods and every ingredient, including materials already owned.
+boolean [item, int] freeCraftingStockChecks;
+boolean freeCraftingWellStocked(item it, int quotedPrice) {
+    if (quotedPrice <= 0) return false;
+    if (!(freeCraftingStockChecks[it] contains quotedPrice))
+        freeCraftingStockChecks[it, quotedPrice] = well_stocked(to_string(it), 20, floor(to_float(quotedPrice) * 1.2));
+    return freeCraftingStockChecks[it, quotedPrice];
+}
+
+int freeCraftingSetting(string key, int defaultValue) {
+    string value = get_property(key);
+    return value.is_integer() && to_int(value) > 0 ? to_int(value) : defaultValue;
+}
+
+boolean freeCraftingRegularSales(item result) {
+    return freeCraftingSalesUnits[result] >= freeCraftingSetting("smm.FreeCraftingMinSales14d", 14)
+        && freeCraftingSalesDays[result] >= freeCraftingSetting("smm.FreeCraftingMinActiveDays14d", 7);
+}
+
+// A bounded liquidity weight keeps the score in meat per free turn. Reward
+// regular selling days, and discount adding stock beyond a day's recent demand.
+float freeCraftingSalesScore(item result, int quantity, float profitPerTurn) {
+    int unsold = freeCraftingOwned(result) + shop_amount(result);
+    float turnover = min(1.0, freeCraftingSalesUnits[result] / 14.0 / max(1, unsold + quantity));
+    float regularity = freeCraftingSalesDays[result] / 14.0;
+    return profitPerTurn * turnover * regularity;
+}
+
+// dc.ash owns Museum parsing, the eleven-item lead, reserves, and holdings.
+// Query its read-only machine interface each time so deficits follow live counts.
+int [item] freeCraftingCollectionTargets;
+int freeCraftingCollectionNeed(item result) {
+    freeCraftingCollectionTargets[result] = -1;
+    string response = cli_execute_output("dc --dry-run target " + to_int(result));
+    matcher plan = create_matcher("DC_TARGET:([0-9]+):(-?[0-9]+):(-?[0-9]+):([0-9]+):([0-9]+):([0-9]+):([0-9]+)", response);
+    if (!find(plan) || to_int(group(plan, 1)) != to_int(result) || to_int(group(plan, 3)) < 0) return 0;
+    freeCraftingCollectionTargets[result] = to_int(group(plan, 3));
+    return to_int(group(plan, 7));
+}
+
+FreeCraftingChoice bestFreeCrafting(int [item] yields, int [item] prices) {
+    FreeCraftingChoice bestSale;
+    float [item] costs;
+    int [item] turnsFor;
+    // First establish the best regularly selling alternative. Collection savings
+    // are compared with this volume-adjusted opportunity, not an asking-price gain.
+    foreach result, quantity in yields {
+        if (!result.tradeable || quantity <= 0) continue;
+        int turns = freeCraftingRecipeTurns(result);
+        if (turns <= 0) continue;
+        int [item] ingredients = get_ingredients(result);
+        if (count(ingredients) == 0) continue;
+        boolean ready = true;
+        float cost;
+        float purchaseCost;
+        foreach ingredient, amount in ingredients {
+            int price = freeCraftingIngredientPrice(ingredient, prices);
+            if (price <= 0) { ready = false; break; }
+            cost += price * to_float(amount);
+            int missing = max(0, amount - freeCraftingOwned(ingredient));
+            if (missing > 0 && !can_interact()) { ready = false; break; }
+            purchaseCost += price * to_float(missing);
+        }
+        if (!ready || cost > 10000 || purchaseCost > my_meat()) continue;
+        foreach ingredient, amount in ingredients
+            if (!freeCraftingWellStocked(ingredient, freeCraftingIngredientPrice(ingredient, prices))) { ready = false; break; }
+        if (!ready) continue;
+        int marketPrice = freeCraftingPrice(result, prices);
+        if (marketPrice <= 0) continue;
+        costs[result] = cost;
+        turnsFor[result] = turns;
+        float salePrice = min(to_float(marketPrice), freeCraftingExpectedSalePrice(result));
+        if (!freeCraftingRegularSales(result)) continue;
+        float profit = salePrice * quantity - cost;
+        if (profit <= 0 || !freeCraftingWellStocked(result, marketPrice)) continue;
+        float score = freeCraftingSalesScore(result, quantity, profit / turns);
+        if (score > bestSale.score) {
+            bestSale = new FreeCraftingChoice(result, quantity, turns, profit, profit / turns);
+            bestSale.score = score;
+            bestSale.salesUnits14d = freeCraftingSalesUnits[result];
+            bestSale.salesDays14d = freeCraftingSalesDays[result];
+        }
+    }
+    FreeCraftingChoice best = bestSale;
+    foreach result, cost in costs {
+        int quantity = yields[result];
+        int turns = turnsFor[result];
+        float buyPrice = freeCraftingIngredientPrice(result, prices);
+        if (buyPrice <= 0) continue;
+        // A thin market's high asking quote must not manufacture a collection
+        // saving when recent completed sales show the item can be much cheaper.
+        if (freeCraftingSalePrices[result] > 0)
+            buyPrice = min(buyPrice, freeCraftingSalePrices[result]);
+        // Skip Museum requests when even a full needed batch cannot beat selling.
+        if ((buyPrice * to_float(quantity) - cost) / turns <= best.score) continue;
+        int needed = freeCraftingCollectionNeed(result);
+        if (needed <= 0) continue;
+        // Value only the units still needed; bonus batch output gets no credit.
+        float saving = buyPrice * to_float(min(quantity, needed)) - cost;
+        float score = saving / turns;
+        if (score <= best.score) continue;
+        best = new FreeCraftingChoice(result, quantity, turns, 0, 0);
+        best.score = score;
+        best.forDisplayCase = true;
+        best.collectionTarget = freeCraftingCollectionTargets[result];
+        best.collectionNeed = needed;
+        best.salesUnits14d = freeCraftingSalesUnits[result];
+        best.salesDays14d = freeCraftingSalesDays[result];
+    }
+    return best;
+}
 
 int [item] burnFreeCrafting() {
-	// BUFF
-	int inigosCasts = 5 - to_int(get_property("_inigosCasts"));
-	if (inigosCasts > 0)
-    	restore_mp(100 * inigosCasts);
-	ensureSongRoom($skill[Inigo's Incantation of Inspiration]);
-	if (!use_skill(inigosCasts, $skill[Inigo's Incantation of Inspiration]))
-		abort("failed casting inigo's");
-
-	// COUNT 'EM
 	int [item] receipt;
-	int freeCraftTurns = availableFreeCraftTurns("all");
-	int foodCraftTurns = availableFreeCraftTurns("food-only");
-	int drinkCraftTurns = availableFreeCraftTurns("drink-only");
-	int pasteCraftTurns = availableFreeCraftTurns("paste-only");
-	if (freeCraftTurns == 0) return receipt;
-	print("burnFreeCrafting: " + freeCraftTurns + " free turns, with " + foodCraftTurns + " food-only craftable turns and " + drinkCraftTurns + " drink-only craftable turns, and " + pasteCraftTurns + " paste-only craftable turns", "green");
-	printPSRArray(freeCraftingData());
-
-	// CRAFT 'EM
-	int tries = freeCraftTurns + 3;
-	int adventuresBefore = my_adventures();
-	while (freeCraftTurns > 0 && tries > 0) {
-		PrioritySkillRecord topPriority = topPriority(freeCraftingData());
-		ensure_have_mats(topPriority.theItem);
-		if (create(1, topPriority.theItem))
-			receipt[topPriority.theItem]++;
-		else {
-			print("failed creating " + topPriority.theItem, "red");
+	int inigosCasts = max(0, 5 - to_int(get_property("_inigosCasts")));
+	if (inigosCasts > 0) {
+		restore_mp(100 * inigosCasts);
+		ensureSongRoom($skill[Inigo's Incantation of Inspiration]);
+		if (!use_skill(inigosCasts, $skill[Inigo's Incantation of Inspiration]))
+			abort("failed casting inigo's");
+	}
+	clear(freeCraftingStockChecks);
+	clear(freeCraftingSalePrices);
+    clear(freeCraftingSalesUnits);
+    clear(freeCraftingSalesDays);
+    clear(freeCraftingCollectionTargets);
+	int [item] yields = freeCraftingYields();
+	int [item] prices;
+	// Each selected recipe must consume at least one free turn. The bound also
+	// protects against recipes whose actual behavior differs from Mafia's model.
+	int tries = availableFreeCraftTurns("all") + 3;
+	while (tries-- > 0) {
+		FreeCraftingChoice choice = bestFreeCrafting(yields, prices);
+		if (choice.result == $item[none]) {
+			print("No affordable profitable recipes with sufficient free crafting turns.", "orange");
 			break;
 		}
-		freeCraftTurns = availableFreeCraftTurns("all");
-		assert(my_adventures() == adventuresBefore, "we're burning adventures in burnFreeCrafting trying to craft: " + topPriority.theItem);
+        if (choice.forDisplayCase)
+            print("Free crafting for Display Case: " + choice.quantity + " " + choice.result
+                + "; rank-1 target " + choice.collectionTarget + ", still need " + choice.collectionNeed
+                + "; acquisition cost avoided " + choice.score + " meat per free turn", "green");
+        else
+            print("Free crafting for sales: " + choice.quantity + " " + choice.result
+                + "; expected profit " + choice.profitPerTurn + " meat per free turn, volume-adjusted score "
+                + choice.score + "; " + choice.salesUnits14d + " units on " + choice.salesDays14d + "/14 days", "green");
+		int adventuresBefore = my_adventures();
+		if (!acquireFreeCraftingIngredients(choice, prices)) break;
+		assert(my_adventures() == adventuresBefore, "burnFreeCrafting spent adventures acquiring ingredients");
+		// Now that all direct ingredients are in inventory, Mafia's calculation
+		// cannot include hypothetical crafts of missing subingredients.
+		if (creatable_turns(choice.result, choice.quantity, false) <= 0
+			|| creatable_turns(choice.result, choice.quantity, true) != 0
+			|| creatable_amount(choice.result) < choice.quantity) {
+			print("Recipe is no longer an available free craft: " + choice.result, "orange");
+			break;
+		}
+		int amountBefore = item_amount(choice.result);
+		boolean created = create(choice.quantity, choice.result);
+		assert(my_adventures() == adventuresBefore, "burnFreeCrafting spent adventures crafting " + choice.result);
+		int made = item_amount(choice.result) - amountBefore;
+		if (made > 0) receipt[choice.result] += made;
+        if (made > 0 && choice.forDisplayCase) {
+            if (!cli_execute("dc top1 " + to_int(choice.result))) {
+                print("dc could not update the Display Case; stopping.", "red");
+                break;
+            }
+        }
+		if (!created || made <= 0) {
+			print("Failed creating " + choice.result + "; stopping free crafting.", "red");
+			break;
+		}
 	}
-
-	// PRINT RECEIPT
-	freeCraftTurns = availableFreeCraftTurns("all");
 	print("items created using burnFreeCrafting:", "green");
 	printReceipt(receipt);
-
-	assert(freeCraftTurns == 0, "exiting burnFreeCrafting with " + freeCraftTurns + " free turns left!");
 	return receipt;
 }
 
