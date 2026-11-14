@@ -4283,7 +4283,8 @@ void grindGhostCostume() {
 			target = {$monster[sheet ghost]};
 			add_item_condition(1, $item[li'l ghost costume]);
 			while (have_effect($effect[Invisibly Ripped]) > 0) {
-				targetMob($location[The Haunted Storage Room], target, $skill[none], 1, true, kMaxInt); // optimal, max banisher cost
+				if (!targetMob($location[The Haunted Storage Room], target, $skill[none], 1, true, kMaxInt)) // optimal, max banisher cost
+					abort("grindGhostCostume: failed targeting at The Haunted Storage Room");
 			}
 		} finally {
 			if (my_session_items($item[li'l ghost costume]) <= 0)
@@ -4305,7 +4306,8 @@ void grindGhostCostume() {
 		// 		assert(-combat < -25, "");
 		target = {$monster[Ninja Snowman Weaponmaster]};
 		while (!have_item($item[invisible seam ripper]) && have_effect($effect[Invisible Ties]) > 0) {
-			targetMob($location[Lair of the Ninja Snowmen], target, $skill[none], 1, true, kMaxInt); // optimal, max banisher cost
+			if (!targetMob($location[Lair of the Ninja Snowmen], target, $skill[none], 1, true, kMaxInt)) // optimal, max banisher cost
+				abort("grindGhostCostume: failed targeting at Lair of the Ninja Snowmen");
 			cli_execute("refresh inv");
 		}
 		if (!have_item($item[invisible seam ripper]))
@@ -4323,7 +4325,8 @@ void grindGhostCostume() {
 		target = {$monster[plaid ghost]};
 		int tries = 9 + 3; // highest number of turns i've seen, plus an extra 3
 		while (!have_item($item[invisible string]) && tries > 0) {
-			targetMob($location[The Haunted Laundry Room], target, $skill[none], 1, true, kMaxInt); // optimal, max banisher cost
+			if (!targetMob($location[The Haunted Laundry Room], target, $skill[none], 1, true, kMaxInt)) // optimal, max banisher cost
+				abort("grindGhostCostume: failed targeting at The Haunted Laundry Room");
 			cli_execute("refresh inv");
 			tries--;
 		}
@@ -5052,7 +5055,7 @@ boolean getBreathWater(int minTurns) {
 	item [] breatheWaterItems = {$item[hyperinflated seal lung], $item[ballast turtle], $item[tempura air], $item[pressurized potion of pneumaticity]};
 	sort breatheWaterItems by -historical_price(value);
 	int idx = 0;
-	while (breatheWaterTurns() == 0) {
+	while (breatheWaterTurns() == 0 && idx < count(breatheWaterItems)) {
 		item breatheWaterItem = breatheWaterItems[idx++];
 		if (have_item(breatheWaterItem))
 			use(1, breatheWaterItem);
@@ -6170,7 +6173,8 @@ void dailyGrind() {
 	set_property("_smm.UseBanishersConfirmDone", "true");
 
 	// stuff that needs ITEM DROP -- buffs AFTER this point in case we want to stop and burn the 50 Dreadsylvania turns before boss
-	if (!get_property("_smm.HighItemConfirmDone").to_boolean() && get_property("garbageChampagneCharge").to_int() > 0
+	if (!get_property("_smm.HighItemConfirmDone").to_boolean()
+	    && (get_property("garbageChampagneCharge").to_int() > 0 || !get_property("_garbageItemChanged").to_boolean())
 	    && !user_confirm("Continue to high item drop section? Dread woods: "
 	                     + endGameTurnsSpent[$location[Dreadsylvanian Woods]] + ", village: "
 	                     + endGameTurnsSpent[$location[Dreadsylvanian Village]] + ", castle: "
