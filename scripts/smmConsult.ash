@@ -1939,7 +1939,7 @@ string doMainLoop(monster foe, int monHPBeforeScript, string scriptSoFar) {
 		scriptString += "if hasskill deliver your thesis!;skill deliver your thesis!;endif;";
 	}
 
-	basicStrategy(foe, monHPBeforeScript, scriptSoFar);
+	basicStrategy(foe, monHPBeforeScript, scriptString);
 
 	return gAccumulatedResponse;
 

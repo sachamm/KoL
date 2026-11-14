@@ -6463,9 +6463,9 @@ void dailyGrind() {
 		else if (blurValue > kTurnValue)
 			grindDrumMachine(maxPerTurnCost, true, kSaveBanishes); // maxPerTurnCost, getBeatlesOnYellowRay, banishesToSave
 
-		// This phase saves banishers and may skip farming or leave yellow rays unused.
-		set_property("_smm.GrindDone", "true");
 	}
+	// Set even when no farming happened: this phase saves banishers and may skip
+	// farming (or have no banishes available) or leave yellow rays unused.
 	set_property("_smm.GrindDone", "true");
 
 	// stuff that needs BANISHERS total 13 right now

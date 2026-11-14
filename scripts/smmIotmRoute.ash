@@ -56,10 +56,17 @@ void smmIRGenerateMuseumDeposits() {
 
 SmmRPPlan smmIRGenerate() {
     clear(smmIRActions); clear(smmIRWorkers);
-    smmIRGenerateAcorn(); smmIRGenerateGarden(); smmIRGenerateCoins(); smmIRGenerateCup();
-    smmIRGenerateSwordSeed(); smmIRGeneratePasta(); smmIRGenerateBaseball(); smmIRGenerateSpade();
-    smmIRGenerateHeart(); smmIRGenerateFarming(); smmIRGenerate2025(); smmIRGenerateRecovery(); smmIRGenerateLocket();
-    smmIRGardenGenerate(); smmIRExtraGenerate(); smmIRGenerateMuseumDeposits();
+    // Generators only read state, so one pool snapshot serves the whole pass
+    // instead of re-reading every pool for each candidate monster.
+    smmIRPoolSnapshot=smmRPLiveResources(); smmIRPoolSnapshotValid=true;
+    try {
+        smmIRGenerateAcorn(); smmIRGenerateGarden(); smmIRGenerateCoins(); smmIRGenerateCup();
+        smmIRGenerateSwordSeed(); smmIRGeneratePasta(); smmIRGenerateBaseball(); smmIRGenerateSpade();
+        smmIRGenerateHeart(); smmIRGenerateFarming(); smmIRGenerate2025(); smmIRGenerateRecovery(); smmIRGenerateLocket();
+        smmIRGardenGenerate(); smmIRExtraGenerate(); smmIRGenerateMuseumDeposits();
+    } finally {
+        smmIRPoolSnapshotValid=false;
+    }
     SmmRPContext context=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,smmIRCollectionRemaining().to_int(),20000);
     // The solver has a bounded block size. Preserve high-value older carriers
     // as alternatives to newer familiar policies; date controls execution order,
@@ -317,6 +324,16 @@ void smmIRRestoreSettings() {
 void smmIRDailyRoute(boolean free_only, boolean execute) {
     if (!smmIREnabled()) { if (execute) smmIRGardenBreakfast(false); return; }
     if (inRonin() || my_path()!=$path[none] || my_inebriety()>inebriety_limit()) { print("IoTM route requires unrestricted sober aftercore.","gray"); return; }
+    string active=get_property("smm.IR.activeEpoch");
+    if (active!="" && active!=smmRPEpoch() && !handling_choice() && current_round()==0) {
+        // A lock from an earlier day or ascension cannot belong to a running
+        // route: it was left by an interrupted session. Recover as iotmroute
+        // reset does, so one interruption does not block every later daily run.
+        print("Clearing an IoTM route lock left by an interrupted earlier session ("+active+").","orange");
+        if (!smmIRRestorePendingGear()) abort("Could not restore the outfit saved by an interrupted IoTM route; inspect smm.IR.pendingGear, then use iotmroute reset.");
+        smmIRRestoreSettings();
+        set_property("smm.IR.combatSkill",""); set_property("smm.IR.activeEpoch","");
+    }
     if (get_property("smm.IR.activeEpoch")!="") abort("IoTM route is already active, or was interrupted. Use iotmroute reset after resolving the encounter.");
     if (get_property("smm.IR.pendingGear")!="") abort("An interrupted IoTM outfit is waiting to be restored. Resolve the encounter and use iotmroute reset.");
     smmIRNoPaidTurns=free_only;

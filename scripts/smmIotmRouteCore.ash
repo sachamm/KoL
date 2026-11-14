@@ -62,6 +62,15 @@ boolean smmIRDiscovered;
 boolean smmIRNoPaidTurns;
 string smmIROwner = "iotm.route";
 int smmIRQuotes;
+// Read-only pool snapshot shared by the candidate generators of one planning
+// pass. Valid only while smmIRGenerate runs; workers always read live state.
+SmmRPResource [string] smmIRPoolSnapshot;
+boolean smmIRPoolSnapshotValid;
+
+SmmRPResource [string] smmIRPools() {
+    if (smmIRPoolSnapshotValid) return smmIRPoolSnapshot;
+    return smmRPLiveResources();
+}
 float smmIRSelectedLoss;
 string smmIRChosenGarden;
 
@@ -400,7 +409,7 @@ SmmIRWork smmIRCombatLoadout(monster foe) {
         if (value>best) { best=value; work.companion=fam; work.companion_equipment=eq; }
     }
     if (have_familiar($familiar[Sword of S Words]) && get_property("_swordOfSWordsKills").to_int()<100
-        && smmRPSpendable("sword.loot",smmIROwner,smmRPLiveResources(),smmRPReservations())>0) {
+        && smmRPSpendable("sword.loot",smmIROwner,smmIRPools(),smmRPReservations())>0) {
         familiar fam=$familiar[Sword of S Words]; item eq=familiar_equipped_equipment(fam);
         float value=smmIRFamiliarBonus(foe,fam,eq);
         if (value>best) { work.companion=fam; work.companion_equipment=eq; }
@@ -675,7 +684,7 @@ void smmIRGenerateAcorn() {
         } else if (zone.environment=="indoor" && get_property("_seadentWaveZone")!=zone.to_string() && !effects.contains_text("BRIDGE_PARTS") && get_property("_legendaryAcornBridgeParts").to_int()<10) {
             work.cast=have_skill($skill[Bawdy Refrain]) ? $skill[Bawdy Refrain] : $skill[Juvenile Refrain]; work.parameters="BRIDGE_PARTS";
             float wood=min(smmIRRewardValue($item[thick caulk]),min(smmIRRewardValue($item[long hard screw]),smmIRRewardValue($item[messy butt joint])));
-            float fastener=min(smmIRRewardValue($item[raging hardwood plank]),min(smmIRRewardValue($item[weirdwood plank]),smmIRRewardValue($item[raging hardwood plank])));
+            float fastener=min(smmIRRewardValue($item[raging hardwood plank]),min(smmIRRewardValue($item[weirdwood plank]),smmIRRewardValue($item[morningwood plank])));
             extra=0.05*(wood+fastener); // deliberately use the last possible proc rate
         } else continue;
         if (my_mp()<max(30,mp_cost(work.cast))) continue;
