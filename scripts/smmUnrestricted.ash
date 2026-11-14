@@ -1232,9 +1232,10 @@ void grindDrip(location dripLoc, string dressupTweak) {
 
 	if (turnsToGrind > 0) {
 		dressupForDrip(dripLoc, dressupTweak, turnsToGrind);
-		while (turnsToGrind > 0) {
+		while (turnsToGrind > 0 && my_adventures() > 0) {
 			healAndRemoveDebuffsWithMPRestore();
-			adventure(1, dripLoc);
+			if (!adventure(1, dripLoc))
+				abort("grindDrip: failed adventuring at " + dripLoc);
 			turnsToGrind = to_int(get_property("drippyJuice"));
 		}
 	}
@@ -1430,10 +1431,10 @@ void grindMushroomGarden(boolean harvest) {
 
 	if (cropLevel == 5 || cropLevel >= 11) {
 		print("auto-picking mushroom", "blue");
-		set_property("choiceAdventure1410", "2");
+		saveAndSetProperty("choiceAdventure1410", "2");
 	} else {
 		print(choiceNumber == 1 ? "fertilizing mushroom" : "picking mushroom", "blue");
-		set_property("choiceAdventure1410", choiceNumber);
+		saveAndSetProperty("choiceAdventure1410", choiceNumber.to_string());
 	}
 
 	try {
@@ -1448,7 +1449,7 @@ void grindMushroomGarden(boolean harvest) {
 		healAndRemoveDebuffsWithMPRestore();
 		adventure(1, $location[your mushroom garden]); // 0 turns, so will auto-follow to the choice and auto-pick the choice
 	} finally {
-		remove_property("choiceAdventure1410");
+		restoreSavedProperty("choiceAdventure1410");
 	}
 }
 
@@ -4983,8 +4984,9 @@ void grindBeerLens(int maxPerTurnCost) {
 		healAndRemoveDebuffsWithMPRestore();
 
 		monster [] bestTarget = {$monster[unemployed knob goblin]};
-		while (beerLensToGet > 0) {
-			targetMob($location[A Barroom Brawl], bestTarget, $skill[none], beerLensToGet, true, maxPerTurnCost); // optimal, ignore cost
+		while (beerLensToGet > 0 && my_adventures() > 0) {
+			if (!targetMob($location[A Barroom Brawl], bestTarget, $skill[none], beerLensToGet, true, maxPerTurnCost)) // optimal, ignore cost
+				abort("grindBeerLens: failed targeting unemployed knob goblins");
 			beerLensToGet = 3 - to_int(get_property("_beerLensDrops"));
 		}
 	}
