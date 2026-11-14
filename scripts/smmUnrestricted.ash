@@ -4285,7 +4285,7 @@ void grindGhostCostume() {
 				targetMob($location[The Haunted Storage Room], target, $skill[none], 1, true, kMaxInt); // optimal, max banisher cost
 			}
 		} finally {
-			if (my_session_items($item[li'l ghost costume]) == 0)
+			if (my_session_items($item[li'l ghost costume]) <= 0)
 				abort("didn't get ghost costume!");
 			else
 				set_property("_smm.GotGhostCostume", "true");
@@ -4373,6 +4373,7 @@ int garbageChampagneCharge() {
 	int chargesAvailable = to_int(get_property("garbageChampagneCharge"));
 	if (chargesAvailable == 0 && !to_boolean(get_property("_garbageItemChanged"))) {
 		cli_execute("tote 2");
+		// Return max charges (11) when at 0 charges but the first form change of the day is available, which resets charges to 11.
 		chargesAvailable = 11;
 	}
 	return chargesAvailable;
@@ -4519,7 +4520,8 @@ void grindSpacegate(string gateString) {
 	while (turnsLeft > 0 && my_adventures() > 0) {
 		healAndRemoveDebuffsWithMPRestore();
 		restore_mp(3 * mp_cost($skill[Weapon of the Pastalord]));
-		redirectAdventure($location[Through the Spacegate], 1);
+		if (!redirectAdventure($location[Through the Spacegate], 1))
+			abort("grindSpacegate: failed adventuring through the Spacegate");
 
 		turnsLeft--;
 		set_property("_spacegateTurnsLeft", turnsLeft);
@@ -4995,9 +4997,10 @@ void grindDailyDungeon() {
 		setDefaultState();
 		automate_dressup($location[The Daily Dungeon], "mp regen", "default", "equip ring of detect boring doors, equip candy cane sword cane, -equip Kramco Sausage-o-Matic&trade;, -equip Everfull Dart Holster");
 		int roomsToDo = 15 - to_int(get_property("_lastDailyDungeonRoom"));
-		while (roomsToDo > 0) {
+		while (roomsToDo > 0 && my_adventures() > 0) {
 			healAndRemoveDebuffsWithMPRestore();
-			redirectAdventure($location[The Daily Dungeon], 1);
+			if (!redirectAdventure($location[The Daily Dungeon], 1))
+				abort("grindDailyDungeon: failed adventuring in the Daily Dungeon");
 			roomsToDo = 15 - to_int(get_property("_lastDailyDungeonRoom"));
 		}
 	}
