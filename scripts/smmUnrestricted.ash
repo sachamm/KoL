@@ -6267,32 +6267,6 @@ void grindDolphinOrphans(location seaLoc, monster sideCritter, int kills) {
 
 // -------------------------------------
 
-void semiRare() {
-	location [] semiRareLocations = {$location[The Limerick Dungeon], $location[The Castle in the Clouds in the Sky (Top Floor)]};
-
-	// ADV AT A SEMI-RARE LOCATION
-	if (true) {
-		if (have_effect($effect[Teleportitis]) > 0) abort("you have Teleportitis!!!");
-
-		location lastSemiRareLocation = to_location(get_property("semirareLocation"));
-		location semiRareLocation = semiRareLocations[0];
-		if (semiRareLocation == lastSemiRareLocation)
-			semiRareLocation = semiRareLocations[1];
-		print("next semi-rare location: " + semiRareLocation);
-		adventure(1, semiRareLocation);
-
-		// LEARN NEXT SEMI-RARE
-	} else if (true) {
-		restore_mp(mp_cost($skill[The Ode to Booze]));
-		useOdeToBoozeIfNeeded(1);
-		cli_execute("drink lucky lindy"); // drink() doesn't work
-
-	} else
-		print("fortuneCookie () does not match turn count (" + my_turncount() + ") -- doing nothing", "red");
-}
-
-
-
 void doBounty() {
 	if (!to_boolean(get_property("_smm.BountyCheckDone"))) {
 		cli_execute("bounty");

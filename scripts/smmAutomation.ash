@@ -1103,12 +1103,6 @@ string fixupCLArtifacts(string maximizerString) {
 }
 
 
-// TODO??
-void overrideAutomateDressup() {
-}
-
-
-
 // sets up automation for dressing:
 // 1. will equip various useful and/or fun items like the pantogram pants
 //    will respect any "-equip <item>" that shows up in additionalMaxString, so you can tweak the automation, won't detect categories of items or outfits

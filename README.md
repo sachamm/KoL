@@ -36,5 +36,3 @@ Do not install this same repository through KoLmafia Git or SVN on that Mac:
 the updater can replace the development links. Other scripts can still update
 normally. Commit and push here to publish changes; other installations can
 install this repository with the Git command above.
-
-`testbase.ash` requires `testinc.ash`, which was absent from the migrated scripts.

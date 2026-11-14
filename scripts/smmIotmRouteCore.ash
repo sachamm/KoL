@@ -148,12 +148,22 @@ boolean smmIRMayConsume(item it, int amount) {
     return true;
 }
 
+// Owned familiars, listed once per route run (reset with smmIRDiscovered) so
+// the per-step gear snapshot does not walk every familiar in the game.
+familiar [int] smmIROwnedFamiliars;
+
+familiar [int] smmIRFamiliars() {
+    if (count(smmIROwnedFamiliars)==0)
+        foreach fam in $familiars[] if (have_familiar(fam)) smmIROwnedFamiliars[count(smmIROwnedFamiliars)]=fam;
+    return smmIROwnedFamiliars;
+}
+
 SmmIRGear smmIRSaveGear() {
     SmmIRGear state;
     state.companion=my_familiar();
     foreach sl in $slots[hat,weapon,off-hand,shirt,pants,back,acc1,acc2,acc3,familiar]
         state.gear[sl]=equipped_item(sl);
-    foreach fam in $familiars[] if (have_familiar(fam)) state.familiar_gear[fam]=familiar_equipped_equipment(fam);
+    foreach i, fam in smmIRFamiliars() state.familiar_gear[fam]=familiar_equipped_equipment(fam);
     return state;
 }
 
@@ -725,13 +735,25 @@ void smmIRGenerateFarming() {
     }
 }
 
+// Available, copyable, non-boss locket monsters, best loot first. Built once
+// per planning pass and shared by the locket and Sword-seed generators.
+monster [int] smmIRLocketRanking;
+boolean smmIRLocketRankingValid;
+
+monster [int] smmIRLocketRanked() {
+    if (smmIRPoolSnapshotValid && smmIRLocketRankingValid) return smmIRLocketRanking;
+    monster [int] ranked;
+    foreach foe, available in get_locket_monsters() if (available && foe.copyable && !foe.boss) ranked[count(ranked)]=foe;
+    sort ranked by -monsterItemMeatValue(value,false,item_drop_modifier());
+    smmIRLocketRanking=ranked; smmIRLocketRankingValid=smmIRPoolSnapshotValid;
+    return ranked;
+}
+
 void smmIRGenerateLocket() {
     if (available_amount($item[combat lover's locket])<1 || my_adventures()<1 || my_inebriety()>inebriety_limit()
         || count(cllMonstersFought(false))>=3 || my_hp()<my_maxhp()/3 || my_mp()<30) return;
     // Locket is an older dependency: these free carriers feed newer abilities.
-    monster [int] shortlist;
-    foreach foe, available in get_locket_monsters() if (available && foe.copyable && !foe.boss) shortlist[count(shortlist)]=foe;
-    sort shortlist by -monsterItemMeatValue(value,false,item_drop_modifier());
+    monster [int] shortlist=smmIRLocketRanked();
     int inspected;
     foreach i, foe in shortlist {
         if (inspected>=12) break;
@@ -752,10 +774,9 @@ void smmIRGenerateSwordSeed() {
         || my_inebriety()>inebriety_limit()) return;
     monster old=to_monster(get_property("swordOfSWordsMonster"));
     float old_value=old==$monster[none] ? 0 : smmIRLoot(old,item_drop_modifier(),false);
+    // Filter the shared ranking; its order is preserved.
     monster [int] shortlist;
-    foreach foe, available in get_locket_monsters() if (available && foe.copyable && !foe.boss && foe!=old && smmIRSimpleLoot(foe))
-        shortlist[count(shortlist)]=foe;
-    sort shortlist by -monsterItemMeatValue(value,false,item_drop_modifier());
+    foreach i, foe in smmIRLocketRanked() if (foe!=old && smmIRSimpleLoot(foe)) shortlist[count(shortlist)]=foe;
     int seen;
     foreach i, foe in shortlist {
         if (seen>=12) break;

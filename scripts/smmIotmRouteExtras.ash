@@ -324,7 +324,7 @@ string smmIRMaidenPrefix(monster foe) {
     if (my_familiar()!=$familiar[Meat Shield Maiden] || foe.to_int()!=get_property("smm.IR.seedMonster").to_int()) return "";
     string type=smmIRBlessingType(foe);
     if (type=="" || get_property("_blessingShield"+type+"Received").to_boolean() || have_effect(smmIRBlessingEffect(type))>0 || !smmIRMaidenSafe(foe,monster_attack(),my_hp())
-        || smmRPSpendable("maiden."+type.to_lower_case(),smmIROwner,smmRPLiveResources(),smmRPReservations())<1) return "";
+        || smmRPSpendable("maiden."+type.to_lower_case(),smmIROwner,smmIRPools(),smmRPReservations())<1) return "";
     set_property("smm.IR.combatSkill","");
     return "if hasskill 7597;skill 7597;endif;";
 }
@@ -355,7 +355,7 @@ boolean smmIRExtraDispatch(SmmIRWork work) {
     }
     if (work.kind=="extra.maiden") {
         if (get_property("_blessingShield"+work.counter+"Received").to_boolean() || have_effect(smmIRBlessingEffect(work.counter))>0
-            || smmRPSpendable("maiden."+work.counter.to_lower_case(),smmIROwner,smmRPLiveResources(),smmRPReservations())<1) return false;
+            || smmRPSpendable("maiden."+work.counter.to_lower_case(),smmIROwner,smmIRPools(),smmRPReservations())<1) return false;
         if (!use_familiar(work.companion) || !equip($slot[familiar],work.companion_equipment)) return false;
         if (!smmIRMaidenSafe(work.foe,work.foe.base_attack+monster_level_adjustment(),my_hp())) return false;
         set_property("smm.IR.seedMonster",work.foe.to_int()); set_property("smm.IR.combatSkill",7597);
@@ -370,7 +370,7 @@ boolean smmIRExtraDispatch(SmmIRWork work) {
     }
     if (work.kind=="extra.acorn") {
         if (smmIRPlantSlots(work.zone)<1 || smmIRAcornEffects(work.zone).contains_text(work.parameters)
-            || smmRPSpendable("acorn.plants",smmIROwner,smmRPLiveResources(),smmRPReservations())<1 || !smmIREquip($item[legendary acorndion]) || !have_skill(work.cast)) return false;
+            || smmRPSpendable("acorn.plants",smmIROwner,smmIRPools(),smmRPReservations())<1 || !smmIREquip($item[legendary acorndion]) || !have_skill(work.cast)) return false;
         string before=smmIRAcornEffects(work.zone); int count_before=get_property("_legendaryAcornsUsed").to_int(); int start=smmIRTurns();
         set_property("smm.IR.plantZone",work.zone); set_property("smm.IR.plantEffect",work.parameters);
         set_property("smm.IR.plantTarget",work.foe.to_int()); set_property("smm.IR.combatSkill",work.cast.to_int());

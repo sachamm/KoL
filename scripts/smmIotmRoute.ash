@@ -59,6 +59,7 @@ SmmRPPlan smmIRGenerate() {
     // Generators only read state, so one pool snapshot serves the whole pass
     // instead of re-reading every pool for each candidate monster.
     smmIRPoolSnapshot=smmRPLiveResources(); smmIRPoolSnapshotValid=true;
+    smmIRLocketRankingValid=false;
     try {
         smmIRGenerateAcorn(); smmIRGenerateGarden(); smmIRGenerateCoins(); smmIRGenerateCup();
         smmIRGenerateSwordSeed(); smmIRGeneratePasta(); smmIRGenerateBaseball(); smmIRGenerateSpade();
@@ -100,7 +101,7 @@ string smmIRCombatPrefix(monster foe) {
             || !foe.copyable || foe.boss || get_property("_swordOfSWordsMonsterChanged").to_int()>=3) return "";
     } else {
         location zone=to_location(get_property("smm.IR.plantZone"));
-        if (smmRPSpendable("acorn.plants",smmIROwner,smmRPLiveResources(),smmRPReservations())<1) return "";
+        if (smmRPSpendable("acorn.plants",smmIROwner,smmIRPools(),smmRPReservations())<1) return "";
         int target=get_property("smm.IR.plantTarget").to_int();
         if (target>0 && foe.to_int()!=target) return "";
         if (my_location()!=zone || !(get_location_monsters(zone) contains foe)
@@ -339,6 +340,7 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
     smmIRNoPaidTurns=free_only;
     clear(smmIRBlocked); clear(smmIRNotes); clear(smmIRPrices); clear(smmIRReplacementPrices); clear(smmMuseumGoals); clear(smmMuseumKeeps); clear(smmIRZones); clear(smmIRGarden);
     smmIRQuotes=0; smmIRDiscovered=false;
+    clear(smmIROwnedFamiliars);
     smmIRDiscover();
     if (handling_choice() || current_round()>0) abort("Route discovery reached an unexpected encounter. Resolve it before continuing.");
     smmIRGardenEvaluate(execute);
