@@ -1,5 +1,6 @@
 import <smmIotmRouteCore.ash>
 import <smmIotmRouteExtras.ash>
+import <smmIotmRouteMore.ash>
 import <smmGardenPlanner.ash>
 
 SmmRPResource [string] smmIRResources() {
@@ -64,7 +65,7 @@ SmmRPPlan smmIRGenerate() {
         smmIRGenerateAcorn(); smmIRGenerateGarden(); smmIRGenerateCoins(); smmIRGenerateCup();
         smmIRGenerateSwordSeed(); smmIRGeneratePasta(); smmIRGenerateBaseball(); smmIRGenerateSpade();
         smmIRGenerateHeart(); smmIRGenerateFarming(); smmIRGenerate2025(); smmIRGenerateRecovery(); smmIRGenerateLocket();
-        smmIRGardenGenerate(); smmIRExtraGenerate(); smmIRGenerateMuseumDeposits();
+        smmIRGardenGenerate(); smmIRExtraGenerate(); smmIRMoreGenerate(); smmIRGenerateMuseumDeposits();
     } finally {
         smmIRPoolSnapshotValid=false;
     }
@@ -139,6 +140,7 @@ boolean smmIRDispatch(SmmIRWork work) {
     if (!smmIRPrepare(work)) return false;
     if (work.kind.starts_with("garden.")) return smmIRGardenDispatch(work);
     if (work.kind.starts_with("extra.")) return smmIRExtraDispatch(work);
+    if (work.kind.starts_with("more.")) return smmIRMoreDispatch(work);
     if (work.kind=="buff" || work.kind=="beret") {
         string before=get_property(work.counter);
         return have_skill(work.cast) && smmIRCast(work.cast) && get_property(work.counter)!=before;
@@ -157,7 +159,7 @@ boolean smmIRDispatch(SmmIRWork work) {
         coinmaster shop=work.kind=="coin.buy" ? $coinmaster[Spend your Interesting Coins] : $coinmaster[Skeleton of Crimbo Past];
         item currency=work.kind=="coin.buy" ? $item[Interesting Coin] : $item[knucklebone];
         int reserve=max(work.kind=="coin.buy" ? 1 : 0,smmIRSetting(work.kind=="coin.buy" ? "coinReserve" : "boneReserve",work.kind=="coin.buy" ? 10000000 : 0).to_int());
-        int price=buy_price(shop,work.product);
+        int price=smmIRShopPrice(shop,work.product);
         if (price<1 || item_amount(currency)-price<reserve) return false;
         int before=item_amount(work.product); int balance=item_amount(currency);
         buy(shop,1,work.product);
@@ -341,7 +343,7 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
     clear(smmIRBlocked); clear(smmIRNotes); clear(smmIRPrices); clear(smmIRReplacementPrices); clear(smmMuseumGoals); clear(smmMuseumKeeps); clear(smmIRZones); clear(smmIRGarden);
     smmIRQuotes=0; smmIRDiscovered=false;
     clear(smmIROwnedFamiliars);
-    smmIRDiscover();
+    smmIRDiscover(); smmIRMoreDiscover();
     if (handling_choice() || current_round()>0) abort("Route discovery reached an unexpected encounter. Resolve it before continuing.");
     smmIRGardenEvaluate(execute);
     SmmRPPlan plan=smmIRGenerate(); smmIRReport(plan);

@@ -41,6 +41,12 @@ set smm.IR.mpValue = 1
 set smm.IR.coinReserve = 10000000
 set smm.IR.boneReserve = 0
 set smm.IR.collectionBudget = 0
+set smm.IR.bczCasts = 3
+set smm.IR.substatValue = 1
+set smm.IR.emberReserve = 0
+set smm.IR.emberValue = 0
+set smm.IR.leafCraftCap = 5
+set smm.IR.leafReserve = 0
 ```
 
 `smm.IR.keepItem.<item ID>` preserves that many physically owned ingredients. Cup and cooking candidates share ingredient capacities, free cooking capacity and organ capacity. The default Cup liver value is `max(0,6.17 * smm.TurnValue - 2850)`; override `smm.IR.liverValue` to match your diet.
@@ -98,12 +104,21 @@ The six Maiden blessings are now registered centrally as `maiden.physical`, `mai
 | 2026-02 Heartstone | Already-unlocked familiar-weight buff with an evaluated farming use; best available supported Lucky encounter after turn and MP costs. | Letter/word unlock routes, kills, banishes, stuns and attribute buffs. |
 | 2026-01 legendary seal-clubbing club | Its pools remain available to the shared reservation system; no new speculative worker spends them. | Across the Battlefield valuation, delayed Next Week landing and drop-destroying Back in Time policy. |
 | 2025-12 Skeleton of Crimbo Past | Evaluate skeleton-carrier bone income; redeem unclaimed regular/daily-special goods above the bone reserve. Refresh actual shop stock first. | Campground-rest bone timing and long-term currency goals. |
+| 2025-10 blood cubic zirconia | The three item-making skills (blood thinner, spinal tapas, pheromone cocktail), limited to the first `bczCasts` cheap casts of each per day. Requires the product and the cast counter to increase, and stops a skill for the run if the measured substat loss is far above plan. | The six combat/buff skills, Refracted Gaze versus Sword loot, and a base-stat floor. The planned substat prices (11, 23, 37, then tenfold every three casts) are a reported schedule, not Mafia data. |
 | 2025-06 prismatic beret | Predict the exact replacement hat/outfit power; busk for guaranteed Meat and retain unpriced effects as additional benefits. | Outfit search for specific effects, Blasts and Boasts. |
 | 2025-04 April Shower Thoughts shield | Collect daily wet-paper currency and require the actual collection flag. | Currency crafts and individual enhanced class-skill buff policies. |
+| 2025-01 McHugeLarge duffel bag | Unpack the ski set once per ascension when no piece is owned. | Avalanche, Ski Plow and Slash. |
+| 2024-12 TakerSpace letter of Marque | Collect the daily delivery when it is the installed workshed; make saleable or collection products from the six supplies, which share the planner's `taker.*` pools. Supplies needed by the best product per day of deliveries are saved until it is affordable. Rollover-melting gear, the tattoo kit and the dinghy are excluded. | Comparing worksheds, anchor-bomb use, and consuming the food/booze. |
 | 2024-10 bat wings | Free HP/MP recovery when restoration is useful, with observed use accounting. | Other wing combat/exploration abilities remain with legacy routines or future adapters. |
+| 2024-09 Sept-Ember Censer | Read today's balance, then spend embers above `emberReserve` on products that sell or close a Museum gap. Requires the item and a lower balance. | Hulk/Septapus fights, structural ember use, mouthwash as a levelling tool. Untradeable gear is bought only for a known Museum gap. |
+| 2023-11 A Guide to Burning Leaves | The free daily jump; up to `leafCraftCap` leaf conversions per day into tradeable products, honouring Mafia's daily limits. Leaves are a Museum item: with unknown or unmet rankings they are held until `museumCopyValue.11341` prices them. | Leaf monsters, the ant egg, tattoo leaf and quest gear. |
 | 2022-02 combat lover's locket | Up to three identified free carriers, evaluated against native/Sword loot and alternative familiars. A repeated target cannot be simultaneously booked as both ordinary fight and Sword seed. | Broader conditional-drop evaluation and exhaustive target search. |
 
-Other items in the 2016-09–2026-11 registry retain their research and existing daily automation. This first execution layer does not claim complete automation of all 123 monthly offerings. Add further generators/workers in reverse release order, with verified prerequisites, explicit shared costs and actual-result checks.
+The second batch lives in `smmIotmRouteMore.ash` (`more.*` workers). Its mechanics come from the local Mafia source; it has compiled and planned in an offline mock, and has not yet been run against the live game.
+
+Shop prices use `smmIRShopPrice`: `buy_price()` returns 0 for coinmasters defined by shop rows, which had left the Interesting Coin and knucklebone purchases without candidates.
+
+Not yet adapted, newest first: shrunken head, Monodent wave/lightning, Möbius ring, Cooler Yeti, Peridot of Peril, Leprecondo, toy Cupid bow, Peace Turkey, Clan Photo Booth, and everything from 2024-08 back that is not listed above. Other items in the 2016-09–2026-11 registry retain their research and existing daily automation. This execution layer does not claim complete automation of all 123 monthly offerings. Add further generators/workers in reverse release order, with verified prerequisites, explicit shared costs and actual-result checks.
 
 ## Resource ownership, combat and recovery
 

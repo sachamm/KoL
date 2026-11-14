@@ -273,14 +273,14 @@ void smmIRGenerateMoreCoins() {
     if (balance<2) return;
     item [int] inflation={$item[homeowner's loam],$item[housing bubble],$item[balance sheet]};
     foreach i, it in inflation {
-        int price=buy_price(shop,it);
+        int price=smmIRShopPrice(shop,it);
         int reserve=max(1,smmIRSetting("coinReserve",10000000).to_int());
         if (price<1 || balance-price<reserve) continue;
         SmmIRWork work; work.kind="extra.coin.sale"; work.product=it;
         smmIRAdd("2026-08.inflation."+it.to_int(),"Convert surplus coins at current inflationary price: "+it,work,smmIRRewardValue(it),price*max(0,smmIRSetting("coinValue",0)),"route.coins",price);
     }
     foreach it in $items[underdraft protection,401k gold ring,hedge fund clippers,financial instrument,selling shorts] {
-        int price=buy_price(shop,it);
+        int price=smmIRShopPrice(shop,it);
         if (price<1 || balance-price<max(1,smmIRSetting("coinReserve",10000000).to_int()) || available_amount(it)>0
             || get_property("itemBoughtPerAscension"+it.to_int()).to_boolean()) continue;
         SmmIRWork work; work.kind="extra.coin.unique"; work.product=it;
@@ -293,7 +293,7 @@ void smmIRGenerateMoreCoins() {
     if ((smmMuseumEnabled() && smmMuseumNeedsCopy($item[gross prophet chrysalis]))
         || (!smmMuseumEnabled() && !have_familiar($familiar[Gross Prophet]) && item_amount($item[gross prophet chrysalis])==0)) {
         int reserve=get_property("smm.IR.coinReserve")=="" ? 1 : max(1,smmIRSetting("coinReserve",10000000).to_int());
-        int price=buy_price(shop,$item[gross prophet chrysalis]);
+        int price=smmIRShopPrice(shop,$item[gross prophet chrysalis]);
         if (price>0 && balance-price>=reserve) {
             SmmIRWork work; work.kind=smmMuseumEnabled() ? "extra.coin.collection" : "extra.coin.prophet"; work.product=$item[gross prophet chrysalis]; work.option=reserve;
             smmIRAdd("2026-08.00-prophet",smmMuseumEnabled() ? "Acquire a Gross Prophet chrysalis for the Museum" : "Complete the earmarked Gross Prophet familiar goal",work,smmMuseumEnabled() ? smmIRRewardValue(work.product) : 0,price*max(0,smmIRSetting("coinValue",0)),"route.coinWallet",price);
@@ -336,7 +336,7 @@ boolean smmIRExtraDispatch(SmmIRWork work) {
         return get_property("demonName15")!="";
     }
     if (work.kind.starts_with("extra.coin.")) {
-        int price=buy_price($coinmaster[Spend your Interesting Coins],work.product);
+        int price=smmIRShopPrice($coinmaster[Spend your Interesting Coins],work.product);
         int reserve=(work.kind=="extra.coin.prophet" || work.kind=="extra.coin.collection") && get_property("smm.IR.coinReserve")=="" ? 1 : max(1,smmIRSetting("coinReserve",10000000).to_int());
         if (work.kind=="extra.coin.prophet" && (have_familiar($familiar[Gross Prophet]) || item_amount(work.product)>0)) return false;
         if (work.kind=="extra.coin.unique" && (available_amount(work.product)>0 || get_property("itemBoughtPerAscension"+work.product.to_int()).to_boolean())) return false;

@@ -106,6 +106,17 @@ boolean smmIRAdventure(location zone) {
 }
 void smmIRSetAutoAttack(int attack) { set_auto_attack(attack); }
 
+// buy_price() reports 0 for coinmasters defined by shop rows (Interesting Coin,
+// knucklebones, embers). Fall back to the row's single currency cost.
+int smmIRShopPrice(coinmaster shop, item it) {
+    int price=buy_price(shop,it);
+    if (price>0 || it==$item[none]) return price;
+    int [item] costs=sell_cost(shop,it);
+    if (count(costs)!=1) return 0; // mixed-currency rows are not priced here
+    foreach currency, amount in costs price=amount;
+    return price;
+}
+
 float smmIRSaleValue(item it) {
     if (smmIRPrices contains it) return smmIRPrices[it];
     float value=max(0,autosell_price(it));
@@ -377,7 +388,7 @@ float smmIRBoneValue() {
     string [int] flags={"_crimboPastSmokingPope","_crimboPastPrizeTurkey","_crimboPastMedicalGruel","_crimboPastDailySpecial"};
     int demand; float floor=1000000000.0;
     foreach i, it in goods if (it!=$item[none] && !get_property(flags[i]).to_boolean()) {
-        int cost=buy_price(shop,it);
+        int cost=smmIRShopPrice(shop,it);
         if (cost>0) { demand+=cost; floor=min(floor,smmIRRewardValue(it)/cost); }
     }
     return demand>item_amount($item[knucklebone]) ? floor : 0;
@@ -453,6 +464,7 @@ float smmIRWorkProgress(SmmIRWork work) {
     if (work.kind=="garden.mushroom") return smmIRMonsterProgress($monster[piranha plant])+smmMuseumProgress(work.product,work.choice_id);
     if (work.kind=="coin.buy" || work.kind=="bones.buy" || work.kind=="craft" || work.kind=="pasta.summon"
         || work.kind=="extra.coin.sale" || work.kind=="extra.coin.unique" || work.kind=="extra.coin.collection"
+        || work.kind=="more.cast" || work.kind=="more.buy" || work.kind=="more.create"
         || (work.kind=="garden" && work.foe==$monster[none])) return smmMuseumProgress(work.product,1);
     if (work.kind=="locket" || work.kind=="sword.seed" || (work.kind=="garden" && work.foe!=$monster[none])) {
         monster loot=work.foe;
@@ -544,7 +556,7 @@ void smmIRGenerateCoins() {
     item [int] products={$item[liquid asset],$item[intangible asset],$item[toxic asset],$item[invisible hand],
         $item[circle of overdraft protection scroll],$item[mint],$item[solvent],$item[Roth IPA],$item[savings bondo],$item[soybean futures]};
     foreach i, it in products {
-        int cost=buy_price(shop,it);
+        int cost=smmIRShopPrice(shop,it);
         if (cost<=0 || cost>surplus || get_property("_itemBoughtPerDay"+it.to_int()).to_int()>=3) continue;
         SmmIRWork work; work.kind="coin.buy"; work.product=it;
         float shadow=max(0,smmIRSetting("coinValue",0));
@@ -807,7 +819,7 @@ void smmIRGenerate2025() {
         string [int] flags={"_crimboPastSmokingPope","_crimboPastPrizeTurkey","_crimboPastMedicalGruel","_crimboPastDailySpecial"};
         int reserve=max(0,smmIRSetting("boneReserve",0).to_int());
         foreach i, it in goods if (it!=$item[none] && !get_property(flags[i]).to_boolean()) {
-            int cost=buy_price(shop,it);
+            int cost=smmIRShopPrice(shop,it);
             if (cost<1 || item_amount($item[knucklebone])-reserve<cost) continue;
             SmmIRWork work; work.kind="bones.buy"; work.product=it; work.counter=flags[i];
             smmIRAdd("2025-12.shop."+it.to_int(),"Redeem knucklebones for "+it,work,smmIRRewardValue(it),0,"route.bones",cost);
