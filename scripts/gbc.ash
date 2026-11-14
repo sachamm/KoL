@@ -35,7 +35,7 @@ void printHelp() {
 
 // default outfit, could theoretically be changed
 void gbcDressup(location grindLocation) {
-	automate_dressup(grindLocation, "sprinkles", "chocolate lab", "equip candy dog collar");
+	automate_dressup(grindLocation, "sprinkle", "chocolate lab", "equip candy dog collar");
 }
 
 
@@ -138,7 +138,7 @@ void grindGingerbreadDEPRECATED(boolean takeShortcut, boolean adventureAfterMidn
 		} else
 			familiarString = "item";
 		// we want the redirection, but we don't want any of the auto dressup stuff
-		automate_dressup(kGrindLocation, "", "chocolate lab", "sprinkles");
+		automate_dressup(kGrindLocation, "", "chocolate lab", "sprinkle");
 		healAndRemoveDebuffsWithMPRestore();
 
 		// SHORTCUT
@@ -276,7 +276,7 @@ void grindSprinkles() {
 		int turnsUsed = effectiveGingerbreadCityTurns();
 
 		setDefaultMood(); setDefaultBoombox();
-		automate_dressup($location[Gingerbread Upscale Retail District], "", "chocolate lab", "sprinkles, +equip candy dog collar");
+		automate_dressup($location[Gingerbread Upscale Retail District], "", "chocolate lab", "sprinkle, +equip candy dog collar");
 
 		useMoMifNeeded();
 		cli_execute("beach head Do I Know You From Somewhere?");
@@ -340,9 +340,9 @@ void winSprinkles(int maxMeatCostPerBuffPercentage) {
 	// DRESS UP
 	if (turnsUsed == 0) {
 		setDefaultKoLState();
-		maximize("sprinkles, switch chocolate lab", false);
+		maximize("sprinkle, switch chocolate lab", false);
 	}
-	maximize("sprinkles, switch chocolate lab", false); // first maximize might set up a different environment in which a second maximize might make different choices
+	maximize("sprinkle, switch chocolate lab", false); // first maximize might set up a different environment in which a second maximize might make different choices
 
 	// BUFF: Sprinkle in Your Eye
 	item sprinkleInYourEyeItem;
@@ -509,7 +509,7 @@ void gingerGrind(int gingerMode) {
 	}
 
 	// default outfit, could theoretically be changed in the code below
-	automate_dressup(gkGrindLocation, "sprinkles", "chocolate lab", "equip candy dog collar");
+	automate_dressup(gkGrindLocation, "sprinkle", "chocolate lab", "equip candy dog collar");
 
 	location noonLoc, midnightLoc;
 	int noonChoice, midnightChoice;
