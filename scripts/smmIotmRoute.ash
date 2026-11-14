@@ -1,0 +1,372 @@
+import <smmIotmRouteCore.ash>
+import <smmIotmRouteExtras.ash>
+import <smmGardenPlanner.ash>
+
+SmmRPResource [string] smmIRResources() {
+    SmmRPResource [string] pools=smmRPLiveResources();
+    pools["route.paid"]=new SmmRPResource("Remaining route turn budget",min(my_adventures(),smmIRPaidRemaining()),true,"");
+    pools["route.coins"]=new SmmRPResource("Coins above savings reserve",max(0,item_amount($item[Interesting Coin])-max(1,smmIRSetting("coinReserve",10000000).to_int())),true,"");
+    pools["route.bones"]=new SmmRPResource("Bones above reserve",max(0,item_amount($item[knucklebone])-max(0,smmIRSetting("boneReserve",0).to_int())),true,"");
+    pools["route.locket"]=new SmmRPResource("Locket free fights",max(0,3-count(cllMonstersFought(false))),true,"");
+    pools["route.liver"]=new SmmRPResource("Available liver",max(0,inebriety_limit()-my_inebriety()),true,"");
+    pools["route.cooks"]=new SmmRPResource("Available free cooking",max(0,free_cooks()),true,"");
+    foreach id, action in smmIRActions foreach resource, cost in action.costs if (resource.starts_with("route.item.")) {
+        item it=to_item(substring(resource,11));
+        int keep=max(0,smmIRSetting("keepItem."+it.to_int(),0).to_int());
+        if (smmMuseumEnabled()) keep=max(keep,max(smmMuseumConsumptionReserve(it),smmMuseumKeep(it)));
+        pools[resource]=new SmmRPResource("Owned ingredient: "+it,max(0,item_amount(it)-keep),it!=$item[none],"");
+    }
+    pools["route.gardenChange"]=new SmmRPResource("Single garden change today",smmIRGardenMayChange() ? 1 : 0,true,"");
+    pools["route.mushroom"]=new SmmRPResource("Selected garden's mushroom visit",my_garden_type()=="mushroom" && !get_property("_mushroomGardenVisited").to_boolean() ? 1 : 0,true,"");
+    for plot from 0 to 2 pools["route.harvest."+plot]=new SmmRPResource("Selected garden harvest",1,true,"");
+    pools["route.coinWallet"]=new SmmRPResource("Shared coin wallet (retain one coin)",max(0,item_amount($item[Interesting Coin])-1),true,"");
+    pools["route.meat"]=new SmmRPResource("Owned Meat",max(0,my_meat()),true,"");
+    foreach id, action in smmIRActions foreach resource, cost in action.costs {
+        if (resource.starts_with("route.garden.")) {
+            int point=substring(resource,13).to_int();
+            pools[resource]=new SmmRPResource("Single garden encounter",(smmIRGarden contains point) && !smmIRGarden[point].done && smmIRGarden[point].reachable ? 1 : 0,true,"");
+        } else if (resource.starts_with("route.foe.")) {
+            monster foe=to_monster(substring(resource,10).to_int());
+            pools[resource]=new SmmRPResource("Unused locket monster",get_locket_monsters()[foe] ? 1 : 0,true,"");
+        } else if (resource.starts_with("route.acornZone.")) {
+            pools[resource]=new SmmRPResource("Unoccupied persistent zone planting slots",smmIRPlantSlots(to_location(substring(resource,16).to_int())),true,"");
+        }
+    }
+    return pools;
+}
+
+void smmIRGenerateMuseumDeposits() {
+    if (!smmMuseumEnabled() || !have_display() || get_property("smm.IR.museumDeposit")=="false") return;
+    foreach it, amount in get_inventory() if (is_displayable(it) && (get_property("smm.IR.museumHold."+it.to_int()).to_int()>0
+        || get_property(kDCPropertyPrefix+it)!="")) {
+        int quantity=min(smmMuseumDepositAmount(it),max(0,smmMuseumMilestone(it)-smmMuseumDisplay(it)));
+        if (quantity<1) continue;
+        SmmIRWork work; work.kind="museum.deposit"; work.product=it; work.option=1;
+        string id="2026-11.00-display."+it.to_int();
+        smmIRAdd(id,"Place owned copies into Display Case: "+it,work,0,0,"",0);
+        if (smmIRActions contains id) {
+            smmIRActions[id].limit=quantity;
+            smmIRActions[id].goal="museum.placement."+it.to_int(); smmIRActions[id].missing=quantity;
+            SmmMuseumGoal target=smmMuseumGoal(it);
+            float value=get_property("smm.IR.museumRankValue")=="" ? kTurnValue : max(0,get_property("smm.IR.museumRankValue").to_float());
+            smmIRActions[id].collection_value=smmMuseumDisplay(it)>=target.first_minimum ? 0.01 : value/max(1,smmMuseumMilestone(it)-smmMuseumDisplay(it));
+        }
+    }
+}
+
+SmmRPPlan smmIRGenerate() {
+    clear(smmIRActions); clear(smmIRWorkers);
+    smmIRGenerateAcorn(); smmIRGenerateGarden(); smmIRGenerateCoins(); smmIRGenerateCup();
+    smmIRGenerateSwordSeed(); smmIRGeneratePasta(); smmIRGenerateBaseball(); smmIRGenerateSpade();
+    smmIRGenerateHeart(); smmIRGenerateFarming(); smmIRGenerate2025(); smmIRGenerateRecovery(); smmIRGenerateLocket();
+    smmIRGardenGenerate(); smmIRExtraGenerate(); smmIRGenerateMuseumDeposits();
+    SmmRPContext context=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,smmIRCollectionRemaining().to_int(),20000);
+    // The solver has a bounded block size. Preserve high-value older carriers
+    // as alternatives to newer familiar policies; date controls execution order,
+    // not whether a valuable competing use is deleted before optimization.
+    boolean pruned;
+    while (count(smmIRActions)>60) {
+        string worst; float lowest=1000000000000.0;
+        foreach id, action in smmIRActions {
+            float net=smmRPEconomicValue(action,context);
+            float score=(net+(action.goal!="" ? action.collection_value*min(action.limit,action.missing) : 0))/max(1,action.costs["route.paid"]);
+            if (net<0 && -net>smmIRCollectionRemaining()) score=-1000000000000.0;
+            if (worst=="" || score<lowest) { worst=id; lowest=score; }
+        }
+        remove smmIRActions[worst]; remove smmIRWorkers[worst]; pruned=true;
+    }
+    if (pruned) smmIRNote("Candidate limit: retained higher forecast marginal values, including older competing carriers; this is a bounded route search.");
+    return smmRPSolve(smmIRActions,smmIRResources(),smmRPReservations(),context);
+}
+
+// The consult runs in a separate interpreter. Only this short-lived intent is
+// shared; it is never treated as evidence that a skill actually fired.
+string smmIRCombatPrefix(monster foe) {
+    if (get_property("smm.IR.activeEpoch")!=smmRPEpoch()) return "";
+    int id=get_property("smm.IR.combatSkill").to_int();
+    if (id<1) return "";
+    skill sk=to_skill(id);
+    if (!have_skill(sk) || my_mp()<mp_cost(sk) || smmRPAllowedSkillUses(sk,1)<1) return "";
+    if (id==7597) return smmIRMaidenPrefix(foe);
+    if (id==7593) {
+        if (my_familiar()!=$familiar[Sword of S Words] || foe.to_int()!=get_property("smm.IR.seedMonster").to_int()
+            || !foe.copyable || foe.boss || get_property("_swordOfSWordsMonsterChanged").to_int()>=3) return "";
+    } else {
+        location zone=to_location(get_property("smm.IR.plantZone"));
+        if (smmRPSpendable("acorn.plants",smmIROwner,smmRPLiveResources(),smmRPReservations())<1) return "";
+        int target=get_property("smm.IR.plantTarget").to_int();
+        if (target>0 && foe.to_int()!=target) return "";
+        if (my_location()!=zone || !(get_location_monsters(zone) contains foe)
+            || smmIRAcornEffects(zone).contains_text(get_property("smm.IR.plantEffect"))
+            || smmIRAcornsToday(zone)>=3 || get_property("_legendaryAcornsUsed").to_int()>=12) return "";
+    }
+    // Never queue twice if the consult is called again after an abort.
+    set_property("smm.IR.combatSkill","");
+    return "if hasskill "+id+";skill "+id+";endif;";
+}
+
+int smmIRPitch(string [int] options) {
+    if (options contains 6) return 6;
+    // No banishing, tracking, +ML, or unpriced farming commitments.
+    string [int] preference={"Schenectady","Garbageball","Snowball","Ghost Pitch","Some Smoke","Bring the Heat","Deep Freeze","Slurve","Slider","Skullball","Beanball"};
+    foreach i, wanted in preference foreach option, label in options
+        if (label.to_lower_case().contains_text(wanted.to_lower_case())) return option;
+    return 0;
+}
+
+boolean smmIRPrepare(SmmIRWork work) {
+    if (work.product!=$item[none] && (work.kind=="buff" || work.kind=="beret") && !smmIREquip(work.product)) return false;
+    if (work.kind=="pasta.summon" && !smmIREquip($item[legendary pasta wand])) return false;
+    if (work.kind=="acorn.block" && !smmIREquip($item[legendary acorndion])) return false;
+    if (work.kind=="heart.lucky" && !smmIREquip($item[Heartstone])) return false;
+    if (work.companion!=$familiar[none]) {
+        if (!use_familiar(work.companion)) return false;
+        if (equipped_item($slot[familiar])!=work.companion_equipment && !equip($slot[familiar],work.companion_equipment)) return false;
+    }
+    return true;
+}
+
+boolean smmIRDispatch(SmmIRWork work) {
+    if (work.kind=="museum.deposit") return smmMuseumDeposit(work.product,work.option);
+    if (!smmIRPrepare(work)) return false;
+    if (work.kind.starts_with("garden.")) return smmIRGardenDispatch(work);
+    if (work.kind.starts_with("extra.")) return smmIRExtraDispatch(work);
+    if (work.kind=="buff" || work.kind=="beret") {
+        string before=get_property(work.counter);
+        return have_skill(work.cast) && smmIRCast(work.cast) && get_property(work.counter)!=before;
+    }
+    if (work.kind=="pasta.summon") {
+        int before=item_amount(work.product);
+        return have_skill(work.cast) && smmIRCast(work.cast) && item_amount(work.product)>before;
+    }
+    if (work.kind=="craft") {
+        if (free_cooks()<1) return false;
+        foreach it, quantity in get_ingredients(work.product) if (!smmIRMayConsume(it,quantity)) return false;
+        int before=item_amount(work.product);
+        return create(1,work.product) && item_amount(work.product)>before;
+    }
+    if (work.kind=="coin.buy" || work.kind=="bones.buy") {
+        coinmaster shop=work.kind=="coin.buy" ? $coinmaster[Spend your Interesting Coins] : $coinmaster[Skeleton of Crimbo Past];
+        item currency=work.kind=="coin.buy" ? $item[Interesting Coin] : $item[knucklebone];
+        int reserve=max(work.kind=="coin.buy" ? 1 : 0,smmIRSetting(work.kind=="coin.buy" ? "coinReserve" : "boneReserve",work.kind=="coin.buy" ? 10000000 : 0).to_int());
+        int price=buy_price(shop,work.product);
+        if (price<1 || item_amount(currency)-price<reserve) return false;
+        int before=item_amount(work.product); int balance=item_amount(currency);
+        buy(shop,1,work.product);
+        return item_amount(work.product)>before && item_amount(currency)<balance;
+    }
+    if (work.kind=="shower") {
+        smmIRVisit("inventory.php?action=shower");
+        return get_property("_aprilShowerGlobsCollected").to_boolean();
+    }
+    if (work.kind=="cup") {
+        int [item] needed; needed[work.ingredient1]+=1; needed[work.ingredient2]+=1; needed[work.ingredient3]+=1;
+        foreach it, quantity in needed if (!smmIRMayConsume(it,quantity)) return false;
+        if (my_inebriety()>=inebriety_limit() || !can_drink() || !smmIROpenItem($item[Cup of 13s],1601)) return false;
+        int jewels=get_property("_cupOf13sJewels").to_int(); int liver=my_inebriety(); int adv=my_adventures();
+        run_choice(1,"whichitem1="+work.ingredient1.to_int()+"&whichitem2="+work.ingredient2.to_int()+"&whichitem3="+work.ingredient3.to_int());
+        smmIRLeaveChoice(1601,4);
+        return my_inebriety()>liver && my_adventures()>adv && get_property("_cupOf13sJewels").to_int()<jewels;
+    }
+    if (work.kind=="garden") {
+        string page=smmIRVisit("campground.php?action=rosegarden");
+        SmmIRGardenPoint [int] points=smmIRParseGarden(page);
+        if (!handling_choice() || last_choice()!=1637 || !(points contains work.option) || points[work.option].done || !points[work.option].reachable) { smmIRLeaveChoice(1637,2); return false; }
+        run_choice(1,work.parameters);
+        if (current_round()>0) run_combat();
+        if (current_round()>0 || (handling_choice() && last_choice()!=1637)) return false;
+        page=smmIRVisit("campground.php?action=rosegarden");
+        smmIRGarden=smmIRParseGarden(page); smmIRLeaveChoice(1637,2);
+        return (smmIRGarden contains work.option) && smmIRGarden[work.option].done;
+    }
+    if (work.kind=="spade") {
+        if (to_location(get_property("lastAdventure"))!=work.zone || !smmIROpenItem($item[Archaeologist's Spade],1596)) return false;
+        int before=get_property("_archSpadeDigs").to_int();
+        string [int] options=available_choice_options();
+        if (!(options contains work.option)) { smmIRLeaveChoice(1596,4); return false; }
+        run_choice(work.option);
+        if (current_round()>0) run_combat();
+        smmIRLeaveChoice(1596,4);
+        return get_property("_archSpadeDigs").to_int()>before && current_round()==0;
+    }
+    if (work.kind=="baseball") {
+        int before=get_property("_baseballInnings").to_int();
+        if (!smmIROpenItem($item[Baseball Diamond],1598)) return false;
+        for pitch from 1 to 30 {
+            if (!handling_choice() || last_choice()!=1598) break;
+            int option=smmIRPitch(available_choice_options());
+            if (option==0) abort("Unrecognized baseball pitches: finish this inning manually. Its entry already spent an inning.");
+            run_choice(option);
+        }
+        return !handling_choice() && get_property("_baseballInnings").to_int()>before;
+    }
+    if (work.kind=="locket" || work.kind=="sword.seed") {
+        if (!get_locket_monsters()[work.foe]) return false;
+        int before=count(cllMonstersFought(false));
+        if (work.kind=="sword.seed") {
+            set_property("smm.IR.seedMonster",work.foe.to_int()); set_property("smm.IR.combatSkill",7593);
+        }
+        cli_execute("reminisce "+work.foe.to_int());
+        if (current_round()>0) run_combat();
+        return count(cllMonstersFought(false))>before && current_round()==0
+            && (work.kind!="sword.seed" || to_monster(get_property("swordOfSWordsMonster"))==work.foe);
+    }
+    if (work.kind=="heart.lucky") {
+        if (!smmIRCast(work.cast) || have_effect($effect[Lucky!])<1) return false;
+        return smmIRAdventure(work.zone);
+    }
+    if (work.kind=="farm" || work.kind=="acorn.block") {
+        int start=smmIRTurns(); int before=get_property("_legendaryAcornsUsed").to_int();
+        if (work.kind=="acorn.block") {
+            if (!have_skill(work.cast)) return false;
+            set_property("smm.IR.plantZone",work.zone);
+            set_property("smm.IR.plantEffect",work.parameters);
+            set_property("smm.IR.combatSkill",work.cast.to_int());
+        }
+        for attempt from 1 to work.allowed_turns+3 {
+            if (smmIRTurns()-start>=work.allowed_turns || smmIRPaidRemaining()<1 || my_adventures()<1) break;
+            if (my_hp()<my_maxhp()/3 || my_mp()<30 || have_effect($effect[Beaten Up])>0) break;
+            // Recompute expected base yield before each paid turn. Stop rather
+            // than continue a stale profitable-looking forecast after a buff ends.
+            if (smmIRZoneIncome(work.zone)<=smmIRTurnValue()+max(0,smmIRSetting("combatCost",50))) break;
+            if (!smmIRAdventure(work.zone)) break;
+            if (handling_choice() || current_round()>0) break;
+        }
+        return smmIRTurns()>start && (work.kind!="acorn.block" || get_property("_legendaryAcornsUsed").to_int()>before);
+    }
+    return false;
+}
+
+SmmIRResult smmIRExecute(SmmIRWork work) {
+    SmmIRResult result;
+    if (work.allowed_turns>smmIRPaidRemaining()) { result.reason="insufficient remaining paid-turn budget"; return result; }
+    if (smmIRSelectedLoss>smmIRCollectionRemaining()) { result.reason="daily collection-loss budget exhausted"; smmIRSelectedLoss=0; return result; }
+    set_property("smm.IR.lastMuseumDeposit","");
+    int [item] before_inventory=get_inventory();
+    SmmRPResource [string] before_resources=smmIRResources();
+    set_property("smm.IR.plantTarget",0);
+    SmmIRGear gear=smmIRSaveGear();
+    smmIRStoreGear(gear);
+    SmmRPLease lease=smmRPBegin(smmIROwner);
+    int turns=smmIRTurns(); int adv=my_adventures(); int meat=my_meat();
+    try {
+        result.attempted=true;
+        result.success=smmIRDispatch(work);
+        if (!result.success) result.reason="postcondition not confirmed; blocked for this run";
+        if (have_effect($effect[Beaten Up])>0 || handling_choice() || current_round()>0) {
+            result.success=false; result.reason="unfinished encounter or defeat; route stopped";
+        }
+    } finally {
+        result.turns=max(0,smmIRTurns()-turns);
+        result.adventures_gained=my_adventures()-adv+result.turns;
+        result.meat_delta=my_meat()-meat;
+        smmIRAccountTurns(result.turns);
+        set_property("smm.IR.combatSkill","");
+        smmRPFinish(lease);
+        if (current_round()==0 && !handling_choice() && !smmIRRestorePendingGear()) abort("Could not restore the pre-route equipment. Route stopped; saved outfit retained for iotmroute reset.");
+        if (current_round()==0 && !handling_choice()) smmMuseumRetainGains(before_inventory);
+        result.displayed=get_property("smm.IR.lastMuseumDeposit");
+        boolean consumed=result.success || result.turns>0 || result.meat_delta<0;
+        SmmRPResource [string] after_resources=smmIRResources();
+        foreach resource, previous in before_resources if ((after_resources contains resource) && previous.known && after_resources[resource].known
+            && after_resources[resource].remaining<previous.remaining) consumed=true;
+        foreach it, quantity in before_inventory if (item_amount(it)<quantity) consumed=true;
+        if (consumed) smmIRCollectionCharge(smmIRSelectedLoss);
+        smmIRSelectedLoss=0;
+        if (result.turns>work.allowed_turns) abort("An expected free/bounded action spent extra turns; recorded the actual cost and stopped the route.");
+    }
+    return result;
+}
+
+string smmIRNext(int [string] quantities) {
+    string next;
+    foreach id, q in quantities if (q>0 && (next=="" || substring(id,0,7)>substring(next,0,7))) next=id;
+    return next;
+}
+
+void smmIRReport(SmmRPPlan plan) {
+    if (!plan.valid) { print("IoTM route: "+plan.error,"red"); return; }
+    print("IoTM route: expected net "+round(plan.economic_value)+" Meat equivalent (sale proceeds or avoided collection purchases); paid turns remaining "+smmIRPaidRemaining()+".","blue");
+    if (smmMuseumEnabled()) print("Objective: Museum #1 per item, top 10 acceptable. Rank utility is scored separately; unavailable rankings are never treated as zero targets.","blue");
+    int [string] remaining;
+    foreach id, q in plan.quantity if (q>0) remaining[id]=q;
+    while (count(remaining)>0) {
+        string id=smmIRNext(remaining);
+        SmmRPContext context=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
+        print(id+": "+smmIRActions[id].description+" [estimated net "+round(smmRPEconomicValue(smmIRActions[id],context))+" Meat]");
+        remove remaining[id];
+    }
+    foreach i, message in smmIRNotes print(message,"gray");
+    if (!plan.optimal) print("Search limit reached: this is a feasible route, without an optimality claim.","gray");
+}
+
+void smmIRRestoreSettings() {
+    string packed=get_property("smm.IR.savedSettings");
+    if (packed=="") return;
+    foreach i, entry in split_string(packed,"\\|") {
+        int equals=index_of(entry,"=");
+        if (equals<0) continue;
+        string key=url_decode(substring(entry,0,equals)); string value=url_decode(substring(entry,equals+1));
+        if (key=="routeAutoAttack") smmIRSetAutoAttack(value.to_int());
+        else if (key=="currentMood") cli_execute("mood "+value);
+        else set_property(key,value);
+    }
+    set_property("smm.IR.savedSettings","");
+}
+
+void smmIRDailyRoute(boolean free_only, boolean execute) {
+    if (!smmIREnabled()) { if (execute) smmIRGardenBreakfast(false); return; }
+    if (inRonin() || my_path()!=$path[none] || my_inebriety()>inebriety_limit()) { print("IoTM route requires unrestricted sober aftercore.","gray"); return; }
+    if (get_property("smm.IR.activeEpoch")!="") abort("IoTM route is already active, or was interrupted. Use iotmroute reset after resolving the encounter.");
+    if (get_property("smm.IR.pendingGear")!="") abort("An interrupted IoTM outfit is waiting to be restored. Resolve the encounter and use iotmroute reset.");
+    smmIRNoPaidTurns=free_only;
+    clear(smmIRBlocked); clear(smmIRNotes); clear(smmIRPrices); clear(smmIRReplacementPrices); clear(smmMuseumGoals); clear(smmMuseumKeeps); clear(smmIRZones); clear(smmIRGarden);
+    smmIRQuotes=0; smmIRDiscovered=false;
+    smmIRDiscover();
+    if (handling_choice() || current_round()>0) abort("Route discovery reached an unexpected encounter. Resolve it before continuing.");
+    smmIRGardenEvaluate(execute);
+    SmmRPPlan plan=smmIRGenerate(); smmIRReport(plan);
+    if (!execute || !plan.valid) return;
+    string [string] saved;
+    foreach i, prop in split_string("customCombatScript|battleAction|beforeAdventureScript|betweenBattleScript|afterAdventureScript|autoSatisfyWithMall|autoSatisfyWithNPCs|autoSatisfyWithCoinmasters|autoSatisfyWithStash|autoSatisfyWithStorage|autoSatisfyWithCloset|autoSatisfyWithShop|familiarScript|currentMood|recoveryScript|manaBurningThreshold|manaBurningTrigger|hpAutoRecovery|mpAutoRecovery","\\|") saved[prop]=get_property(prop);
+    string packed;
+    foreach prop, value in saved packed+=url_encode(prop)+"="+url_encode(value)+"|";
+    packed+="routeAutoAttack="+get_auto_attack();
+    set_property("smm.IR.savedSettings",packed);
+    string epoch=smmRPEpoch();
+    buffer log;
+    try {
+        set_property("smm.IR.activeEpoch",epoch);
+        set_property("customCombatScript","smm-iotm-route"); set_property("battleAction","custom combat script"); smmIRSetAutoAttack(0);
+        foreach prop, value in saved {
+            if (prop.starts_with("autoSatisfyWith") && prop!="autoSatisfyWithCloset" && prop!="autoSatisfyWithStorage") set_property(prop,false);
+            if (prop.ends_with("AdventureScript") || prop=="betweenBattleScript") set_property(prop,"");
+        }
+        cli_execute("mood apathetic"); set_property("recoveryScript","");
+        set_property("manaBurningThreshold",-0.05); set_property("manaBurningTrigger",-0.05);
+        set_property("familiarScript", ""); set_property("hpAutoRecovery",-0.05); set_property("mpAutoRecovery",-0.05);
+        int steps;
+        while (steps<200 && epoch==smmRPEpoch() && plan.valid) {
+            string next=smmIRNext(plan.quantity);
+            if (next=="") break;
+            SmmIRWork work=smmIRCopyWork(smmIRWorkers[next]);
+            if (work.kind=="museum.deposit") work.option=plan.quantity[next];
+            print("IoTM route: "+smmIRActions[next].description,"blue");
+            log.append("ATTEMPT\t"+next+"\n"); log.buffer_to_file("smm-iotm-route-last.txt");
+            SmmRPContext valuation=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
+            smmIRSelectedLoss=max(0.0,-smmRPEconomicValue(smmIRActions[next],valuation));
+            SmmIRResult result=smmIRExecute(work); steps+=1;
+            log.append(next+"\t"+result.success+"\tpaid="+result.turns+"\tMeat="+result.meat_delta+"\tadventures gained="+result.adventures_gained+"\tdisplay="+result.displayed+"\t"+result.reason+"\n");
+            if (!result.success) { smmIRBlocked[next]=true; print(result.reason,"orange"); }
+            if (handling_choice() || current_round()>0 || have_effect($effect[Beaten Up])>0) break;
+            // Read real properties/inventory after every worker. The old plan's
+            // unexecuted quantities never become fabricated uses or receipts.
+            plan=smmIRGenerate();
+        }
+        if (steps==200) print("IoTM route step limit reached; inspect the receipt before continuing.","orange");
+    } finally {
+        log.buffer_to_file("smm-iotm-route-last.txt");
+        smmIRRestoreSettings();
+        set_property("smm.IR.combatSkill",""); set_property("smm.IR.activeEpoch","");
+    }
+}

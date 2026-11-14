@@ -1,6 +1,7 @@
 import "smmUtils.ash";
 import "smmAutomation.ash";
 import "VotingBooth.ash";
+import <smmIotmRoute.ash>
 string __unrestricted_version = "0.9";
 
 /*
@@ -1413,6 +1414,11 @@ void burnNextAprilingBandQuadTom() {
 
 
 void grindMushroomGarden(boolean harvest) {
+	if (smmIREnabled() && !inRonin() && my_path()==$path[none]) {
+		print("Garden harvesting is managed by the shared daily IoTM route.", "blue");
+		return;
+	}
+
 	// Crop level persists even when a different garden is planted.
 	if (!can_adventure($location[your mushroom garden])) {
 		print("Skipping mushroom garden: area is not available.", "blue");
@@ -1458,6 +1464,11 @@ void grindMushroomGarden(boolean harvest) {
 
 // get the +10 level goodness
 void grind_poke_familiar_items() {
+	if (smmIREnabled() && !inRonin() && my_path()==$path[none]) {
+		print("Garden harvesting is managed by the shared daily IoTM route.", "blue");
+		return;
+	}
+
 	if (have_item($item[amulet coin]) || have_item($item[luck incense]) || have_item($item[muscle band]) || have_item($item[razor fang]) || have_item($item[shell bell]) || have_item($item[smoke ball]))
 		return;
 
@@ -2805,7 +2816,7 @@ string gkSecondBreakfastDoneKey = "_smm.SecondBreakfastDone";
 void secondBreakfast(int [location] endGameTurnsSpent) {
 	boolean unused;
 
-	cli_execute("breakfast");
+	smmIRBreakfast();
 
 	setupChoiceAdventures();
 
@@ -4003,7 +4014,9 @@ void beforeOverdrunkGoodNight() {
 		grindDolphinItem();
 	}
 
-	if (my_garden_type() == "mushroom")
+	if (smmIREnabled() && !inRonin() && my_path()==$path[none])
+		smmIRDailyRoute(true,true);
+	else if (my_garden_type() == "mushroom")
 		grindMushroomGarden(false); // false=fertilize (will auto-pick on max growth)
 	grindFreeOliversPlace();
 	grindRufusAndTheShadowRiftsForFree();
@@ -6294,6 +6307,7 @@ void doBounty() {
 
 void dailyNoAdventureGrind() {
 	secondBreakfast();
+	smmIRDailyRoute(true,true);
 	burnMP(-500);
 
 	grindJellyWithEnemyReplacement(true, true, $item[cold jelly], true);
@@ -6391,6 +6405,7 @@ void dailyGrind() {
 		burnMP();
 	}
 
+	smmIRDailyRoute(false,true);
 	dailyDeedsAdv(); // 0 adv
 
 	// if we have the Fishy buff from the pipe from yesterday
