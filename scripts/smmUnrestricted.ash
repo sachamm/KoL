@@ -141,7 +141,8 @@ void setDefaultState() {
 // target stock amount is the available amount times the stockFraction minus gStoreSaveAmount
 // will save and NOT sell a number of theItem equal to 1/2 the given rank in the top 10 list
 boolean stockTop10Item(item theItem, int minPrice, int limit, int targetRank, float stockFraction) {
-	int [int, string] collection = lookupCollection(theItem);
+	// Missing rankings must skip this item before any collection or shop changes.
+	int [int, string] collection = lookupCollection(theItem, false);
 	if (!isValidTop10List(collection))
 		return false;
 	int targetRankAmount = amountAtRank(collection, targetRank);
