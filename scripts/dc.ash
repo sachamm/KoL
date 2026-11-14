@@ -10,8 +10,7 @@ gCLI display case utilities centered around maintaining top 10 collections while
 
 "dc help" in the gCLI for help.
 
-Scrapes the top 10 info from Jicken Wings (or the KoL wiki if that isn't available), and then caches
-that info for the day.
+Reads top 10 collections from Museum and caches that info for the day.
 
 # TODO check Item Filters in preferences (bottom group), Keep One
 
@@ -68,7 +67,7 @@ item [item, int] iotmItems() {
 				$item[pickled grasshopper], $item[bottle of an&iacute;s], $item[bottle of novelty hot sauce], $item[elemental sugarcube], $item[peppermint sprig], $item[bottle of clam juice], $item[cocktail mushroom], $item[shot of granola liqueur], $item[can of cherry-flavored sterno], $item[lump of black ichor], $item[bottle of gregnadigne], $item[bottle of Cr&egrave;me de Fugu], $item[baby oil shooter], $item[fish head], $item[limepatch], $item[pile of dirt], $item[slime shooter], $item[imaginary lemon],
 				$item[literal grasshopper], $item[double entendre], $item[Phlegethon], $item[Siberian sunrise], $item[mentholated wine], $item[low tide martini], $item[shroomtini], $item[morning dew], $item[whiskey squeeze], $item[great old fashioned], $item[Gnomish sagngria], $item[vodka stinger], $item[extremely slippery nipple], $item[piscatini], $item[Churchill], $item[soilzerac], $item[London frog], $item[nothingtini],
 				$item[eighth plague], $item[single entendre], $item[reverse Tantalus], $item[elemental caipiroska], $item[Feliz Navidad], $item[Bloody Nora], $item[moreltini], $item[hell in a bucket], $item[Newark], $item[R'lyeh], $item[Gnollish sangria], $item[vodka barracuda], $item[Mysterious Island iced tea], $item[drive-by shooting], $item[gunner's daughter], $item[dirt julep], $item[Simepore slime], $item[Phil Collins]},
-			$item[Spacegate access badge] : {$item[Spacegate Research], $item[Non-Euclidean Finance], $item[Space Baby children's book], $item[Space Baby bawbaw], $item[Peek-a-Boo!], $item[space pirate treasure map], $item[Space Pirate Astrogation Handbook], 
+			$item[Spacegate access badge] : {$item[Spacegate Research], $item[Non-Euclidean Finance], $item[Space Baby children's book], $item[Space Baby bawbaw], $item[Peek-a-Boo!], $item[space pirate treasure map], $item[Space Pirate Astrogation Handbook],
 				$item[alien rock sample], $item[alien gemstone], $item[alien plant fibers], $item[alien plant sample], $item[complex alien plant sample], $item[fascinating alien plant sample], $item[alien toenails], $item[alien zoological sample], $item[complex alien zoological sample], $item[fascinating alien zoological sample], $item[spant egg casing], $item[murderbot memory chip],
 				$item[Aldebaran sardines], $item[Centauri fish wine], $item[powdered oxygen], $item[portable Spacegate], $item[Spacegate scientist's insignia], $item[Spacegate military insignia], $item[Spacegate diplomat's insignia], $item[Spacegate emergency disintegrator], $item[Spacegate Initiative tattoo unit],
 				$item[alien meat], $item[alien animal goo], $item[alien animal milk], $item[edible alien plant bit], $item[alien plant goo], $item[alien plant pod], $item[murderbot component casing], $item[murderbot monofilament], $item[murderbot power cell], $item[murderbot plasma rifle], $item[spant chitin], $item[spant tendon], $item[spant spear],
@@ -109,7 +108,7 @@ item [item, int] iotmItems() {
 				$item[Turpin], $item[Morphan], $item[Cycloney], $item[Peaclock], $item[Turtive], $item[Lepardner], $item[Aiolion], $item[Waifuton], $item[Gorillape], $item[Wendtigo],
 				$item[Snoutlet], $item[Ruffalo], $item[Vaporpoise], $item[Ghosprey], $item[Straypler], $item[Flan], $item[Mustardigrade], $item[Ched], $item[Gazelleton],
 				$item[Mechamelion], $item[Bicycle], $item[Vamprey], $item[Wullabye], $item[Nursine], $item[Cantelope], $item[Ungulant], $item[Caramel], $item[Oppossum],
-				$item[Amanitee], $item[Smashmoth], $item[Vulgure], $item[Squib], $item[Trafikoan], $item[Slotter], $item[Shudder], $item[Glamare], 
+				$item[Amanitee], $item[Smashmoth], $item[Vulgure], $item[Squib], $item[Trafikoan], $item[Slotter], $item[Shudder], $item[Glamare],
 				$item[Unspeakachu], $item[Stooper], $item[Disgeist], $item[Bowlet], $item[Cornbeefadon], $item[Mu]},
 			$item[FantasyRealm membership packet] : {$item[Rubee&trade;], $item[FantasyRealm Warrior's Helm], $item[FantasyRealm Mage's Hat], $item[FantasyRealm Rogue's Mask],
 				$item[FantasyRealm key], $item[FantasyRealm mead], $item[FantasyRealm turkey leg], $item[LyleCo premium magnifying glass], $item[LyleCo premium monocle], $item[LyleCo premium pickaxe], $item[LyleCo premium rope], $item[FantasyRealm guest pass],
@@ -154,7 +153,7 @@ item [item, int] iotmItems() {
 				$item[plush sea serpent], $item[pirate radio ring], $item[Pirate fork], $item[lucky gold ring],
 				$item[Scurvy and Sobriety Prevention], $item[Island Drinkin', a Tiki Mixology Odyssey],
 				$item[Red Roger's reliquary], $item[Red Roger's red right foot], $item[Red Roger's red left foot], $item[Red Roger's red right hand], $item[Red Roger's red left hand],
-				$item[melty plastic grenade], $item[oversized ice molecule], $item[signal fragment], $item[windicle], $item[pewter shavings], $item[Red Roger's skull], 
+				$item[melty plastic grenade], $item[oversized ice molecule], $item[signal fragment], $item[windicle], $item[pewter shavings], $item[Red Roger's skull],
 				$item[hibiscus petal], $item[huge mint leaf], $item[pineapple slab],
 				$item[bottle of dark rhum], $item[Island Landslide], $item[Scorpion Bowl], $item[Skull Punch],
 				$item[bottle of extra-dark rhum], $item[Electric Punch], $item[Island Thunderstorm], $item[Turtle Bowl],
@@ -227,7 +226,7 @@ item [item, int] iotmItems() {
 			$item[combat lover's locket lockbox] : {$item[combat lover's locket]},
 			$item[grey gosling] : {$item[grey down vest]},
 			$item[undamaged Unbreakable Umbrella] : {$item[unbreakable umbrella]},
-			$item[MayDay&trade; contract] : {$item[emergency glowstick], $item[spare battery], $item[space blanket], $item[single-use dust mask], $item[gaffer's tape], 
+			$item[MayDay&trade; contract] : {$item[emergency glowstick], $item[spare battery], $item[space blanket], $item[single-use dust mask], $item[gaffer's tape],
 				$item[20-lb can of rice and beans], $item[bar of freeze-dried water], $item[expired MRE], $item[cool mint precipice bar], $item[carrot cake precipice bar]},
 			$item[packaged June cleaver] : {$item[June cleaver], $item[Dad's brandy], $item[guilty sprout], $item[mother's necklace], $item[savings bond], $item[trampled ticket stub], $item[fire-roasted lake trout], $item[teacher's pen]},
 			$item[designer sweatpants (new old stock)] : {$item[designer sweatpants], $item[sweat-ade], },
@@ -240,12 +239,12 @@ item [item, int] iotmItems() {
 				$item[Recipe of Before Yore: Boris's beer],					$item[Recipe of Before Yore: ratatouille de Jarlsberg],		$item[Recipe of Before Yore: Pete's wily whey bar],
 				$item[Recipe of Before Yore: honey bun of Boris],			$item[Recipe of Before Yore: Jarlsberg's vegetable soup],	$item[Recipe of Before Yore: St. Pete's sneaky smoothie],
 				$item[Recipe of Before Yore: Boris's bread],				$item[Recipe of Before Yore: roasted vegetable of J.],		$item[Recipe of Before Yore: Pete's rich ricotta],
-				$item[Recipe of Before Yore: roasted vegetable focaccia],	$item[Recipe of Before Yore: plain calzone],				$item[Recipe of Before Yore: baked veggie ricotta], 
+				$item[Recipe of Before Yore: roasted vegetable focaccia],	$item[Recipe of Before Yore: plain calzone],				$item[Recipe of Before Yore: baked veggie ricotta],
 				$item[Recipe of Before Yore: Deep Dish of Legend],			$item[Recipe of Before Yore: Calzone of Legend],			$item[Recipe of Before Yore: Pizza of Legend],
 				$item[Boris's beer],										$item[ratatouille de Jarlsberg],							$item[Pete's wiley whey bar],
 				$item[honey bun of Boris],									$item[Jarlsberg's vegetable soup],							$item[St. Pete's sneaky smoothie],
 				$item[Boris's bread],										$item[roasted vegetable of Jarlsberg],						$item[Pete's rich ricotta],
-				$item[roasted vegetable focaccia],							$item[plain calzone],										$item[baked veggie ricotta casserole], 
+				$item[roasted vegetable focaccia],							$item[plain calzone],										$item[baked veggie ricotta casserole],
 				$item[Deep Dish of Legend],									$item[Calzone of Legend],									$item[Pizza of Legend],},
 			$item[packaged model train set] : {$item[model train set]},
 			$item[Rock Garden Guide] : {$item[packet of rock seeds], $item[groveling gravel], $item[milestone], $item[whet stone], $item[fruity pebble],
@@ -260,7 +259,7 @@ item [item, int] iotmItems() {
 			$item[cursed monkey glove] : {$item[cursed monkey's paw]},
 			$item[shrink-wrapped Cincho de Mayo] : {$item[Cincho de Mayo]},
 			$item[shrink-wrapped 2002 Mr. Store Catalog] : {$item[2002 Mr. Store Catalog], $item[Spooky VHS tape], $item[&quot;I survived Y2K&quot; T-Shirt],
-				$item[Letter from Carrie Bradshaw], $item[Mr. Big's Wallet], $item[Sexy Cosmo], $item[red-soled high heels], $item[Souvenir Chopsticks], 
+				$item[Letter from Carrie Bradshaw], $item[Mr. Big's Wallet], $item[Sexy Cosmo], $item[red-soled high heels], $item[Souvenir Chopsticks],
 				$item[pro skateboard], $item[Mr. Accessaturday], $item[Meat Butler],
 				$item[Loathing Idol Microphone], $item[Loathing Idol Microphone (75% charged)], $item[Loathing Idol Microphone (50% charged)], $item[Loathing Idol Microphone (25% charged)],
 				$item[Charter: Nellyville],
@@ -386,7 +385,7 @@ int neededToMoveUpOneRank(item anItem, int [int, string] top10List) {
 		// we're in the top 10 already, find our rank
 		int lastRankAmt;
 		for i from 10 to 1 by -1 {
-			int rankAmt = amountAtRank(i, top10List);
+			int rankAmt = amountAtRank(top10List, i);
 			//print("amt at rank: " + i + ": " + rankAmt);
 			if (rankAmt == displayAmount) { // we've found our current rank
 				ourRank = i;
@@ -405,14 +404,14 @@ int neededToMoveUpOneRank(item anItem, int [int, string] top10List) {
 		if (goalRank < 1)
 			goalRank = 1;
 
-		goalAmount = amountAtRank(goalRank, top10List) + gkDCOvershootAmount;
-		if (ourRank == 1 && goalRank == 1 && isMe(nameAtRank(1, top10List))) // if we're the current top spot holder, we want 11 more than #2, not 11 more than our #1 spot
-			goalAmount = amountAtRank(2, top10List) + gkDCOvershootAmount;
+		goalAmount = amountAtRank(top10List, goalRank) + gkDCOvershootAmount;
+		if (ourRank == 1 && goalRank == 1 && isMe(nameAtRank(top10List, 1))) // if we're the current top spot holder, we want 11 more than #2, not 11 more than our #1 spot
+			goalAmount = amountAtRank(top10List, 2) + gkDCOvershootAmount;
 	}
 
 	// don't go higher than the next spot up, which can happen if they're closer than gkOvershootAmount
-	if (goalRank > 1 && goalAmount > amountAtRank(goalRank - 1, top10List))
-		goalAmount = max(amountAtRank(goalRank, top10List) + 1, amountAtRank(goalRank - 1, top10List) - 1);
+	if (goalRank > 1 && goalAmount > amountAtRank(top10List, goalRank - 1))
+		goalAmount = max(amountAtRank(top10List, goalRank) + 1, amountAtRank(top10List, goalRank - 1) - 1);
 
 	print("current rank: " + ourRank + ", goal rank: " + goalRank + ", goal amount: " + goalAmount);
 
@@ -424,6 +423,8 @@ int neededToMoveUpOneRank(item anItem, int [int, string] top10List) {
 // in the Top 10 list that we can reach, trying to be gkDCOvershootAmount over the next highest
 // (will be less if there aren't enough items)
 int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
+    assert(isValidTop10List(top10List), "calcHighestGoalAmount: not a valid top 10 list");
+
 	int displayAmount = display_amount(anItem);
 	int availableAmount = available_amount(anItem) - saveAmount(anItem);
 
@@ -447,15 +448,15 @@ int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
 		return 0;
 
 	// if i'm already at the goal index, the goal index is one less, unless i'm #10
-	if (isMe(nameAtRank(goalRank, top10List))) {
+	if (isMe(nameAtRank(top10List, goalRank))) {
 		// if we're #10, don't add or remove any
 		if (goalRank == 10)
 			goalAmount = displayAmount;
 		else
 			goalRank++;
 	}
-	if (goalAmount > amountAtRank(goalRank, top10List) + gkDCOvershootAmount)
-		goalAmount = amountAtRank(goalRank, top10List) + gkDCOvershootAmount;
+	if (goalAmount > amountAtRank(top10List, goalRank) + gkDCOvershootAmount)
+		goalAmount = amountAtRank(top10List, goalRank) + gkDCOvershootAmount;
 	return goalAmount;
 }
 
@@ -466,6 +467,8 @@ int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
 // follows the item saving rules (see help)
 // returns the delta of items put in/taken out of the case
 int top10Item(item anItem, int [int, string] top10List) {
+	if (!isValidTop10List(top10List))
+		return 0;
 	int displayAmount = display_amount(anItem);
 	int goalAmount = calcHighestGoalAmount(anItem, top10List);
 	int putAmount = goalAmount - displayAmount;
@@ -530,7 +533,7 @@ int addallItem(item anItem) {
 
 void listIotM(item anIotM) {
 	foreach idx, anItem in iotmItems()[anIotM] {
-		dcPrintItemDetails(anItem, lookupCollection(anItem));
+		dcPrintItemDetails(anItem, lookupCollection(anItem, false));
 		print("");
 	}
 }
@@ -602,7 +605,7 @@ void main(string arguments) {
 	switch (command) {
 		case "top10":
 		case "auto":
-			top10List = lookupCollection(anItem);
+			top10List = lookupCollection(anItem, false);
 			top10Item(anItem, top10List);
 			break;
 
@@ -613,7 +616,11 @@ void main(string arguments) {
 
 		// cost to get to the next top 10 rank
 		case "rankup":
-			top10List = lookupCollection(anItem);
+			top10List = lookupCollection(anItem, false);
+			if (!isValidTop10List(top10List)) {
+				dcPrintItemDetails(anItem);
+				return;
+			}
 			if (dryRun)
 				printTop10List(top10List);
 			int acquireCost = acquireCost(anItem, false);
@@ -640,7 +647,7 @@ void main(string arguments) {
 
 		case "iotmtop10":
 			foreach idx, it in iotmItems()[anItem] {
-				top10List = lookupCollection(it);
+				top10List = lookupCollection(it, false);
 				top10Item(it, top10List);
 				print("");
 			}
@@ -654,17 +661,10 @@ void main(string arguments) {
 			foreach idx, m in get_monsters(aLocation) {
 				foreach it in m.item_drops() {
 					itemsInLocation++;
-					top10List = lookupCollection(it);
+					top10List = lookupCollection(it, false);
 
 					if (command == "loc") {
-						if (count(top10List) == 0)
-							try {
-								top10List = lookupCollection(it);
-							} finally {
-								dcPrintItemDetails(it, top10List);
-							}
-						else
-							dcPrintItemDetails(it, top10List);
+						dcPrintItemDetails(it, top10List);
 
 					} else if (command == "top10loc") {
 						print("");
@@ -683,7 +683,7 @@ void main(string arguments) {
 		// print top 10 details of given item
 		case "list":
 		case "info":
-			top10List = lookupCollection(anItem);
+			top10List = lookupCollection(anItem, false);
 			printTop10List(top10List);
 			break;
 
@@ -712,7 +712,7 @@ void main(string arguments) {
 
 				} else if (command == "top10shelf") {
 					print("");
-					top10List = lookupCollection(shelfItem);
+					top10List = lookupCollection(shelfItem, false);
 					int delta = top10Item(shelfItem, top10List);
 					if (delta != 0)
 						receipt[shelfItem] = delta;
@@ -737,15 +737,8 @@ void main(string arguments) {
 
 	// we want this after most commands
 	if (anItem != $item[none]) {
-		if (count(top10List) == 0)
-			try {
-				top10List = lookupCollection(anItem);
-			} finally {
-				dcPrintItemDetails(anItem, top10List);
-			}
-		else
-			dcPrintItemDetails(anItem, top10List);
+		if (count(top10List) == 0 && command != "top10" && command != "auto" && command != "list" && command != "info")
+			top10List = lookupCollection(anItem, false);
+		dcPrintItemDetails(anItem, top10List);
 	}
 }
-
-

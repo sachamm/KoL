@@ -155,7 +155,7 @@ void printItemDrops(ItemDropRecord [int] itemDropsArray, float bonusItemDrop) {
 // prints item drops and their base drop rate modified by the bonusItemDrop for the given monster
 void printMonsterItemDrops(monster mob, float bonusItemDrop) {
 	printItemDrops(normalized_item_drops_array(mob), bonusItemDrop);
-	print("total value at +" + bonusItemDrop.to_string("%.2f") + "% item drop: " + monsterItemMeatValue(mob, bonusItemDrop));
+	print("total value at +" + bonusItemDrop.to_string("%.2f") + "% item drop: " + monsterItemMeatValue(mob, true, bonusItemDrop));
 }
 
 
@@ -164,7 +164,7 @@ void printMonsterDropDetails(monster mob, float bonusItemDrop, float bonusMeatDr
 	int meatDropValue = monsterMeatDropValue(mob, bonusMeatDrop);
 	print(mob + " (with +" + to_string(bonusItemDrop, "%.2f") + "% item and +" + to_string(bonusMeatDrop, "%.2f") + "% meat) drops " + meatDropValue + " meat");
 	printMonsterItemDrops(mob, bonusItemDrop);
-	print("GRAND TOTAL: " + monsterTotalMeatValue(mob, bonusItemDrop, bonusMeatDrop));
+	print("GRAND TOTAL: " + monsterTotalMeatValue(mob, true, bonusItemDrop, bonusMeatDrop));
 }
 
 void printMonsterBaseDropDetails(monster mob) {
@@ -179,7 +179,7 @@ void printMonsterCurrentDropDetails(monster mob) {
 // prints item drops and their base drop rate modified by the bonusItemDrop for the given monster
 void printMonsterPickpocketDrops(monster mob, float bonusPPDrop) {
 	printItemDrops(ppItemDropsArray(mob), bonusPPDrop);
-	print("total value at +" + bonusPPDrop + "% item drop: " + monsterItemMeatValue(mob, bonusPPDrop));
+	print("total value at +" + bonusPPDrop + "% item drop: " + monsterItemMeatValue(mob, true, bonusPPDrop));
 }
 
 void printMonsterBasePickpocketDrops(monster mob) {
@@ -415,7 +415,7 @@ void locationMeatDetails(location aLocation, float itemDrop, float meatDrop) {
 	float perAdventureCost = perAdventureCost(aLocation);
 	print(aLocation + ", per adv cost: " + perAdventureCost);
 	foreach mob, rate in appearance_rates(aLocation) {
-		print(mob + " (" + rate + "%) meat drop: " + monsterMeatDropValue(mob, meatDrop) + ", item drop: " + monsterItemMeatValue(mob, itemDrop) + " total: " + (monsterTotalMeatValue(mob, itemDrop, meatDrop) - perAdventureCost));
+		print(mob + " (" + rate + "%) meat drop: " + monsterMeatDropValue(mob, meatDrop) + ", item drop: " + monsterItemMeatValue(mob, true, itemDrop) + " total: " + (monsterTotalMeatValue(mob, true, itemDrop, meatDrop) - perAdventureCost));
 	}
 }
 
@@ -614,8 +614,11 @@ location [] tttLocations() {
 			$location[12 west main],
 			$location[KoL Con Clan Party House],
 			$location[Spring Bros. Solenoids],
-			$location[Home of the Future],
+			$location[The Home of the Future],
 			$location[Boltsmann Bearings],
+			$location[The Primordial Stew],
+			$location[No Man's and Also No Skeleton's Land],
+			$location[Axis HQ],
 		};
 	}
 	return _gkTTTLocations;
@@ -623,8 +626,8 @@ location [] tttLocations() {
 
 
 void tttEconomics() {
-	foreach idx, loc in tttLocations() {
-		int meatValue = locationCurrentMeatValue(loc);
+	foreach idx, loc in _gkTTTLocations {
+		int meatValue = locationCurrentMeatValue(loc, true);
 		boolean ppUseful = isPPUseful(loc);
 		print(loc + ": " + meatValue + (ppUseful ? " (pp useful)" : ""));
 	}

@@ -49,7 +49,7 @@ void dressupForGodLobster() {
 	string regaliaString;
 	if (bestRegalia != $item[none])
 		regaliaString = ", equip " + bestRegalia;
-	automate_dressup($location[none], "exp", "God Lobster", "mainstat, effective" + regaliaString);
+	automate_dressup($location[none], "exp", "God Lobster", "mainstat, effective, -equip cursed magnifying glass, -equip Kramco Sausage-o-Matic&trade;, -equip \"I Voted!\" sticker, -equip June Cleaver, -equip broken champagne bottle, -equip Everfull Dart Holster" + regaliaString);
 }
 
 
@@ -186,5 +186,3 @@ void main(string arguments) {
 		restoreOutfit();
 	}
 }
-
-

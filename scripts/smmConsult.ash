@@ -270,10 +270,12 @@ DamageRecord [] expectedDamageDoneAfterBuffs(skill dmgSkill) {
 	float weaponBonusPercent = numeric_modifier("Weapon Damage Percent") / 100.0;
 	int spellBonus = numeric_modifier("Spell Damage");
 	float spellBonusPercent = numeric_modifier("Spell Damage Percent") / 100.0;
-	print("weapon bonus damage: " + weaponBonus + ", weapon bonus damage %: " + (weaponBonusPercent * 100) + ", spell bonus damage: " + spellBonus + ", spell bonus damage %: " + (spellBonusPercent * 100));
+	print("expectedDamageDoneAfterBuffs for skill: " + dmgSkill + ", weapon bonus damage: " + weaponBonus + ", weapon bonus damage %: " + (weaponBonusPercent * 100) + ", spell bonus damage: " + spellBonus + ", spell bonus damage %: " + (spellBonusPercent * 100), "green");
 
-	if (dmgSkill == $skill[none]) {
+	if (dmgSkill == $skill[none] || dmgSkill == $skill[Kneebutt]) {
 		int damage = (max(my_buffedstat(current_hit_stat()) - monster_defense(), 0) + weaponBonus) * (1.0 + weaponBonusPercent);
+		if (dmgSkill == $skill[Kneebutt])
+			damage += equipped_item($slot[pants]).get_power() / 7.5;
 		rval[0] = new DamageRecord(damage, 1, {$element[none]});
 
 	} else if (dmgSkill == $skill[Saucestorm]) {
@@ -326,7 +328,7 @@ int expectedDamageDoneToMonsterBySkill(monster foe, skill dmgSkill) {
 	int i;
 
 	DamageRecord [] damageData = expectedDamageDoneAfterBuffs(dmgSkill);
-	assert(count(damageData) == 1, "not expecting more than 1 DamageRecord");
+	assert(count(damageData) == 1, "not expecting more than 1 DamageRecord: " + damageData.toString());
 	DamageRecord dr = damageData[0];
 
 	int elementsToChoose = dr.damageTypes;
@@ -667,7 +669,7 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 		didWeaksauce = true;
 		rval.repeatingAttackAbsolute += min(monster_attack() * 0.04, 66); // weaksauce debuffs by 4% and caps out at ~66 stats debuffed / turn (contra the wiki)???????????????????????????????
 		rval.repeatingDefenseAbsolute += min(monster_defense() * 0.04, 66);
-		float weaksauceFraction = min(rval.repeatingAttackAbsolute / monster_attack(), rval.repeatingDefenseAbsolute / monster_defense());
+		float weaksauceFraction = min(rval.repeatingAttackAbsolute / max(1, monster_attack()), rval.repeatingDefenseAbsolute / max(1, monster_defense()));
 		fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier * numberOfTurns); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
 
 		// NON-DELEVELING but staggering for weaksauce -- assuming no further useful items, so fill up funksling hand with a divine item to do damage
@@ -858,6 +860,8 @@ float defenseDebuffAtRoundAsFraction(DebuffMonsterRecord dmr, int atRound) {
 		return dmr.expectedDefenseFraction;
 
 	int extraRounds = atRound - dmr.roundsTaken;
+	if (gkMonsterOriginalDefense < 1)
+		gkMonsterOriginalDefense = monster_defense();
 	float absoluteFraction = dmr.repeatingDefenseAbsolute / gkMonsterOriginalDefense;
 
 	// not a perfect simulation, but should be close enough
@@ -915,7 +919,7 @@ boolean shouldAttack(monster foe, DebuffMonsterRecord dmr, int monsterHP) {
 // 	int expectedDmgDone = expectedDamageDone($skill[none]); // none = attack
 // 	if (expectedDmgDone > monster_hp() * 1.25)
 // 		return true;
-// 
+//
 	// if debuffing takes too long, don't attack
 	if (!willHitInTime(dmr, foe)) {
 		print("shouldAttack: false, will take so many rds to debuff to the point we can't attack successfully!", "green");
@@ -972,7 +976,7 @@ ActionRecord defaultAttack(monster foe, int monsterHP) { // #defaultAction
 		theAction.attack = true;
 
 	// SAUCEROR saucerors gain MP from overkilling with Curse of Weaksauce
-	else if (my_class() == $class[Sauceror] && my_mp() >= mp_cost($skill[Saucegeyser]))
+	else if (my_class() == $class[Sauceror] && my_mp() >= mp_cost($skill[Saucegeyser]) && foe != $monster[Spooky Hobo]) // spooky hobos don't take elemental damage for some reason
 		theAction.skillToUse = $skill[Saucegeyser];
 
 	// PIG SKINNER every 25 turns, use a Free-for-all for a free kill
@@ -1014,6 +1018,7 @@ ActionRecord defaultAttack(monster foe, int monsterHP) { // #defaultAction
 	// if we have a bunch of Arr, M80s, use those up
 	} else if (item_amount($item[Arr, M80]) >= 50
 		&& foe.monster_element() != $element[hot]
+		&& foe != $monster[Spooky hobo]
 		&& monsterHP <= (50 * 2 * 15)) { // Arr, M80s do ~50 hot dmg avg and drop items worth more than an Arr, M80(?)
 		checkIfRunningOut($item[Arr, M80], 10000);
 		theAction.itemToUse = $item[Arr, M80];
@@ -1059,15 +1064,18 @@ boolean doingEnoughDamage(monster foe, int currentMonHp, int damageDone) {
 
 
 // true if we should try to debuff this monster for melee/ranged
-// false when debuffing would not be profitable, either because we can't debuff enough, 
-// we don't need to debuff, 
+// false when debuffing would not be profitable, either because we can't debuff enough,
+// we don't need to debuff,
 boolean shouldDebuff(monster foe, DebuffMonsterRecord dmr, int monsterHP) {
 	print("willAlwaysHit: " + willAlwaysHit() + ", will_usually_dodge " + will_usually_dodge() + ", safeExpectedDamageTaken: " + safeExpectedDamageTaken(), "blue");
 	int expectedDamageDone = expectedDamageDone(new ActionRecord(true), foe);
 
 	// if we're not going to attack, we shouldn't debuff
 	// captures a lot of the logic that used to be in this function (via shouldAttack())
-	if (!defaultAttack(foe, monsterHP).attack) {
+	ActionRecord defAttack = defaultAttack(foe, monsterHP);
+	if (!defAttack.attack
+		&& defAttack.skillToUse != $skill[Kneebutt] && defAttack.skillToUse != $skill[Headbutt]
+		&& defAttack.skillToUse != $skill[Lunge Smack] && defAttack.skillToUse != $skill[Thrust-Smack] && defAttack.skillToUse != $skill[Lunging Thrust-Smack]) {
 		print("shouldDebuff: false, we're not attacking", "green");
 		return false;
 	}
@@ -1167,12 +1175,12 @@ string setupAborts(monster foe) {
 		rval += "abort missed " + ar.missed + ";";
 	if (ar.pastround > 0)
 		rval += "abort pastround " + ar.pastround + ";";
-	if (ar.hpbelow > 0 && my_maxhp() > ar.hpbelow) // TODO check if macro language can do this: abort my_maxhp() > ar.hpbelow || hpbelow X;
-		rval += "abort hpbelow " + ar.hpbelow + ";";
+	if (ar.hpbelow > 0 && my_maxhp() > ar.hpbelow)
+		rval += "abort hppercentbelow 50&&hpbelow " + ar.hpbelow + ";";
 	if (ar.hppercentbelow > 0)
 		rval += "abort hppercentbelow " + ar.hppercentbelow + ";";
 	if (ar.mpbelow > 0)
-		rval += "abort mpbelow " + ar.mpbelow + ";";
+		rval += "abort mppercentbelow 50&&mpbelow " + ar.mpbelow + ";";
 
 	if (wantToStasis())
 		rval += "abort (!mppercentbelow 100);";
@@ -1341,7 +1349,7 @@ string doOlfaction(monster foe, string scriptSoFar) {
 		scriptSoFar += "skill Gallapagosian Mating Call;";
 		manaRequired += 30;
 	}
-	if (to_monster(get_property("_latteMonster")) != foe && have_skill($skill[Offer Latte to Opponent]))
+	if (to_monster(get_property("_latteMonster")) != foe && !"_latteCopyUsed".get_property().to_boolean())
 		scriptSoFar += "skill Offer Latte to Opponent;";
 	if (to_monster(get_property("mokeyPointMonster")) != foe && have_skill($skill[Monkey Point]))
 		scriptSoFar += "skill Monkey Point;";
@@ -1371,13 +1379,22 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 		} else {
 			// FEEL NOSTALGIC if the current monster is not the same as last monster and last monster is worth it
 			monster nosMon = get_property("feelNostalgicMonster").to_monster();
-			int nosMonValue = monsterCurrentItemMeatValue(nosMon);
+			int nosMonValue = monsterCurrentItemMeatValue(nosMon, false);
 			if (nosMon != $monster[none] && foe != nosMon && nosMonValue > kTurnValue * 10) {
 				print("feeling nostagic for " + nosMon + ", valued at " + nosMonValue, "blue");
 				scriptString += "skill feel nostalgic;";
 			}
 		}
 	}
+
+    // ASCENSION STUFF
+
+    // DISPOSABLE INSTANT CAMERA
+    if (have_item($item[disposable instant camera])
+        && (questStage("questL11Palindome") < 1 && !have_item($item[photograph of a dog]))
+        && (last_monster() == $monster[Racecar Bob] || last_monster() == $monster[Bob Racecar])) {
+        scriptString += "use disposable instant camera;";
+    }
 
 	// SPIKOLODON
 	if (kSpikolodonNextCombatKey.get_property().to_boolean()) {
@@ -1405,8 +1422,6 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 		if (get_property("_hoboUnderlingSummons").to_int() < 5 && is_wearing_outfit("Hodgman's Regal Frippery")) scriptString += "skill Ask the hobo to dance for you;";
 
 	// things that we only want to do when NOT wearing the champagne bottle
-	} else {
-		if (my_familiar() == $familiar[Pocket Professor] && monster_hp(foe) >= 625) scriptString += "if hasskill deliver your thesis!;skill deliver your thesis!;endif;";
 	}
 
 	if ((have_item($item[cosmic bowling ball]) || have_skill($skill[Bowl Straight Up]))
@@ -1434,7 +1449,7 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 		else if (have_item($item[beehive])) scriptString += "use beehive;";
 		else if (have_item($item[rock band flyers])) scriptString += "use rock band flyers;";
 
-		if (my_mp() / my_maxmp() <= 0.6 && equipped_amount($item[latte lovers member's mug]) >= 1 && !to_boolean(get_property("_latteDrinkUsed")))
+		if (my_mp() / my_maxmp() <= 0.5 && equipped_amount($item[latte lovers member's mug]) >= 1 && !to_boolean(get_property("_latteDrinkUsed")))
 			scriptString += "skill Gulp Latte;";
 	}
 
@@ -1474,7 +1489,7 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 	}
 
 	// PRO SKATEBOARD -- doubles drops
-	if (equipped_amount($item[pro skateboard]) >= 1)
+	if (equipped_amount($item[pro skateboard]) >= 1 && ! "_epicMcTwistUsed".get_property().to_boolean())
 		scriptString += "skill Do an epic McTwist!;";
 
 	// SUBURBS OF DIS
@@ -1526,6 +1541,42 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 	// FRANKEN STEIN
 	if (have_skill($skill[Toast your enemy]))
 		scriptString += "skill Toast your enemy;";
+
+    // LASSO training
+	if (get_property("lassoTraining") != "expertly" && my_location().environment == "underwater" && equipped_amount($item[sea cowboy hat]) > 0 && equipped_amount($item[sea chaps]) > 0) {
+		scriptString += "use sea lasso;";
+	}
+
+    // COZY SCIMITAR -- Harpoon and Leviatuga
+	if (equipped_amount($item[cozy scimitar]) > 0 && my_location().environment == "underwater") {
+		scriptString += "skill harpoon!;skill summon leviatuga;";
+	} else if (equipped_amount($item[cozy scimitar]) > 0)
+		print("WARNING: cozy scimitar equipped but not underwater!", "red");
+
+
+    // THINGS THAT DO DAMAGE AND MIGHT KILL THE ENEMY
+
+    // EVERFUL DART HOLSTER -- if we're dressing for item or meat, throw a dart at the proper location to get a buff
+    // TODO might have to figure which parts we can hit
+    if (have_equipped($item[Everfull Dart Holster]) && "_dartsLeft".get_property().to_int() > 2 && have_effect($effect[Everything Looks Red]) > 0) { // we might throw 2 darts and we want to save a dart in case we want to use it for the instakill
+        if (kDressupSelectorKey.get_property().contains_text("item") || kDressupFamiliarSelectorKey.get_property().contains_text("item"))
+            scriptString += "skill Darts: Throw at Butt;";
+        if (kDressupSelectorKey.get_property().contains_text("meat") || kDressupFamiliarSelectorKey.get_property().contains_text("meat"))
+            scriptString += "skill Darts: Throw at Torso;";
+    }
+
+
+    // INSTAKILLS
+
+    // COCKTAIL NAPKIN
+    if ((last_monster() == $monster[clingy pirate (male)] || last_monster() == $monster[clingy pirate (female)]) && have_item($item[cocktail napkin]))
+        scriptString += "use cocktail napkin;";
+
+    // EVERFUL DART HOLSTER
+    if (have_equipped($item[Everfull Dart Holster]) && have_effect($effect[Everything Looks Red]) == 0
+        && foe != $monster[sausage goblin]) { // we might accidentally run into a sausage goblin while dressed with a Holster
+        scriptString += "skill Darts: Aim for the Bullseye;";
+    }
 
 	return scriptString;
 }
@@ -1586,15 +1637,6 @@ string doLocationSpecific(string scriptSoFar) {
 	print("doLocationSpecific");
 	string scriptString = scriptSoFar;
 
-	if (get_property("lassoTraining") != "expertly" && my_location().environment == "underwater" && equipped_amount($item[sea cowboy hat]) > 0 && equipped_amount($item[sea chaps]) > 0) {
-		scriptString += "use sea lasso;";
-	}
-
-	if (equipped_amount($item[cozy scimitar]) > 0 && my_location().environment == "underwater") {
-		scriptString += "skill harpoon!;skill summon leviatuga;";
-	} else if (equipped_amount($item[cozy scimitar]) > 0)
-		print("WARNING: cozy scimitar equipped but not underwater!", "red");
-
 	return scriptString;
 }
 
@@ -1626,7 +1668,7 @@ int parseDamagePerAction(string combatResult, int hpBeforeStart) {
 // 		print("calculated monster HP: " + currentMonsterHP + " vs KoLmafia's calc: " + monster_hp(), "blue");
 // 		string damageSection = group(damageSectionMatcher, 2);
 // 		print("damage section: " + damageSection, "green");
-// 
+//
 // 		matcher damageMatcher = create_matcher("([0-9,]+)", damageSection);
 // 		while (find(damageMatcher)) {
 // 			damage += to_int(group(damageMatcher, 1));
@@ -1638,18 +1680,18 @@ int parseDamagePerAction(string combatResult, int hpBeforeStart) {
 // 	while (find(damageSectionMatcher)) {
 // 		string damageSection = group(damageSectionMatcher, 1);
 // 		print("damage section: " + damageSection, "green");
-// 
+//
 // 		if (damageSection.contains_text(" damage.") || damageSection.contains_text(" you sing for ")) {
 // 			// cut off the elemental damage
 // 			string nonElementalDmgSection = damageSection;
 // 			int startOfElementalDmg = index_of(damageSection, "(");
 // 			if (startOfElementalDmg > 0)
 // 				nonElementalDmgSection = substring(nonElementalDmgSection, 0, startOfElementalDmg);
-// 
+//
 // 			// any numbers left should be basic damage, parse the whole string for any numbers
 // 			damage += to_int(nonElementalDmgSection);
 // 			print("non-elemental dmg: " + to_int(nonElementalDmgSection), "green");
-// 
+//
 // 			// extra elemental damage
 // 			matcher elementalMatcher = create_matcher("\\(<font.*?<b>\\+([0-9]+)</b></font>\\)", damageSection);
 // 			while (find(elementalMatcher)) {
@@ -1892,6 +1934,11 @@ string doMainLoop(monster foe, int monHPBeforeScript, string scriptSoFar) {
 	print("doMainLoop");
 	string scriptString = scriptSoFar;
 
+    // DELIVER YOUR THESIS -- Pocket Professor -- this is here because we want to ensure the custom script is executed before we deliver our thesis
+    if (equipped_amount($item[broken champagne bottle]) == 0 && my_familiar() == $familiar[Pocket Professor] && monster_hp(foe) >= 625) {
+		scriptString += "if hasskill deliver your thesis!;skill deliver your thesis!;endif;";
+	}
+
 	basicStrategy(foe, monHPBeforeScript, scriptSoFar);
 
 	return gAccumulatedResponse;
@@ -1900,34 +1947,34 @@ string doMainLoop(monster foe, int monHPBeforeScript, string scriptSoFar) {
 // 	roundsRemaining = maxRounds(foe) - current_round();
 // 		print("kill script current round: " + current_round(), "blue");
 // 		logMonsterCombatStats();
-// 
-// 		
+//
+//
 // 		scriptString = setupAborts() + macroForAction(theAttack);
-// 
+//
 // 		// if we recommend the same action as last time, use up 1/2 the rounds to the maxRound doing the same action
 // 		if (ceil((maxRounds(foe) - current_round()) / 2.0) >= 1)
 // 			scriptString = "mark ML;if !times " + ceil((maxRounds(foe) - current_round()) / 2.0) + ";" + scriptString + ";goto ML;endif;";
-// 
+//
 // 		hpBeforeScript = monster_hp();
 // 		resultSoFar = executeScript(scriptString);
 // 		gAccumulatedResponse += resultSoFar;
-// 
+//
 // 		didAbortMacro = macroAborted(resultSoFar);
 // 		if (!inCombat() || didAbortMacro) {
 // 			print("stopping automation, in combat: " + inCombat() + ", aborted: " + didAbortMacro, "orange");
 // 			break;
 // 		}
-// 
+//
 // 		scriptString = setupAborts(foe);
-// 
+//
 // 		// FIGURE OUT DAMAGE DONE
 // 		// start by relying on mafia
 // 		damageDone = hpBeforeScript - monster_hp();
-// 
+//
 // 		// that didn't work, try parsing the HTML directly
 // 		if (damageDone < 3)
 // 			damageDone = parseDamage(resultSoFar, hpBeforeScript);
-// 
+//
 // 		// that didn't work either, try resync'ing the page
 // 		if (damageDone < 3) { // damage not lining up with what we expected, try refreshing
 // 			print("detected too little damage ( " + damageDone + ")... something's wrong -- resyncing", "red");
@@ -1939,28 +1986,28 @@ string doMainLoop(monster foe, int monHPBeforeScript, string scriptSoFar) {
 // 		}
 // 		assert(damageDone != 0, "we should not have done zero damage");
 // 		print("damage done: " + damageDone, "blue");
-// 
+//
 // 		// DOING ENOUGH DAMAGE?
 // 		int expectedRounds = ceil(monster_hp() / to_float(damageDone));
 // 		print("expecting to take " + expected_damage() + " damage (or " + safeExpectedDamageTaken() + " with the safety margin) per round", "green");
 // 		if (expectedRounds < roundsRemaining && my_hp() > safeExpectedDamageTaken() * (expectedRounds - 1))
 // 			return setupAborts(foe) + macroForAction(theAttack) + "repeat;";
-// 
+//
 // 		// we might be able to kill in one hit, so check the "safely kill" section first (above), then ensure we can survive the next round
 // 		if (my_hp() <= safeExpectedDamageTaken() && damageDone < monster_hp()) {
 // 			print("we're about to die, aborting consult", "red");
 // 			return "abort";
 // 		}
-// 
+//
 // 		// since we can't safely kill, see if we can choose a different attack action and try again
 // 		lastAttack = theAttack;
 // 		theAttack = chooseActionRecord(foe, lastAttack, damageDone);
-// 
+//
 // 		if (mp_cost(theAttack.skillToUse) > my_mp()) {
 // 			print("will run out of mp before killing, aborting consult", "red");
 // 			return "abort";
 // 		}
-// 
+//
 // 		roundsRemaining = maxRounds(foe) - current_round();
 // 	}
 }
@@ -1975,7 +2022,10 @@ void initConsult(monster foe) {
 // 		gAccumulatedResponse = "";
 	gAccumulatedResponse = "";
 
-	print("initConsult hit stat: "+ attackStat() + ", canStagger: " + canStagger(foe) + ", wantToStasis: " + wantToStasis() + ", original attack: " + gkMonsterOriginalAttack + ", original defense: " + gkMonsterOriginalDefense, "blue");
+	print("initConsult hit stat: "+ attackStat()
+	   + " our hp: " + my_hp() + ", our mp: " + my_mp() + ", monster hp: " + monster_hp(foe)
+	   + ", canStagger: " + canStagger(foe) + ", wantToStasis: " + wantToStasis()
+	   + ", original attack: " + gkMonsterOriginalAttack + ", original defense: " + gkMonsterOriginalDefense, "blue");
 }
 
 
@@ -2023,13 +2073,15 @@ string customScriptWithOlfactAndDefaultKill(int initround, monster foe, string a
 	return customScriptWithDefaultKillHelperBottom(scriptString, initround, foe, real_monster_hp(""), aPage, customScript);
 }
 
-// returns the accumulated response pages across all requests to attempt to finish combat
 string customScriptWithDefaultKill(int initround, monster foe, string aPage, string customScript) {
 	print("customScriptWithDefaultKill: " + foe + ", script: '" + customScript + "'", "green");
 	string scriptString = customScriptWithDefaultKillHelperTop(initround, foe, aPage);
 	return customScriptWithDefaultKillHelperBottom(scriptString, initround, foe, real_monster_hp(""), aPage, customScript);
 }
 
+string customScriptWithDefaultKill(string customScript) {
+	return customScriptWithDefaultKill(current_round(), last_monster(), "", customScript);
+}
 
 
 string instaKillWithOlfact(int initround, monster foe, string aPage) {
@@ -2077,6 +2129,3 @@ string defaultKill() {
 void main(int initround, monster foe, string aPage) {
 	string resultPage = defaultKill(initround, foe, aPage);
 }
-
-
-

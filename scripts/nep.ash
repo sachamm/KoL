@@ -72,12 +72,16 @@ void nepDressup(boolean partyHard) {
 	// BASE OUTFIT
 	string selectorString = "item";
 	string famSelectorString = "item";
-	string additionalString = "-equip pantogram pants, -equip mafia thumb ring"; // we're assuming we never need more than then 10 free quests to complete the quest (needs the Jurassic Parka)
+	string additionalString = "-equip pantogram pants, -equip mafia thumb ring, -equip Kramco Sausage-o-Matic&trade;, -equip June Cleaver, -equip Everfull Dart Holster"; // we're assuming we never need more than then 10 free quests to complete the quest (needs the Jurassic Parka)
 	if (partyHard)
 		additionalString += ", equip PARTY HARD T-shirt";
 
 	// quest-specific tweaks to outfit and choices
 	switch (partyQuest) {
+	    case "":
+		    print("no quest");
+			break;
+
 		case kNEPClearGuests:
 			if (have_item($item[intimidating chainsaw])) {
 				additionalString = maxStringAppend(additionalString, "equip intimidating chainsaw");
@@ -121,7 +125,7 @@ void nepPrep(boolean partyHard) {
 	nepGetQuest(partyHard);
 	string partyQuest = "_questPartyFairQuest".get_property();
 
-	buffForItemDrop(1, true); // do this first for the Hatter buff
+	buffForItemDrop(1, $location[The Neverending Party], true); // do this first for the Hatter buff
 	buffForMeatDrop(1, true);
 
 	nepDressup(partyHard);
@@ -186,7 +190,7 @@ void nepQuestAutomation() {
 			// even with all this crap, it takes many turns
 // 			if (have_item($item[intimidating chainsaw]))
 // 				tweakString = maxStringAppend(tweakString, "equip intimidating chainsaw");
-// 
+//
 // 			neededNEPChoices = 2;
 // 			if (partyTurn >= 2 && partyTurn <= 3) {
 // 				fullAcquire($item[jam band bootleg]);
@@ -328,7 +332,13 @@ void main(string arguments) {
 	}
 
 	// PREP COMMANDS
-	if (count(argv) == 1 && argv[0] == "quest") {
+	if (count(argv) == 1 && argv[0] == "dressup") {
+		nepDressup(false);
+		return;
+	} else if (count(argv) == 1 && argv[0] == "dressuphard") {
+		nepDressup(true);
+		return;
+	} else if (count(argv) == 1 && argv[0] == "quest") {
 		nepGetQuest(false);
 		return;
 	} else if (count(argv) == 1 && argv[0] == "questhard") {
@@ -350,6 +360,3 @@ void main(string arguments) {
 		grindNeverendingParty();
 	}
 }
-
-
-
