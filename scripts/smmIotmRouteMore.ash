@@ -153,6 +153,26 @@ void smmIRGenerateEmbers() {
     }
 }
 
+// 2024-06 Mini Kiwi: trade surplus mini kiwis at the Kiwi Kwiki Mart when the
+// product is worth more than the kiwis. Kiwis are tradeable and a Museum item,
+// so they carry their own sale or collection cost. Mixed-currency rows (the
+// kiwitini) are not priced by smmIRShopPrice and are skipped.
+void smmIRGenerateKiwi() {
+    item kiwi=$item[mini kiwi];
+    coinmaster shop=$coinmaster[Kiwi Kwiki Mart];
+    if (item_amount(kiwi)<1 || !is_accessible(shop) || smmIRDayCount("kiwiBuys")>=max(0,smmIRSetting("kiwiBuyCap",5).to_int())) return;
+    foreach it in $items[mini kiwi bikini,mini kiwi icepick,mini kiwi whipping stick,mini kiwi invisible dirigible,mini kiwi silicon tiepin,
+        mini kiwi intoxicating spirits,mini kiwi antimilitaristic hippy petition,mini kiwi illicit antibiotic,mini kiwi tipi] {
+        if (it==$item[mini kiwi intoxicating spirits] && get_property("_miniKiwiIntoxicatingSpiritsBought").to_boolean()) continue;
+        int price=smmIRShopPrice(shop,it);
+        if (price<1 || !smmIRMayConsume(kiwi,price)) continue;
+        float value=smmIRRewardValue(it); float input=smmIRInputValue(kiwi,price);
+        if (value<=input && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
+        SmmIRWork work; work.kind="more.kiwi"; work.product=it; work.option=price; work.counter="kiwiBuys";
+        smmIRAdd("2024-06.kiwi."+it.to_int(),"Trade "+price+" mini kiwis for "+it,work,value,input,"route.item."+kiwi.to_int(),price);
+    }
+}
+
 // 2023-11 A Guide to Burning Leaves: the free daily jump, and a bounded number
 // of leaf conversions. Leaves are themselves a Museum item, so the shared
 // consumption rules decide whether any may be burned at all.
@@ -180,7 +200,7 @@ void smmIRGenerateLeaves() {
 }
 
 void smmIRMoreGenerate() {
-    smmIRGenerateZirconia(); smmIRGenerateDuffel(); smmIRGenerateTaker(); smmIRGenerateEmbers(); smmIRGenerateLeaves();
+    smmIRGenerateZirconia(); smmIRGenerateDuffel(); smmIRGenerateTaker(); smmIRGenerateEmbers(); smmIRGenerateKiwi(); smmIRGenerateLeaves();
 }
 
 boolean smmIRMoreDispatch(SmmIRWork work) {
@@ -222,6 +242,16 @@ boolean smmIRMoreDispatch(SmmIRWork work) {
         int before=item_amount(work.product);
         buy(shop,1,work.product);
         return item_amount(work.product)>before && get_property("availableSeptEmbers").to_int()<balance;
+    }
+    if (work.kind=="more.kiwi") {
+        coinmaster shop=$coinmaster[Kiwi Kwiki Mart];
+        int price=smmIRShopPrice(shop,work.product);
+        if (price<1 || price!=work.option || !smmIRMayConsume($item[mini kiwi],price)) return false;
+        int before=item_amount(work.product); int kiwis=item_amount($item[mini kiwi]);
+        buy(shop,1,work.product);
+        if (item_amount(work.product)<=before || item_amount($item[mini kiwi])>=kiwis) return false;
+        smmIRDayBump(work.counter);
+        return true;
     }
     if (work.kind=="more.create") {
         if (creatable_amount(work.product)<1) return false;

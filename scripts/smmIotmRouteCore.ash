@@ -464,7 +464,7 @@ float smmIRWorkProgress(SmmIRWork work) {
     if (work.kind=="garden.mushroom") return smmIRMonsterProgress($monster[piranha plant])+smmMuseumProgress(work.product,work.choice_id);
     if (work.kind=="coin.buy" || work.kind=="bones.buy" || work.kind=="craft" || work.kind=="pasta.summon"
         || work.kind=="extra.coin.sale" || work.kind=="extra.coin.unique" || work.kind=="extra.coin.collection"
-        || work.kind=="more.cast" || work.kind=="more.buy" || work.kind=="more.create"
+        || work.kind=="more.cast" || work.kind=="more.buy" || work.kind=="more.kiwi" || work.kind=="more.create"
         || (work.kind=="garden" && work.foe==$monster[none])) return smmMuseumProgress(work.product,1);
     if (work.kind=="locket" || work.kind=="sword.seed" || (work.kind=="garden" && work.foe!=$monster[none])) {
         monster loot=work.foe;

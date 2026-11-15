@@ -47,6 +47,7 @@ set smm.IR.emberReserve = 0
 set smm.IR.emberValue = 0
 set smm.IR.leafCraftCap = 5
 set smm.IR.leafReserve = 0
+set smm.IR.kiwiBuyCap = 5
 ```
 
 `smm.IR.keepItem.<item ID>` preserves that many physically owned ingredients. Cup and cooking candidates share ingredient capacities, free cooking capacity and organ capacity. The default Cup liver value is `max(0,6.17 * smm.TurnValue - 2850)`; override `smm.IR.liverValue` to match your diet.
@@ -111,6 +112,7 @@ The six Maiden blessings are now registered centrally as `maiden.physical`, `mai
 | 2024-12 TakerSpace letter of Marque | Collect the daily delivery when it is the installed workshed; make saleable or collection products from the six supplies, which share the planner's `taker.*` pools. Supplies needed by the best product per day of deliveries are saved until it is affordable. Rollover-melting gear, the tattoo kit and the dinghy are excluded. | Comparing worksheds, anchor-bomb use, and consuming the food/booze. |
 | 2024-10 bat wings | Free HP/MP recovery when restoration is useful, with observed use accounting. | Other wing combat/exploration abilities remain with legacy routines or future adapters. |
 | 2024-09 Sept-Ember Censer | Read today's balance, then spend embers above `emberReserve` on products that sell or close a Museum gap. Requires the item and a lower balance. | Hulk/Septapus fights, structural ember use, mouthwash as a levelling tool. Untradeable gear is bought only for a known Museum gap. |
+| 2024-06 Mini Kiwi | Trade owned mini kiwis at the Kiwi Kwiki Mart, up to `kiwiBuyCap` (default 5) a day, when the product is worth more than the kiwis' own sale or Museum value. | The kiwitini (two-currency row), consuming products, and familiar choice beyond the existing combat comparison. |
 | 2023-11 A Guide to Burning Leaves | The free daily jump; up to `leafCraftCap` leaf conversions per day into tradeable products, honouring Mafia's daily limits. Leaves are a Museum item: with unknown or unmet rankings they are held until `museumCopyValue.11341` prices them. | Leaf monsters, the ant egg, tattoo leaf and quest gear. |
 | 2022-02 combat lover's locket | Up to three identified free carriers, evaluated against native/Sword loot and alternative familiars. A repeated target cannot be simultaneously booked as both ordinary fight and Sword seed. | Broader conditional-drop evaluation and exhaustive target search. |
 
