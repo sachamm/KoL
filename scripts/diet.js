@@ -365,6 +365,12 @@ function tehtmi(diet_settings) {
 			pvp = item["pvpfights"]
 			value += pvp * fight_value
 		}
+		// smm: flat extras the item gives once, not scaled by fork/mug/Ode
+		if(item["bonusadv"]) {
+			adv += item["bonusadv"]
+			value += item["bonusadv"] * adv_value
+		}
+		if(item["bonusvalue"]) value += item["bonusvalue"]
 		var spec = {"item": item, "opts": opts, "value": value, "size": item["size"], "adv": adv, "pvp": pvp, "price": price, "limit": item["limit"]}
 		
 		if(opts["fortune"]) {
@@ -1702,15 +1708,55 @@ var km = (function () {
 var CLEANING_TAG = /^-(\d+) (fullness|drunkenness|spleen)$/i
 var ORGAN_INDEX = {"fullness": 0, "drunkenness": 1, "spleen": 2}
 
-// Organ items the page limits to one per day.
+// Limited organ items: name -> [KoLmafia counter, uses allowed]. From
+// KoLmafia's dailylimits.txt; the counter is a "true"/"false" flag or a count.
+// Prefs without a leading underscore persist for the whole ascension.
 var ORGAN_LIMITS = {
-	"Kudzu salad": 1,
-	"Miss Graves' vermouth": 1,
-	"Mr. Burnsger": 1,
-	"The Plumber's mushroom stew": 1,
-	"The Mad Liquor": 1,
-	"Doc Clock's thyme cocktail": 1,
-	"Affirmation Cookie": 1,
+	"Kudzu salad": ["_kudzuSaladEaten", 1],
+	"Miss Graves' vermouth": ["_missGravesVermouthDrunk", 1],
+	"Mr. Burnsger": ["_mrBurnsgerEaten", 1],
+	"The Plumber's mushroom stew": ["_plumbersMushroomStewEaten", 1],
+	"The Mad Liquor": ["_madLiquorDrunk", 1],
+	"Doc Clock's thyme cocktail": ["_docClocksThymeCocktailDrunk", 1],
+	"Affirmation Cookie": ["_affirmationCookieEaten", 1],
+	"Hodgman's blanket": ["_hodgmansBlanketDrunk", 1],
+	"jar of fermented pickle juice": ["_pickleJuiceDrunk", 1],
+	"extra-greasy slider": ["_extraGreasySliderEaten", 1],
+	"tin cup of mulligan stew": ["_mulliganStewEaten", 1],
+	"drippy caviar": ["_drippyCaviarUsed", 1],
+	"drippy nugget": ["_drippyNuggetUsed", 1],
+	"drippy plum(?)": ["_drippyPlumUsed", 1],
+	"drippy pilsner": ["_drippyPilsnerUsed", 1],
+	"glass of drippy wine": ["_drippyWineUsed", 1],
+	"Pizza of Legend": ["pizzaOfLegendEaten", 1],
+	"Calzone of Legend": ["calzoneOfLegendEaten", 1],
+	"Deep Dish of Legend": ["deepDishOfLegendEaten", 1],
+	"The Author's ink": ["_authorsInkUsed", 1],
+	"The Inquisitor's unidentifiable object": ["_inquisitorsUnidentifiableObjectUsed", 1],
+	"mansquito serum": ["_mansquitoSerumUsed", 1],
+	"voodoo snuff": ["_voodooSnuffUsed", 1],
+	"turkey blaster": ["_turkeyBlastersUsed", 3],
+}
+
+// Uses of a limited item left (today, or this ascension).
+function limitLeft(limit) {
+	var v = pref(limit[0])
+	var used = v == "true" ? 1 : (v == "false" ? 0 : parseInt(v, 10) || 0)
+	return Math.max(0, limit[1] - used)
+}
+
+// Spleen items whose value isn't adventures: name -> PvP fights.
+var SPLEEN_PVP = {"Purple Beast energy drink": 3, "sweat-ade": 5}
+
+// Equipment that adds organ capacity: name -> [slot, [stomach, liver, spleen]].
+// Accessories share the three accessory slots.
+var CAPACITY_GEAR = {
+	"angelbone chopsticks": ["acc", [1, 0, 0]],
+	"angelbone dice": ["acc", [0, 1, 0]],
+	"devilbone rosary": ["acc", [0, 1, 0]],
+	"devilbone corset": ["shirt", [1, 0, 0]],
+	"angelbone totem": ["weapon", [0, 0, 1]],
+	"devilbone greaves": ["pants", [0, 0, 1]],
 }
 
 // Clan speakeasy drinks, keyed by item id (names contain quotes / entities).
@@ -1787,6 +1833,7 @@ function dietCandidates() {
 	var ext = extenderList(), simp = simpleList()
 	for (var e = 0; e < ext.length; e++) names.push(ext[e][0])
 	for (var k = 0; k < simp.length; k++) names.push(simp[k][0])
+	names.push("magical sausage")
 	for (var n = 0; n < names.length; n++) list.push(km.Item.get(names[n]))
 	return list
 }
@@ -1865,6 +1912,32 @@ function priceOf(it, fresh) {
 	return result
 }
 
+// Magical sausages: no fullness, 1 adventure each, 23 a day. Owned spare ones
+// are free; more are ground from casings with a Kramco Sausage-o-Matic for
+// 111 meat times the number made today (meat already in the grinder counts).
+// Priced at the average cost of all of them, since at any sensible adventure
+// value every one is worth eating.
+function sausageEntry() {
+	var it = km.Item.get("magical sausage")
+	var left = 23 - prefInt("_sausagesEaten")
+	if (left <= 0) return null
+	var owned = Math.min(left, spareCopies(it))
+	var make = 0, makeCost = 0
+	var grinder = km.availableAmount(km.Item.get("Kramco Sausage-o-Matic&trade;")) > 0 ||
+		km.availableAmount(km.Item.get("replica Kramco Sausage-o-Matic&trade;")) > 0
+	if (grinder) {
+		make = Math.min(left - owned, km.availableAmount(km.Item.get("magical sausage casing")))
+		var made = prefInt("_sausagesMade")
+		for (var j = 1; j <= make; j++) makeCost += 111 * (made + j)
+		makeCost = Math.max(0, makeCost - prefInt("sausageGrinderUnits"))
+	}
+	var n = owned + make
+	if (n <= 0) return null
+	return {"name": it.name, "advmin": 1, "advmax": 1, "pvpfights": 0, "type": "simple",
+		"size": [0, 0, 0], "limit": n, "price": Math.max(1, Math.round(makeCost / n)),
+		"owned": true, "eat": true}
+}
+
 function parseAdventures(s) {
 	var m = /^\s*(-?\d+(?:\.\d+)?)(?:\s*-\s*(-?\d+(?:\.\d+)?))?\s*$/.exec(s || "")
 	if (!m) return [0, 0]
@@ -1872,7 +1945,8 @@ function parseAdventures(s) {
 	return [lo, m[2] ? parseFloat(m[2]) : lo]
 }
 
-function buildConsumables(excluded) {
+// bonus: {lucky: Lucky! effects wanted, endOfDay: true when the plan ends the day}
+function buildConsumables(excluded, bonus) {
 	var cons = []
 	var myLevel = km.myLevel()
 	var items = km.Item.all()
@@ -1899,7 +1973,21 @@ function buildConsumables(excluded) {
 			if (CLASS_TAGS[tag]) entry["item class"] = CLASS_TAGS[tag]
 			if (tag == "MARTINI") entry["tuxedo boostable drink"] = "yes"
 		}
-		if (ORGAN_LIMITS[it.name]) entry["limit"] = ORGAN_LIMITS[it.name]
+		if (ORGAN_LIMITS[it.name]) {
+			entry["limit"] = limitLeft(ORGAN_LIMITS[it.name])
+			if (entry["limit"] <= 0) continue
+		}
+		if (SPLEEN_PVP[it.name]) entry["pvpfights"] = SPLEEN_PVP[it.name]
+		if (it.name == "clovermint") {
+			// Lucky! doesn't stack, so one is worth a clover; skip it if no Lucky! is wanted
+			if (bonus.lucky <= 0 || km.haveEffect(km.Effect.get("Lucky!")) > 0) continue
+			entry["bonusvalue"] = semirare_value
+			entry["limit"] = 1
+		}
+		if (it.name == "Three Sheets to the Wind") {
+			// Wetted Whistle: +10 adventures at rollover, if nothing is adventured after it
+			if (bonus.endOfDay) { entry["bonusadv"] = 10; entry["limit"] = 1 }
+		}
 
 		var id = km.toInt(it)
 		if (SPEAKEASY[id]) {
@@ -1927,6 +2015,8 @@ function buildConsumables(excluded) {
 		var hp = priceOf(hi)
 		if (hp && !hp.owned) cons.push({"name": hi.name, "advmin": 0, "advmax": 0, "price": hp.price})
 	}
+	var sausage = sausageEntry()
+	if (sausage && !excluded[sausage.name]) cons.push(sausage)
 	if (km.getWorkshed().name == "portable Mayo Clinic") {
 		cons.push({"name": "Mayoflex", "advmin": 0, "advmax": 0, "price": 1000})
 		cons.push({"name": "Mayodiol", "advmin": 0, "advmax": 0, "price": 1000})
@@ -1960,6 +2050,31 @@ function isGarishDay() {
 	return new Date(Date.now() - 7 * 3600 * 1000).getUTCDay() != 1
 }
 
+// Owned organ-capacity gear worth putting on for the diet: [{name, slot, size}].
+// Liver gear only when the plan ends the day: taking it off afterwards would
+// otherwise leave you falling-down drunk. The corset is skipped when a tuxedo
+// shirt can boost martinis, and one accessory slot is left for the pinky ring.
+function capacityGear(endOfDay, tuxedo, ring) {
+	var gear = [], accSlots = ["acc1", "acc2", "acc3"]
+	if (ring) accSlots.pop()
+	for (var name in CAPACITY_GEAR) {
+		var g = CAPACITY_GEAR[name], it = km.Item.get(name)
+		if (km.haveEquipped(it) || km.availableAmount(it) <= 0 || !km.canEquip(it)) continue
+		if (g[1][1] > 0 && !endOfDay) continue
+		if (g[0] == "shirt" && (tuxedo || !(km.haveSkill(km.Skill.get("Torso Awareness")) ||
+			km.haveSkill(km.Skill.get("Best Dressed"))))) continue
+		var slot = g[0]
+		if (slot == "acc") {
+			// skip accessory slots already holding capacity gear
+			while (accSlots.length && CAPACITY_GEAR[km.equippedItem(km.Slot.get(accSlots[0])).name]) accSlots.shift()
+			if (!accSlots.length) continue
+			slot = accSlots.shift()
+		}
+		gear.push({name: name, slot: slot, size: g[1]})
+	}
+	return gear
+}
+
 function haveUsable(name) {
 	var it = km.Item.get(name)
 	return km.availableAmount(it) > 0 && km.canEquip(it)
@@ -1991,6 +2106,12 @@ function buildSettings(opts) {
 
 	var nightcap = opts.nightcap || "yes"
 	if (overdrunk) nightcap = "no"
+
+	var gear = opts.organs ? [] : capacityGear(nightcap != "no", haveUsable("tuxedo shirt"),
+		haveUsable("mafia pinky ring"))
+	for (var g = 0; g < gear.length; g++) {
+		for (var o = 0; o < 3; o++) organs[o] += gear[g].size[o]
+	}
 
 	var lounge = km.getClanLounge()
 	var speakeasy_left = Math.max(0, 3 - prefInt("_speakeasyDrinksDrunk"))
@@ -2027,9 +2148,11 @@ function buildSettings(opts) {
 			!prefBool("_mimeArmyShotglassUsed"),
 		"speakeasy": has_speakeasy,
 		"semirares available": has_speakeasy ? Math.min(lucky, speakeasy_left) : 0,
+		"lucky wanted": lucky,
 		"workshed": km.getWorkshed().name == "portable Mayo Clinic" ? "mayo" : "none",
 		"excluded consumables": excluded,
 		"organ sizes": organs,
+		"capacity gear": gear,
 		// smm additions
 		// KoLmafia already rewrites the cookie's adventures from affirmationCookiesEaten
 		// (3, 5, 7, then 9), so no bonus is added on top.
@@ -2072,6 +2195,9 @@ function printPlan(result, settings) {
 	km.print("Diet plan for " + o[0] + " fullness, " + o[1] + " drunkenness, " + o[2] +
 		" spleen at " + fmt(settings["adventure value"]) + " meat/adventure" +
 		(settings["include nightcap"] != "no" ? ", with nightcap" : ""), "blue")
+	var gear = settings["capacity gear"] || []
+	if (gear.length) km.print("Counting organ space from wearing: " +
+		gear.map(function (g) { return g.name }).join(", "), "blue")
 	var turns = 0, cost = 0, pvp = 0
 	for (var i = 0; i < result.diet_items.length; i++) {
 		var r = result.diet_items[i]
@@ -2095,7 +2221,8 @@ function main(argString) {
 	semirare_value = km.mallPrice(km.Item.get("11-leaf clover"))
 	price_cache = {}
 	loadMuseumSpare(dietCandidates())
-	diet_consumables = buildConsumables(settings["excluded consumables"])
+	diet_consumables = buildConsumables(settings["excluded consumables"], {
+		lucky: settings["lucky wanted"], endOfDay: settings["include nightcap"] != "no"})
 
 	var result = tehtmi(settings)
 
@@ -2234,7 +2361,11 @@ function consumeUnit(step, log) {
 				log.push("warning: no " + n.effect + " for " + name + " (fewer adventures)")
 		} else if (n.type == "item" && n.verb == "wearing") {
 			var gear = km.Item.get(n.item.name)
-			if (!km.haveEquipped(gear)) km.equip(gear)
+			if (!km.haveEquipped(gear)) {
+				// accessories go in acc3, which capacityGear leaves for the pinky ring
+				if (gear.name == "mafia pinky ring") km.equip(km.Slot.get("acc3"), gear)
+				else km.equip(gear)
+			}
 		} else if (n.type == "item" && n.exclude) {
 			if (!acquire(n.item.name, 1)) return "cannot get " + n.item.name
 			if (USE_BEFORE[n.item.name]) km.use(1, km.Item.get(n.item.name))
@@ -2255,6 +2386,7 @@ function consumeUnit(step, log) {
 	else if (type == "food") ok = km.eatsilent(1, it)
 	else if (type == "booze") ok = km.drinksilent(1, it)
 	else if (type == "spleen") ok = km.chew(1, it)
+	else if (spec.item.eat) ok = km.eatsilent(1, it)  // magical sausage: food with no fullness
 	else ok = km.use(1, it)
 	return ok ? "" : "consuming " + name + " failed"
 }
@@ -2340,6 +2472,11 @@ function executePlan(result, settings) {
 	var log = [], error = "", odeDone = false
 	km.cliExecute("checkpoint")
 	try {
+		var gear = settings["capacity gear"] || []
+		for (var g = 0; g < gear.length; g++) {
+			if (!km.equip(km.Slot.get(gear[g].slot), km.Item.get(gear[g].name)))
+				log.push("warning: couldn't wear " + gear[g].name + "; plan may not fit")
+		}
 		// Multiple passes: units that don't fit yet (food waiting on a cleaning
 		// booze), and cleaning items whose organ isn't full enough yet, are
 		// retried later. The nightcap waits for everything before it. Waste is
@@ -2382,6 +2519,9 @@ function executePlan(result, settings) {
 	} finally {
 		km.cliExecute("outfit checkpoint")
 	}
+	var woreLiverGear = (settings["capacity gear"] || []).some(function (g) { return g.size[1] > 0 })
+	if (error && woreLiverGear && km.myInebriety() > km.inebrietyLimit())
+		log.push("warning: stopped before the nightcap with liver gear removed -- you are over your liver limit")
 
 	for (var l = 0; l < log.length; l++) km.print(log[l], "orange")
 	for (var e = 0; e < extenders.length; e++) {
