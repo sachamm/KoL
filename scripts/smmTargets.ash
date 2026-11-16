@@ -307,11 +307,11 @@ SmmTGRow [int] smmTGRegister() {
     return rows;
 }
 
-// Look up the n targets whose ranking is missing or oldest. Returns how many
+// Look up the n targets whose ranking is missing or oldest (all of them when
+// n is 0; current ones are skipped). Returns how many
 // lookups succeeded.
 int smmTGRefresh(int limit) {
-    limit = min(limit, smmMuseumLookupsLeft());
-    if (limit < 1) { print("No Museum lookups left today (" + smmMuseumLookupsUsed() + " of " + smmMuseumLookupLimit() + " used).", "orange"); return 0; }
+    if (limit < 1) limit = 1000000;  // everything missing or due
     item [int] queue;
     foreach it in $items[] if (smmTGIsTarget(it)) queue[count(queue)] = it;
     // Never-checked first, with copies we already hold ahead of the rest; then oldest.
