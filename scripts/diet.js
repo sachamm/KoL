@@ -1776,8 +1776,71 @@ function simpleList() {
 
 var price_cache = {}
 
+// Everything buildConsumables might price: organ items plus helpers, extenders and simple items.
+function dietCandidates() {
+	var list = []
+	var all = km.Item.all()
+	for (var i = 0; i < all.length; i++) {
+		if (all[i].fullness > 0 || all[i].inebriety > 0 || all[i].spleen > 0) list.push(all[i])
+	}
+	var names = HELPERS.slice()
+	var ext = extenderList(), simp = simpleList()
+	for (var e = 0; e < ext.length; e++) names.push(ext[e][0])
+	for (var k = 0; k < simp.length; k++) names.push(simp[k][0])
+	for (var n = 0; n < names.length; n++) list.push(km.Item.get(names[n]))
+	return list
+}
+
+// smm: Museum collection. Until you are #1 for an item, every copy you own is
+// collection stock, not free food. smmMuseumPolicy.ash decides how many owned
+// copies are spare (beyond the #1 target); only those may be eaten, and a
+// bought item is bought fresh rather than taken from the reserved copies.
+// JS can't require() the symlinked ASH file, so this asks through the gCLI.
+var museum_spare = null  // item id -> {spare, liquid}; null when Museum data is unavailable
+
+function loadMuseumSpare(items) {
+	museum_spare = null
+	var ids = [], seen = {}
+	for (var i = 0; i < items.length; i++) {
+		var id = km.toInt(items[i])
+		if (seen[id] || km.availableAmount(items[i]) <= 0 || !km.isDisplayable(items[i])) continue
+		seen[id] = true
+		ids.push(id)
+	}
+	if (ids.length == 0) { museum_spare = {}; return }
+	var out = ""
+	try {
+		out = km.cliExecuteOutput('ash import <smmMuseumPolicy.ash>; smmMuseumSpareList("' + ids.join(",") + '")')
+	} catch (e) { out = "" }
+	var m = /Returned: ([0-9:;]*)\s*$/.exec(out || "")
+	if (!m) {
+		km.print("Museum data unavailable: owned displayable items are kept out of the diet.", "orange")
+		return
+	}
+	museum_spare = {}
+	var rows = m[1].split(";")
+	for (var r = 0; r < rows.length; r++) {
+		var f = rows[r].split(":")
+		if (f.length == 3) museum_spare[f[0]] = {spare: parseInt(f[1], 10), liquid: parseInt(f[2], 10)}
+	}
+}
+
+// Owned copies the diet may use up.
+function spareCopies(it) {
+	var have = km.availableAmount(it)
+	if (have <= 0 || !km.isDisplayable(it)) return have
+	var entry = museum_spare && museum_spare[km.toInt(it)]
+	return entry ? Math.min(have, entry.spare) : 0
+}
+
+// Owned copies the Museum still needs: never consumed.
+function reservedCopies(it) {
+	return Math.max(0, km.availableAmount(it) - spareCopies(it))
+}
+
 // Meat cost of one of an item: mall (or NPC store if cheaper). Untradeable
-// items you own cost 1 meat and are capped at the number owned.
+// items cost what a spare owned copy could otherwise be turned into (at least
+// 1 meat) and are capped at the number of spare copies.
 // Returns null when the item can't be had.
 function priceOf(it, fresh) {
 	var key = it.name
@@ -1793,8 +1856,10 @@ function priceOf(it, fresh) {
 	if (p > 0) {
 		result = {price: p}
 	} else {
-		var have = km.availableAmount(it)
-		if (have > 0) result = {price: Math.max(1, km.autosellPrice(it)), limit: have, owned: true}
+		var spare = spareCopies(it)
+		var entry = museum_spare && museum_spare[km.toInt(it)]
+		var liquid = entry ? entry.liquid : km.autosellPrice(it)
+		if (spare > 0) result = {price: Math.max(1, liquid), limit: spare, owned: true}
 	}
 	price_cache[key] = result
 	return result
@@ -2029,6 +2094,7 @@ function main(argString) {
 	var settings = buildSettings(opts)
 	semirare_value = km.mallPrice(km.Item.get("11-leaf clover"))
 	price_cache = {}
+	loadMuseumSpare(dietCandidates())
 	diet_consumables = buildConsumables(settings["excluded consumables"])
 
 	var result = tehtmi(settings)
@@ -2085,6 +2151,8 @@ function plannedPrice(name) {
 // Make sure n of an item are in inventory, buying at most PRICE_SLACK over plan.
 function acquire(name, n) {
 	var it = km.Item.get(name)
+	var reserved = reservedCopies(it)  // smm: Museum copies stay; eat spare or freshly bought ones
+	n += reserved
 	var have = km.availableAmount(it)
 	if (have >= n) return km.retrieveItem(n, it)
 	if (name == "Cold One" || name == "spaghetti breakfast") {

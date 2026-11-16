@@ -15,6 +15,18 @@ Meat is purchasing power for this objective. An action can be productive by gene
 - Keep a Gross Prophet chrysalis as a collectible hatchling in Museum mode. A learned familiar cannot be displayed. Other one-time learning, tattoo use, consumable use and item destruction require accounting for the collectible copy's opportunity cost.
 - Evaluate every owned garden as an alternative for one slot, including growth, reset losses, finite collection gaps and cash surplus. Museum credit for a limited gap is not repeated on every hypothetical future harvest. The policy allows one attempted garden change per day, not one available garden of each kind.
 
+## Owned copies and item values
+
+Owned copies are never free while the Museum still needs them. `smmMuseumSpareCopies(item)` counts the copies beyond the #1 target (with buffer); only those may be spent, and an item without a usable ranking snapshot has none. `smmMuseumOwnedValue(item, quantity)` prices spending copies: spare copies at what they could otherwise be turned into (`smmItemLiquidValue` from `smmValue.ash`: mall, conversion or autosell), needed copies at their replacement price (`smm.IR.museumCopyValue.<item ID>`, else the mall price). An untradeable needed copy with no explicit value is effectively priceless and is never spent.
+
+Making a new copy always costs its inputs, even after #1: `smmItemValue` prices an item that can't be bought by what it is made from (FantasyRealm mead = 100 Rubees x the value of a Rubee).
+
+`diet.js` follows this: owned untradeable food, drink and spleen items are limited to spare copies, and a bought item is bought fresh instead of eating a reserved copy.
+
+Scripts outside the route spend items through the `museumSafeEat/Drink/Overdrink/Chew/Use/Create` wrappers in `smmUtils.ash` (and `consume()`, which checks the same rule). They behave like the built-ins but refuse to spend copies the Museum still needs; for tradeable items they first get fresh copies with `retrieve_item`. Crafting checks every ingredient, and `fullAcquire` only folds when every other owned form has a spare copy. Reusable items are not checked. A blocked spend prints why and names `smm.IR.museumSpend.<item ID>=true`, the per-item override.
+
+Deliberately not guarded: installing IoTM workshed and campground items (model train set, Dramatic range, Queue Du Coq kit, saltwaterbed), which is how those items are used, and the IoTM route's own crafting, which already applies this policy through `smmMuseumInput`. Store stocking still protects only the top-ten threshold (`smmMuseumSaleQuantity`), because a sold tradeable copy can be bought back.
+
 ## Commands and controls
 
 ```text

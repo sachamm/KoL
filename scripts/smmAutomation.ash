@@ -1356,7 +1356,7 @@ string getToAdventure(AdventureRecord advRecord) {
 
 	else if (advRecord.itemToUse != $item[none]) {
 		preAdventureChecks();
-		return use(1, advRecord.itemToUse);
+		return museumSafeUse(1, advRecord.itemToUse);
 
 	} else if (advRecord.skillToUse != $skill[none]) {
 		preAdventureChecks();

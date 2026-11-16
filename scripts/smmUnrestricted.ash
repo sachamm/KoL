@@ -247,7 +247,7 @@ void stockStore(int waitTime) {
 	stockTop10Item($item[stench jelly], 30000, 1, 2, 0.06);
 
 	// FantasyRealm -- theItem, minPrice, limit, targetRank, stockFraction
-	int frKeyCost = 10 * 500; // 10 Rubees, 500 meat each is a low estimate
+	int frKeyCost = round(smmItemValue($item[FantasyRealm key])); // 10 Rubees, valued by what Rubees buy in the mall
 	stockTop10Item($item[sachet of strange powder], 2 * 6 * kTurnValue, 0, 1, 0.09);
 	stockTop10Item($item[druidic s'more], 2 * 6 * kTurnValue, 0, 1, 0.09);
 	stockTop10Item($item[mourning wine], 2 * 6 * kTurnValue, 0, 1, 0.09);
@@ -722,7 +722,7 @@ void useNashCrosbyStill() {
 	sort distilledLiquour by available_amount(value);
 	int i = 0;
 	while (stills_available() > 0) {
-		create(min(stills_available(), creatable_amount(distilledLiquour[i])), distilledLiquour[i]);
+		museumSafeCreate(min(stills_available(), creatable_amount(distilledLiquour[i])), distilledLiquour[i]);
 		i++;
 	}
 }
@@ -1224,11 +1224,11 @@ void grindDrip(location dripLoc, string dressupTweak) {
 	// CONSUME
 	if (!to_boolean(get_property("_drippyNuggetUsed")) && my_fullness() <= fullness_limit() - 5) {
 		useMoMifNeeded();
-		eat(1, $item[drippy nugget]);
+		museumSafeEat(1, $item[drippy nugget]);
 	}
 	if (!to_boolean(get_property("_drippyWineUsed")) && my_inebriety() <= inebriety_limit() - 5) {
 		useOdeToBoozeIfNeeded(5);
-		drink(1, $item[glass of drippy wine]);
+		museumSafeDrink(1, $item[glass of drippy wine]);
 	}
 	int turnsToGrind = to_int(get_property("drippyJuice"));
 
@@ -1474,7 +1474,7 @@ void grind_poke_familiar_items() {
 
 	cli_execute("garden pick");
 	while (!have_item($item[amulet coin]) && !have_item($item[luck incense]) && !have_item($item[muscle band]) && !have_item($item[razor fang]) && !have_item($item[shell bell]) && !have_item($item[smoke ball])) {
-		use(1, $item[Pok&eacute;-Gro fertilizer]);
+		if (!museumSafeUse(1, $item[Pok&eacute;-Gro fertilizer])) break;
 		cli_execute("garden pick");
 	}
 }
@@ -2088,7 +2088,7 @@ int [item] burnFreeCrafting() {
 			break;
 		}
 		int amountBefore = item_amount(choice.result);
-		boolean created = create(choice.quantity, choice.result);
+		boolean created = museumSafeCreate(choice.quantity, choice.result);
 		assert(my_adventures() == adventuresBefore, "burnFreeCrafting spent adventures crafting " + choice.result);
 		int made = item_amount(choice.result) - amountBefore;
 		if (made > 0) receipt[choice.result] += made;
@@ -2486,7 +2486,7 @@ void burn_bricko_fights(item bricko_monster) {
 	int brickoFightsPossible = 10 - to_int(get_property("_brickoFights"));
 
 	fullAcquire(bricko_monster);
-	while (brickoFightsPossible > 0 && have_item(bricko_monster)) {
+	while (brickoFightsPossible > 0 && have_item(bricko_monster) && smmMuseumMaySpend(bricko_monster, 1)) {
 		print("fighting: " + bricko_monster);
 		cli_execute("use " + bricko_monster);
 		visit_url("/main.php", true, false); // get to the fight
@@ -2604,7 +2604,7 @@ void burnFreeTurnGen() {
 		if (chocolateToEat != $item[none]) {
 			newAcquire(chocolateToEat, chocolatesToEat, kTurnValue * 2);
 			if (available_amount(chocolateToEat) >= chocolatesToEat)
-				use(chocolateToEat, chocolatesToEat);
+				museumSafeUse(chocolatesToEat, chocolateToEat);
 		}
 		tries--;
 	}
@@ -3510,9 +3510,11 @@ void burn_sausages(boolean doNotOvereat) {
 
 	try {
 		// FIRST MAKE SAUSAGES
-		if (sausagesToMake > 0)
+		if (sausagesToMake > 0 && smmMuseumMaySpendIngredients($item[magical sausage], sausagesToMake))
 			if (!cli_execute("make " + sausagesToMake + " magical sausage"))
 				abort("failed while MAKING sausages");
+		// Museum: only eat sausages beyond the Display Case reserve
+		sausagesToEat = min(sausagesToEat, max(0, smmMuseumOwnedCopies($item[magical sausage]) - smmMuseumReservedCopies($item[magical sausage])));
 
 		// try to work around the user confirmation
 		// 		set_property("_sausagesMade", "0");
@@ -4041,10 +4043,10 @@ void good_night_adv() {
 // if fillToMax is false, will only use (presumably larger sized) spleen items that are optimal in terms of cost per adv_turns, which may result in unused spleen.
 // if fillToMax is true, will also use enough smaller-sized spleen items to fill spleen to max.
 void tquillaFillSpleen(boolean fillToMax) {
-	chew(floor((spleen_limit() - my_spleen_use()) / kSpleenItem.spleen), kSpleenItem);
+	museumSafeChew(floor((spleen_limit() - my_spleen_use()) / kSpleenItem.spleen), kSpleenItem);
 	if (spleen_limit() - my_spleen_use() >= kSpleenItem.spleen) abort("something wrong with spleen");
 	if (fillToMax) {
-		chew(spleen_limit() - my_spleen_use(), kFillerSpleenItem);
+		museumSafeChew(spleen_limit() - my_spleen_use(), kFillerSpleenItem);
 	}
 }
 
@@ -4076,8 +4078,8 @@ boolean tquillaEat(item foodItem, int spleenReduction, int numberToEat, item pre
 	// EAT
 	useMoMifNeeded();
 	if (preeatItem != $item[none])
-		assert( eat(numberToEat, preeatItem), "was not able to successfully eat the pre-eating item " + preeatItem);
-	return eat(numberToEat, foodItem);
+		assert( museumSafeEat(numberToEat, preeatItem), "was not able to successfully eat the pre-eating item " + preeatItem);
+	return museumSafeEat(numberToEat, foodItem);
 }
 
 
@@ -4195,8 +4197,8 @@ boolean tquillaDrink(item drinkItem, int spleenReduction, int numberToDrink, ite
 	useOdeToBoozeIfNeeded(drinkItem.inebriety * numberToDrink);
 
 	if (gkPredrinkItem != $item[none])
-		assert( drink(numberToDrink, preDrinkItem), "tquillaDrink: was not able to successfully drink the pre-drink item " + preDrinkItem);
-	return drink(numberToDrink, drinkItem);
+		assert( museumSafeDrink(numberToDrink, preDrinkItem), "tquillaDrink: was not able to successfully drink the pre-drink item " + preDrinkItem);
+	return museumSafeDrink(numberToDrink, drinkItem);
 }
 
 // tries to fill our liver -- TODO Hollow Leg
@@ -4382,22 +4384,22 @@ void tquillaOverdrink(boolean refillSpleen) {
 		// we should be 1 or 0 away from our limit at this point
 		assert(my_inebriety() == myLimitWithoutStooper || my_inebriety() == inebriety_limit(), "we should be at our inebriety limit or 1 away from it if we are using Stooper");
 		while (my_inebriety() == inebriety_limit() - 1) { // haven't done stooper yet -- use a "while" in case there are free 1-sized drinks available
-			drink(1, gkStooperDrink);
+			if (!museumSafeDrink(1, gkStooperDrink)) break;
 		}
 
 		// OVERDRINK
 		assert(my_familiar() == $familiar[Stooper] && my_inebriety() == inebriety_limit(), "tquillaOverdrink: we should have the Stooper familiar and be at our inebriety limit");
 
 		if (gkPreoverdrinkItem != $item[none])
-			drink(1, gkPreoverdrinkItem); // stuff like frosty's frosty mug
-		overdrink(1, gkOverdrinkDrinkItem);
+			museumSafeDrink(1, gkPreoverdrinkItem); // stuff like frosty's frosty mug
+		museumSafeOverdrink(1, gkOverdrinkDrinkItem);
 
 		// ST. SNEAKY PETE'S DAY
 		if (isSneakyPeteDay()) {
 			assert(my_inebriety() >= inebriety_limit() + gkOverdrinkDrinkItem.inebriety, "tquillaOverdrink: we're not at the right inebriety for St. Sneaky Pete's Day");
 			int extraBeer = 10 - (inebriety_limit() - my_inebriety());
 			fullAcquire($item[green beer], extraBeer);
-			overdrink(extraBeer, $item[green beer]);
+			museumSafeOverdrink(extraBeer, $item[green beer]);
 		}
 
 		if (refillSpleen)
@@ -4592,7 +4594,7 @@ void grindJelly(item jellyType, int numberToGet) {
 	add_item_condition(numberToGet, jellyType);
 
 	// burn the LOV potion if we haven't already
-	if (have_item($item[Love Potion #XYZ])) use(1, $item[Love Potion #XYZ]); // TODO: make this more general, look for specific buffs
+	if (have_item($item[Love Potion #XYZ])) museumSafeUse(1, $item[Love Potion #XYZ]); // TODO: make this more general, look for specific buffs
 
 	if (jellyType == $item[stench jelly]) {
 		set_location(mysterious_island_camp("hippy"));
@@ -5187,7 +5189,7 @@ void useDrumMachine(int turnsToGrind) {
 		fueled_asdonmartin("observantly", turnsToGrind);
 	//sweetSynthesis($effect[Synthesis: Collection], turnsToGrind);
 	briefcase_if_needed($effect[Items Are Forever], turnsToGrind);
-	use(turnsToGrind, $item[drum machine]);
+	museumSafeUse(turnsToGrind, $item[drum machine]);
 }
 
 
@@ -5321,7 +5323,7 @@ boolean getBreathWater(int minTurns) {
 	while (breatheWaterTurns() == 0 && idx < count(breatheWaterItems)) {
 		item breatheWaterItem = breatheWaterItems[idx++];
 		if (have_item(breatheWaterItem))
-			use(1, breatheWaterItem);
+			museumSafeUse(1, breatheWaterItem);
 	}
 
 	if (breatheWaterTurns() == 0 && isAsdonWorkshed())
@@ -6609,7 +6611,7 @@ void useSkillbooksAfterRonin() {
 	foreach use_item in use_map {
 		print("using: " + use_item, "blue");
 		if (have_item(use_item))
-			unused = use(use_map[use_item], use_item);
+			unused = museumSafeUse(use_map[use_item], use_item);
 	}
 }
 
@@ -6794,7 +6796,7 @@ void dehaunt_aboo_peak() {
 	automate_dressup($location[a-boo peak], "", "", "spooky res, cold res, hp");
 	while (to_int(get_property("booPeakProgress")) > 0) {
 		healAndRemoveDebuffsWithMPRestore();
-		use(1, $item[a-boo clue]);
+		if (!museumSafeUse(1, $item[a-boo clue])) abort("a-boo clues are kept for the Display Case");
 		adventure(1, $location[a-boo peak], "");
 	}
 }

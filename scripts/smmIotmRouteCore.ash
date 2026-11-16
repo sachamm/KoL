@@ -126,6 +126,9 @@ float smmIRSaleValue(item it) {
     if (smmIRPrices contains it) return smmIRPrices[it];
     float value=max(0,autosell_price(it));
     int quote;
+    // Untradeable rewards (Rubees, Coinspiracy, ...) are worth what they convert into in the mall.
+    if (!it.tradeable)
+        value=max(value,smmItemLiquidValue(it)*min(1.0,max(0.0,smmIRSetting("saleDiscount",0.8))));
     if (it.tradeable) {
         if (smmIRQuotes<max(0,smmIRSetting("maxQuotes",150).to_int())) { quote=smmIRQuote(it); smmIRQuotes+=1; }
         // A minimum-price listing is not evidence that an unlimited amount sells.

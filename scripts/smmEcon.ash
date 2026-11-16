@@ -645,45 +645,8 @@ void tttEconomics() {
 
 
 
-int [item] _gkChronerItems;
-int [item] chronerItems() {
-	if (count(_gkChronerItems) == 0) {
-		_gkChronerItems = {
-			$item[rack of dinosaur ribs] : 25,
-			$item[scotch on the rocks] : 25,
-			$item[wooly loincloth] : 100,
-			$item[yabba dabba doo rag] : 100,
-			$item[strange helix fossil] : 300,
-			$item[dog ointment] : 25,
-			$item[gumshoes] : 200,
-			$item[flapper floppers] : 400,
-			$item[sneakeasies] : 600,
-			$item[centurion helmet] : 25,
-			$item[pteruges] : 25,
-			$item[unidentifiable dried fruit] : 25,
-			$item[flat cider] : 50,
-			$item[iShield] : 300,
-			$item[white earbuds] : 600,
-			$item[iFlail] : 900,
-			$item[invisible potion] : 10,
-			$item[time shuriken] : 200,
-			$item[ninjammies] : 1000,
-			$item[rotten tomato] : 25,
-			$item[portable othello set] : 100,
-			$item[twelve night energy] : 250,
-			$item[yorick] : 1000,
-			$item[Twitching Television Tattoo] : 1111,
-		};
-	}
-	return _gkChronerItems;
-}
-
-
 void chronerEconomics() {
-	foreach it, chroners in chronerItems() {
-		int cp = cheapest_price(it);
-		print(it + "@" + cp + ": " + chroners + " chroners, " + (cp / chroners) + " meat per chroner");
-	}
+	smmValueExplain($item[Chroner]);
 }
 
 
@@ -762,15 +725,8 @@ void roboEconomics() {
 
 
 void spacegateEconomics() {
-	print("Aldebaran sardines: " + cheapest_price($item[Aldebaran sardines]) + " @ 50 research = " + cheapest_price($item[Aldebaran sardines]) / 50 + " per research");
-	print("Centauri fish wine: " + cheapest_price($item[Centauri fish wine]) + " @ 50 research = " + cheapest_price($item[Centauri fish wine]) / 50 + " per research");
-	print("powdered oxygen: " + cheapest_price($item[powdered oxygen]) + " @ 100 research = " + cheapest_price($item[powdered oxygen]) / 100 + " per research");
-	print("portable Spacegate: " + cheapest_price($item[portable Spacegate]) + " @ 1000 research = " + cheapest_price($item[portable Spacegate]) / 1000 + " per research");
-	print("Spacegate scientist's insignia: " + cheapest_price($item[Spacegate scientist's insignia]) + " @ 3000 research = " + cheapest_price($item[Spacegate scientist's insignia]) / 3000 + " per research");
-	print("Spacegate military insignia: " + cheapest_price($item[Spacegate military insignia]) + " @ 3000 research = " + cheapest_price($item[Spacegate military insignia]) / 3000 + " per research");
-	print("Spacegate diplomat's insignia: " + cheapest_price($item[Spacegate diplomat's insignia]) + " @ 3000 research = " + cheapest_price($item[Spacegate diplomat's insignia]) / 3000 + " per research");
-	print("Spacegate emergency disintegrator: " + cheapest_price($item[Spacegate emergency disintegrator]) + " @ 5000 research = " + cheapest_price($item[Spacegate emergency disintegrator]) / 5000 + " per research");
-	print("Spacegate Initiative tattoo unit: " + cheapest_price($item[Spacegate Initiative tattoo unit]) + " @ 10000 research = " + cheapest_price($item[Spacegate Initiative tattoo unit]) / 10000 + " per research");
+	smmValueExplain($item[Spacegate Research]);
+	print("");
 
 	cli_execute("dc alien rock sample");
 	cli_execute("dc alien gemstone");
@@ -790,9 +746,7 @@ void spacegateEconomics() {
 
 // #fantasyrealmeconomics #fantasy realm economics
 void frEconomics() {
-	print("FantasyRealm guest pass @ 350 rubees and " + cheapest_price($item[FantasyRealm guest pass]) + " meat or " + cheapest_price($item[FantasyRealm guest pass]) / 350 + " meat / rubee");
-	print("LyleCo Contractor's Manual @ 3000 rubees and " + cheapest_price($item[LyleCo Contractor's Manual]) + " meat or " + cheapest_price($item[LyleCo Contractor's Manual]) / 3000 + " meat / rubee");
-	print("FantasyRealm tattoo kit @ 10000 rubees and " + cheapest_price($item[FantasyRealm tattoo kit]) + " meat or " + cheapest_price($item[FantasyRealm tattoo kit]) / 10000 + " meat / rubee");
+	smmValueExplain($item[Rubee&trade;]);
 
 	print("");
 	print("hours are each 6 turns in the correct FR zone @ " + kTurnValue + " turn value");

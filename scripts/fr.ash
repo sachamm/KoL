@@ -409,7 +409,7 @@ void fantasyrealmGrind(item targetItem) {
 			grindFRZoneWithDressup($location[The Mystic Wood], 1);
 			grindFRZoneWithDressup($location[The Faerie Cyrkle], 2);
 
-			cli_execute("make denastified haunch");
+			museumSafeCreate(1, $item[denastified haunch]);
 			set_property("_fantasyRealmDone", "true");
 			break;
 
@@ -424,7 +424,7 @@ void fantasyrealmGrind(item targetItem) {
 			grindFRZoneWithDressup($location[The Cursed Village], 1); // The Evil Cathedral
 			grindFRZoneWithDressup($location[The Evil Cathedral], 3);
 
-			cli_execute("make bad rum and good cola");
+			museumSafeCreate(1, $item[bad rum and good cola]);
 			set_property("_fantasyRealmDone", "true");
 			break;
 
@@ -439,7 +439,7 @@ void fantasyrealmGrind(item targetItem) {
 			grindFRZoneWithDressup($location[The Putrid Swamp], 1); // Near the Witch's House
 			grindFRZoneWithDressup($location[Near the Witch's House], 3); // to-go brew
 
-			cli_execute("make Potion of Heroism");
+			museumSafeCreate(1, $item[Potion of Heroism]);
 			set_property("_fantasyRealmDone", "true");
 			break;
 
@@ -557,7 +557,7 @@ void fantasyrealmGrind(item targetItem) {
 			grindFRZoneWithDressup($location[The Mystic Wood], 1);
 			grindFRZoneWithDressup($location[The Faerie Cyrkle], 3, "equip FantasyRealm Rogue's Mask");
 
-			use(1, $item[universal antivenin]);
+			museumSafeUse(1, $item[universal antivenin]);
 			assert(have_effect($effect[Fantastic Immunity]) > 0, "didn't get the universal antivenin");
 			grindFRZoneWithDressup($location[The Spider Queen's Lair], 1);
 

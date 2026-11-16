@@ -281,9 +281,8 @@ void grindSprinkles() {
 		useMoMifNeeded();
 		cli_execute("beach head Do I Know You From Somewhere?");
 		if (fullness_limit() - my_fullness() >= 4 && have_effect($effect[Sprinkle in Your Eye]) == 0 && have_effect($effect[Sprinkle Sense]) == 0) {
-			eat(1, $item[animal part cracker]);
-			buy(1, $item[green-iced sweet roll]);
-			eat(1, $item[green-iced sweet roll]);
+			museumSafeEat(1, $item[animal part cracker]);
+			museumSafeEat(1, $item[green-iced sweet roll]); // buys a fresh one if the owned ones are kept
 		}
 		fullAcquire($item[gingerbread restraining order]);
 		use_if_needed($item[tainted icing], $effect[Iced and Tainted], 30 - turnsUsed);

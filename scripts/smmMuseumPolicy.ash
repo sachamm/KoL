@@ -170,3 +170,45 @@ void smmMuseumReport(item it) {
     print("In Display Case: "+smmMuseumDisplay(it)+"; eligible owned stock: "+smmMuseumStock(it)+"; operating reserve: "+smmMuseumKeep(it));
     print("Strict first-place target with buffer: "+goal.first+"; top-ten threshold: "+goal.tenth+"; additional acquisitions needed: "+smmMuseumMissing(it,goal));
 }
+
+
+// ---------------------------------------------------------------- owned copies
+// Spending a copy you own (eating it, crafting with it, selling it) is not free:
+// until you are #1 for that item, every copy you hold is collection stock.
+// Only copies beyond the #1 target (with buffer) are spare, and a spare copy is
+// worth what you could otherwise get for it (mall, a conversion or autosell).
+// Making a NEW copy always costs its inputs: use smmItemValue() for that.
+
+// Copies that can be spent without hurting the Museum goal. Items with no usable
+// ranking snapshot have no spare copies: they stay reserved until one exists.
+int smmMuseumSpareCopies(item it) {
+    int owned=smmMuseumOwnedCopies(it);
+    if (!smmMuseumEnabled() || !is_displayable(it)) return owned;
+    if (!smmMuseumGoal(it).known) return 0; // budgeted lookup; fills the shared ranking cache
+    return max(0,owned-smmMuseumReservedCopies(it,false)); // same rule as the museumSafe* guards
+}
+
+// What it costs to spend `quantity` owned copies. Spare copies cost their
+// realizable value. Copies the Museum still needs cost their replacement price:
+// smm.IR.museumCopyValue.<id>, else the mall price; an untradeable copy with
+// neither is effectively priceless (1,000,000,000 Meat), so it is never spent.
+float smmMuseumOwnedValue(item it, int quantity) {
+    if (quantity<=0) return 0;
+    float sale=smmItemLiquidValue(it);
+    string explicit=get_property("smm.IR.museumCopyValue."+it.to_int());
+    float replacement=explicit!="" ? explicit.to_float() : (it.tradeable ? smmItemValue(it) : 0);
+    return smmMuseumInput(it,quantity,sale,replacement);
+}
+
+// Bridge for JavaScript, which cannot require() these symlinked ASH files:
+// "id,id,..." -> "id:spare:liquidValue;..." for each item.
+string smmMuseumSpareList(string ids) {
+    buffer out;
+    foreach i, id in split_string(ids,",") {
+        if (id=="") continue;
+        item it=id.to_int().to_item();
+        if (it==$item[none]) continue;
+        out.append(it.to_int()+":"+smmMuseumSpareCopies(it)+":"+round(smmItemLiquidValue(it))+";");
+    }
+    return out.to_string();
+}
