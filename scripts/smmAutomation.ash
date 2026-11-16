@@ -1710,11 +1710,13 @@ string olfactionScript(monster aMonster) {
 		rval += "skill " + to_int($skill[Gallapagosian Mating Call]) + ";";
 
 	if ("_latteCopyUsed".get_property().to_boolean())
+		print("******* we wanted to Offer Latte to Opponent " + aMonster + ", but today's use is already spent *******", "orange");
+	else if (equipped_amount($item[latte lovers member's mug]) < 1
+		|| !combat_skill_available($skill[Offer Latte to Opponent]))
 		print("******* we wanted to Offer Latte to Opponent " + aMonster + ", but we don't have the skill (we are "
 			+ (equipped_amount($item[latte lovers member's mug]) >= 1 ? "" : "NOT")
-			+ " weilding the latte lover's mug) *******", "orange");
-	else if (!get_property("_latteCopyUsed").to_boolean()
-		&& to_monster(get_property("_latteMonster")) != aMonster)
+			+ " wielding the latte lover's mug) *******", "orange");
+	else if (to_monster(get_property("_latteMonster")) != aMonster)
 		rval += "skill " + to_int($skill[Offer Latte to Opponent]) + ";";
 
 	if (!have_skill($skill[Get a Good Whiff of This Guy]))
