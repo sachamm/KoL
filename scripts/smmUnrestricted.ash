@@ -4530,6 +4530,8 @@ void grindGhostCostume() {
 
 		automate_dressup($location[The Haunted Storage Room], "item", "default", "item");
 
+		// Display-case deposits can leave the session tally negative after a drop.
+		int costumesBefore = item_amount($item[li'l ghost costume]);
 		try {
 			target = {$monster[sheet ghost]};
 			add_item_condition(1, $item[li'l ghost costume]);
@@ -4538,7 +4540,7 @@ void grindGhostCostume() {
 					abort("grindGhostCostume: failed targeting at The Haunted Storage Room");
 			}
 		} finally {
-			if (my_session_items($item[li'l ghost costume]) <= 0)
+			if (item_amount($item[li'l ghost costume]) <= costumesBefore)
 				abort("didn't get ghost costume!");
 			else
 				set_property("_smm.GotGhostCostume", "true");
