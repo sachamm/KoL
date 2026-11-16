@@ -1054,6 +1054,12 @@ void printHelp() {
 	print_html("<strong style=\"color:blue;\">snipeminshelf <i>[max-number-to-buy]</i> <i>name</i></strong>: run snipemin on each item of the named shelf (unimplemented)");
 	print_html("<br/>Shelf operations that make changes will print a receipt of operations done. They follow the item save rules (below).");
 
+	print_html("<h4>Museum rankings:</h4>");
+	print_html("<br/>Rankings are stored in data/smm-museum-ranks-<i>id</i>.txt and reused across days. At most <i>smm.IR.museumLookups</i> (default 50) Museum requests are made per day, by all scripts together. An item never seen before is looked up when first needed; after that only 'refresh' renews it.");
+	print_html("<strong style=\"color:blue;\">refresh [<i>n</i>]</strong>: renew the <i>n</i> stalest rankings (default: all of today's remaining lookups). Covers the Display Case and every stored item; never-checked first, then oldest.");
+	print_html("<strong style=\"color:blue;\">refresh <i>item</i></strong>: renew one item now.");
+	print_html("<strong style=\"color:blue;\">cache</strong>: how many rankings are stored, how old they are, and how many lookups are left today.");
+
     print_html("<br/><strong>target item</strong>: report the first-place target, reserves, and additional items needed; never moves or buys items.");
     print_html("<strong>top1 item</strong>: add owned items toward first place plus smm.dcOvershootAmount (default 11), respecting reserves; supports --dry-run and never buys or pulls shop stock.");
 	print_html("<h4>Item saving rules:</h4>");
@@ -1391,6 +1397,120 @@ void listIotM(item anIotM) {
 
 
 
+// ---------------------------------------------------------------- Museum ranking rotation
+// Rankings are kept in the Museum ranking store (smmUtils.ash) and reused
+// across days. Only smm.IR.museumLookups requests a day are allowed (default
+// 50, shared by every script), so the store is renewed a slice at a time.
+
+// Everything worth keeping current: what is in the Display Case, plus every
+// item already in the store.
+boolean [item] dcMuseumRotationItems() {
+	boolean [item] rval;
+	if (have_display())
+		foreach it in get_display()
+			rval[it] = true;
+	smmMuseumStoreLoad();
+	foreach id in smmMuseumStore
+		if (id.to_item() != $item[none])
+			rval[id.to_item()] = true;
+	return rval;
+}
+
+// Never-checked items first, then the oldest. Items we hold no copy of count
+// as 30 days fresher, so the ones we are actually collecting come round first.
+int dcMuseumRotationKey(item it) {
+	if (!smmMuseumStored(it)) return 0;
+	boolean held = (have_display() && display_amount(it) > 0) || available_amount(it) > 0;
+	return smmMuseumEntry(it).checked + (held ? 0 : 30 * 86400);
+}
+
+// Spend up to limit of today's remaining Museum lookups on the stalest
+// rankings. Returns the number renewed.
+int dcMuseumRefresh(int limit) {
+	limit = min(limit, smmMuseumLookupsLeft());
+	if (limit < 1) {
+		print("No Museum lookups left today (" + smmMuseumLookupsUsed() + " of " + smmMuseumLookupLimit() + " used).", "orange");
+		return 0;
+	}
+	item [int] queue;
+	foreach it in dcMuseumRotationItems()
+		queue[count(queue)] = it;
+	int [item] keys;
+	foreach i, it in queue
+		keys[it] = dcMuseumRotationKey(it);
+	sort queue by keys[value];
+
+	// what is due: never looked up, or last looked up more than 20 hours ago
+	int due;
+	int neverChecked;
+	foreach i, it in queue {
+		if (!smmMuseumStored(it)) neverChecked++;
+		else if (smmMuseumNow() - smmMuseumEntry(it).checked < 20 * 3600) continue;
+		due++;
+	}
+	int planned = min(limit, due);
+	print("Museum refresh: " + count(queue) + " items in rotation, " + due + " due (" + neverChecked + " never looked up). Renewing "
+		+ planned + " now, about " + planned + " seconds. Lookups used today: " + smmMuseumLookupsUsed() + " of " + smmMuseumLookupLimit() + ".", "blue");
+
+	int done;
+	int failed;
+	foreach i, it in queue {
+		if (done + failed >= limit) break;
+		// already looked up in the last 20 hours: everything after it is at least as fresh
+		if (smmMuseumStored(it) && smmMuseumNow() - smmMuseumEntry(it).checked < 20 * 3600) break;
+		if (done + failed > 0) waitq(1);
+		string before = smmMuseumStored(it) ? smmMuseumAgeDays(it) + " days old" : "new";
+		string label = "[" + (done + failed + 1) + "/" + planned + "] " + it + " (" + before + "): ";
+		if (smmMuseumFetch(it)) {
+			done++;
+			SmmMuseumEntry entry = smmMuseumEntry(it);
+			int [int, string] ranks = smmMuseumStoredList(it);
+			if (entry.holders == 0)
+				print(label + "nobody displays it");
+			else
+				print(label + entry.holders + " collector" + (entry.holders == 1 ? "" : "s") + ", #1 has " + rank1Amount(ranks)
+					+ (countTop10(ranks) >= 10 ? ", #10 has " + rank10Amount(ranks) : "")
+					+ "; " + (entry.my_rank > 0 ? "we are #" + entry.my_rank + " with " + entry.mine : "we are not listed"));
+		} else {
+			failed++;
+			print(label + "Museum page not understood; left as it was.", "orange");
+			if (failed >= 5 && done == 0) {
+				print("Five lookups failed in a row; stopping.", "red");
+				break;
+			}
+		}
+	}
+	if (due - done > 0)
+		print((due - done) + " items still due; at " + smmMuseumLookupLimit() + " a day that is about " + ceil((due - done) / to_float(max(1, smmMuseumLookupLimit()))) + " more days.");
+	print("Renewed " + done + " Museum ranking" + (done == 1 ? "" : "s") + (failed > 0 ? ", " + failed + " failed" : "")
+		+ ". Lookups left today: " + smmMuseumLookupsLeft() + ".", "blue");
+	return done;
+}
+
+void dcMuseumCacheStatus() {
+	int stored;
+	int missing;
+	int oldest;
+	int [int] ages; // age in days => number of items
+	foreach it in dcMuseumRotationItems() {
+		if (!smmMuseumStored(it)) {
+			missing++;
+			continue;
+		}
+		stored++;
+		int age = smmMuseumAgeDays(it);
+		oldest = max(oldest, age);
+		ages[age < 1 ? 0 : age <= 7 ? 7 : age <= 30 ? 30 : 31]++;
+	}
+	print("Museum rankings stored: " + stored + "; Display Case items never looked up: " + missing, "blue");
+	print("Age: today " + ages[0] + ", 1-7 days " + ages[7] + ", 8-30 days " + ages[30] + ", older " + ages[31] + " (oldest " + oldest + " days)");
+	print("Lookups today: " + smmMuseumLookupsUsed() + " of " + smmMuseumLookupLimit() + " used (smm.IR.museumLookups)");
+	if (smmMuseumLookupLimit() > 0)
+		print("One full pass over " + (stored + missing) + " items takes about " + ceil((stored + missing) / to_float(smmMuseumLookupLimit())) + " days of 'dc refresh'.");
+}
+
+
+
 void main(string arguments) {
 	//arguments = arguments.to_lower_case(); NO!
 	string [] argv = split_string(arguments, " ");
@@ -1402,6 +1522,25 @@ void main(string arguments) {
 		return;
 	} else if (argv[0] == "" || argv[0] == "help") {
 		printHelp();
+		return;
+	}
+
+	// Museum ranking store: no item argument needed
+	if (argv[0] == "cache") {
+		dcMuseumCacheStatus();
+		return;
+	}
+	if (argv[0] == "refresh") {
+		string what = cdr(argv).joinString(" ");
+		if (what == "" || what.is_integer()) {
+			dcMuseumRefresh(what == "" ? smmMuseumLookupsLeft() : what.to_int());
+			return;
+		}
+		item one = what.to_item();
+		assert(one != $item[none], "bad item: " + what);
+		if (!smmMuseumFetch(one))
+			print(smmMuseumLookupsLeft() < 1 ? "No Museum lookups left today." : "Museum ranking not understood for " + one + "; left as it was.", "orange");
+		dcPrintItemDetails(one, lookupCollection(one, false));
 		return;
 	}
 

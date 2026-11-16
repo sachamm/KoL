@@ -39,7 +39,7 @@ SmmRPResource [string] smmIRResources() {
 void smmIRGenerateMuseumDeposits() {
     if (!smmMuseumEnabled() || !have_display() || get_property("smm.IR.museumDeposit")=="false") return;
     foreach it, amount in get_inventory() if (is_displayable(it) && (get_property("smm.IR.museumHold."+it.to_int()).to_int()>0
-        || get_property(kDCPropertyPrefix+it)!="")) {
+        || smmMuseumStored(it))) {
         int quantity=min(smmMuseumDepositAmount(it),max(0,smmMuseumMilestone(it)-smmMuseumDisplay(it)));
         if (quantity<1) continue;
         SmmIRWork work; work.kind="museum.deposit"; work.product=it; work.option=1;

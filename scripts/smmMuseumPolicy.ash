@@ -1,7 +1,8 @@
 import <smmUtils.ash>
 
 // Museum rank #1 is preferred; top ten is an intermediate acceptable result.
-// Rankings are reused from dc.ash's daily Museum cache, never from old case counts.
+// Rankings come from the Museum ranking store in smmUtils.ash (kept across days,
+// renewed oldest-first by "dc refresh"), never from old case counts.
 record SmmMuseumGoal {
     boolean known;
     int first;
@@ -38,17 +39,14 @@ SmmMuseumGoal smmMuseumGoal(item it) {
     if (!smmMuseumEnabled() || it==$item[none] || !is_displayable(it)) return goal;
     if (smmMuseumGoals contains it) return smmMuseumGoals[it];
     int [int,string] rankings=smmMuseumCachedCollection(it);
-    if (!isValidTop10List(rankings)) {
-        int used=get_property("smm.IR.museumLookupEpoch")==smmRPEpoch() ? get_property("smm.IR.museumLookupsUsed").to_int() : 0;
-        int limit=get_property("smm.IR.museumLookups")=="" ? 50 : max(0,get_property("smm.IR.museumLookups").to_int());
-        if (used<limit) {
-            set_property("smm.IR.museumLookupEpoch",smmRPEpoch()); set_property("smm.IR.museumLookupsUsed",used+1);
-            rankings=smmMuseumLookup(it);
-        }
-    }
+    // The stored ranking is used whatever its age ("dc refresh" renews the oldest).
+    // Only an item never looked up costs a request, from the shared daily budget.
+    if (!isValidTop10List(rankings) && !smmMuseumStored(it) && smmMuseumLookupsLeft()>0) rankings=smmMuseumLookup(it);
     int buffer_size=get_property("smm.IR.museumBuffer")=="" ? 11 : max(1,get_property("smm.IR.museumBuffer").to_int());
     if (get_property("smm.IR.museumBuffer")=="" && get_property("smm.dcOvershootAmount")!="") buffer_size=max(1,get_property("smm.dcOvershootAmount").to_int());
     goal=smmMuseumBounds(rankings,my_name(),buffer_size);
+    // Nobody displays it: there is no list, but the targets are known.
+    if (!goal.known && smmMuseumNobodyHas(it)) { goal.known=true; goal.first=buffer_size; goal.first_minimum=1; goal.tenth=1; }
     smmMuseumGoals[it]=goal;
     return goal;
 }

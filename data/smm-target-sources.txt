@@ -1,0 +1,19 @@
+# Sources for Display Case items that Meat cannot buy, where Mafia's own data does not say how to get them.
+# Tab-separated: item (name or number)	kind	attempts per day	source	note
+# kind: repeatable = can be attempted again; oneoff = fixed supply; ignore = leave out of the register;
+#       buyable = Meat does get it, through a route Mafia cannot see.
+# Leave 'attempts per day' blank when it is not capped or not known.
+# The first lines were seeded from what dailyGrind already does. Check them against your own knowledge.
+scepter of the Skeleton Lord	repeatable	1	FantasyRealm boss (fr.ash)	dailyGrind runs one FantasyRealm target a day
+ring of the Skeleton Lord	repeatable	1	FantasyRealm boss (fr.ash)	shares the daily FantasyRealm run with the scepter
+Master Thief's utility belt	repeatable	1	FantasyRealm boss (fr.ash)	shares the daily FantasyRealm run with the scepter
+Red Roger's reliquary	repeatable	1	PirateRealm (pr short)	dailyGrind runs one PirateRealm voyage a day
+Rubee&trade;	repeatable		FantasyRealm fights	currency for the FantasyRealm Rubee Store
+Guzzlrbuck	repeatable		Guzzlr deliveries	currency for the Guzzlr Company Store
+Spacegate Research	repeatable		Spacegate exploration (grindSpacegate)	currency for the Spacegate shop
+filthy lucre	repeatable	3	Bounty hunting (doBounty)	one per completed bounty; currency for the Bounty Hunter Hunter
+fat loot token	repeatable	1	Daily Dungeon (grindDailyDungeon)	currency for the Vending Machine
+Shore Inc. Ship Trip Scrip	repeatable		Shore trip: 3 adventures and 500 Meat each	costs turns as well as Meat
+worthless trinket	buyable		chewing gum on a string	
+worthless gewgaw	buyable		chewing gum on a string	
+worthless knick-knack	buyable		chewing gum on a string	
