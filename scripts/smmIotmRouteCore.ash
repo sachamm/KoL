@@ -816,7 +816,11 @@ void smmIRGenerateFarming() {
         float income=smmIRZoneIncome(zone);
         if (income<=smmIRTurnValue()) continue;
         SmmIRWork work; work.kind="farm"; work.zone=zone; work.allowed_turns=1;
-        smmIRAdd("2026-01.farm."+zone.to_int(),"Profitable native/Sword farming at "+zone,work,income,smmIRTurnValue()+max(0,smmIRSetting("combatCost",50)),"",0);
+        string id="2026-01.farm."+zone.to_int();
+        smmIRAdd(id,"Profitable native/Sword farming at "+zone,work,income,smmIRTurnValue()+max(0,smmIRSetting("combatCost",50)),"",0);
+        // One candidate covers every remaining paid turn: the solver allocates
+        // the turns in a single pass and the worker rechecks income each turn.
+        if (smmIRActions contains id) smmIRActions[id].limit=max(1,min(my_adventures(),smmIRPaidRemaining()));
     }
 }
 
