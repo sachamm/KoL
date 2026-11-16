@@ -468,9 +468,10 @@ float smmIRMonsterProgress(monster foe) {
 
 float smmIRWorkProgress(SmmIRWork work) {
     if (!smmMuseumEnabled()) return 0;
+    if (work.kind=="pasta.summon") return smmMuseumProgress(work.product,work.option);
     if (work.kind=="garden.harvest") return smmMuseumProgress(work.product,work.choice_id);
     if (work.kind=="garden.mushroom") return smmIRMonsterProgress($monster[piranha plant])+smmMuseumProgress(work.product,work.choice_id);
-    if (work.kind=="coin.buy" || work.kind=="bones.buy" || work.kind=="craft" || work.kind=="pasta.summon"
+    if (work.kind=="coin.buy" || work.kind=="bones.buy" || work.kind=="craft"
         || work.kind=="extra.coin.sale" || work.kind=="extra.coin.unique" || work.kind=="extra.coin.collection"
         || work.kind=="more.cast" || work.kind=="more.buy" || work.kind=="more.kiwi" || work.kind=="more.create"
         || (work.kind=="garden" && work.foe==$monster[none])) return smmMuseumProgress(work.product,1);
@@ -541,7 +542,8 @@ string smmIRAutoWhy(SmmIRWork work, float benefits, float costs, string resource
 }
 
 string smmIRAutoExpect(SmmIRWork work) {
-    if (work.product!=$item[none] && (work.kind=="bones.buy" || work.kind=="coin.buy" || work.kind=="craft" || work.kind=="pasta.summon"))
+    if (work.kind=="pasta.summon") return "Inventory of "+work.product+" should rise by "+work.option+" (verified after the action).";
+    if (work.product!=$item[none] && (work.kind=="bones.buy" || work.kind=="coin.buy" || work.kind=="craft"))
         return "Inventory of "+work.product+" should rise by 1 (verified after the action).";
     return "The action's state change is verified after it runs; the route stops on a mismatch.";
 }
@@ -681,11 +683,12 @@ void smmIRGenerateCup() {
 void smmIRGeneratePasta() {
     if (available_amount($item[legendary pasta wand])<1) return;
     skill sk=have_skill($skill[Pastamastery]) ? $skill[Pastamastery] : $skill[Wave your Pasta Wand];
-    if ((sk==$skill[Pastamastery] && get_property("noodleSummons").to_int()<3)
-        || (sk==$skill[Wave your Pasta Wand] && !get_property("_legendaryPastaWaveCast").to_boolean())) {
+    // dailylimit is Mafia's remaining cast count. One cast supplies all three
+    // legendary noodles; noodleSummons counts casts, not individual noodles.
+    if (sk.dailylimit>0) {
         if (my_mp()>=mp_cost(sk)) {
-            SmmIRWork work; work.kind="pasta.summon"; work.cast=sk; work.product=$item[legendary noodles];
-            smmIRAdd("2026-05.noodles","Summon legendary noodles",work,smmIRRewardValue(work.product),mp_cost(sk)*max(0,smmIRSetting("mpValue",1)),"",0);
+            SmmIRWork work; work.kind="pasta.summon"; work.cast=sk; work.product=$item[legendary noodles]; work.option=3;
+            smmIRAdd("2026-05.noodles","Summon legendary noodles",work,smmIRRewardValue(work.product,work.option),mp_cost(sk)*max(0,smmIRSetting("mpValue",1)),"",0);
         }
     }
     if (item_amount($item[legendary noodles])<1 || free_cooks()<1) return;

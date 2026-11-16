@@ -137,6 +137,9 @@ boolean smmIRPrepare(SmmIRWork work) {
 
 boolean smmIRDispatch(SmmIRWork work) {
     if (work.kind=="museum.deposit") return smmMuseumDeposit(work.product,work.option);
+    // A queued summon can become unavailable after planning. Check before
+    // equipping the wand so an exhausted skill causes no equipment churn.
+    if (work.kind=="pasta.summon" && work.cast.dailylimit<1) return false;
     if (!smmIRPrepare(work)) return false;
     if (work.kind.starts_with("garden.")) return smmIRGardenDispatch(work);
     if (work.kind.starts_with("extra.")) return smmIRExtraDispatch(work);
@@ -147,7 +150,7 @@ boolean smmIRDispatch(SmmIRWork work) {
     }
     if (work.kind=="pasta.summon") {
         int before=item_amount(work.product);
-        return have_skill(work.cast) && smmIRCast(work.cast) && item_amount(work.product)>before;
+        return have_skill(work.cast) && smmIRCast(work.cast) && item_amount(work.product)>=before+work.option;
     }
     if (work.kind=="craft") {
         if (free_cooks()<1) return false;
