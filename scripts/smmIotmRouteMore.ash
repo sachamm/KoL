@@ -60,6 +60,8 @@ void smmIRGenerateZirconia() {
         float value=smmIRRewardValue(products[i]);
         SmmIRWork work; work.kind="more.cast"; work.cast=to_skill(id); work.product=products[i]; work.counter=counters[i];
         work.option=ceil(smmIRZirconiaEstimate(casts)).to_int();
+        work.why="Cast "+(casts+1)+" of "+work.cast+" costs about "+work.option+" base substats (valued at "+round(cost)+" Meat). It makes a "+products[i]+" worth "+round(value)+" Meat; "+smmIRValueNote(products[i])+". Only the cheapest casts (up to "+cap+" per skill today) are taken.";
+        work.expect="Cast succeeds, "+products[i]+" +1 in inventory, and the substat loss stays near "+work.option+" (the worker stops this skill if it is far higher).";
         if (value>cost || (smmMuseumEnabled() && smmMuseumProgress(products[i],1)>0))
             smmIRAdd("2025-10.bcz."+id,"Zirconia: cheap cast "+(casts+1)+" making "+products[i],work,value,cost,"",0);
     }
@@ -71,6 +73,8 @@ void smmIRGenerateDuffel() {
     foreach it in $items[McHugeLarge left pole,McHugeLarge right pole,McHugeLarge left ski,McHugeLarge right ski]
         if (available_amount(it)>0) return;
     SmmIRWork work; work.kind="more.duffel"; work.product=$item[McHugeLarge left pole];
+    work.why="Free once per ascension: unpacking the duffel bag gives the McHugeLarge ski set (pole, skis). No Meat value is claimed; it is taken as a free utility and collection item.";
+    work.expect="The four McHugeLarge pieces (left/right pole, left/right ski) appear in inventory.";
     smmIRAdd("2025-01.duffel","Unpack this ascension's McHugeLarge ski set",work,0,0,"",0);
     smmIRUtility("2025-01.duffel");
 }
@@ -95,6 +99,8 @@ void smmIRGenerateTaker() {
     if (get_workshed()!=$item[TakerSpace letter of Marque]) return;
     if (!get_property("_takerSpaceSuppliesDelivered").to_boolean()) {
         SmmIRWork work; work.kind="more.taker.collect"; work.counter="_takerSpaceSuppliesDelivered";
+        work.why="The daily TakerSpace delivery is free and must be collected before any supplies can be spent; supply counts are unreliable until it is seen.";
+        work.expect="Spice, rum, anchors and masts rise by about 3 each and silk and gold by about 1 each; the delivered flag becomes true.";
         smmIRAdd("2024-12.taker.collect","Collect today's TakerSpace delivery",work,0,0,"",0);
         smmIRUtility("2024-12.taker.collect");
         return; // supply counts are stale until the delivery is seen
@@ -128,6 +134,10 @@ void smmIRGenerateTaker() {
         if (dips) continue;
         SmmIRWork work; work.kind="more.create"; work.product=it; work.choice_id=1537;
         string id="2024-12.taker."+it.to_int();
+        string [int] names={"spice","rum","anchor","mast","silk","gold"}; string uses;
+        foreach i, amount in split_string(recipe,",") if (amount.to_int()>0) uses+=(uses=="" ? "" : ", ")+amount+" "+names[i];
+        work.why="Spends "+uses+" of stored TakerSpace supplies. Supplies carry over and have no other use, so the cost is the products they would otherwise make; "+smmIRValueNote(it)+(it==target ? ". This is the best product per day of deliveries." : ". Supplies needed to save up for "+target+" are not touched.");
+        work.expect=it+" +1 in inventory and "+uses+" removed from the supply counters.";
         smmIRAdd(id,"TakerSpace: make "+it,work,value,0,"",0);
         if (!(smmIRActions contains id)) continue;
         foreach i, amount in split_string(recipe,",") if (amount.to_int()>0) smmIRActions[id].costs[pools[i]]=amount.to_int();
@@ -149,6 +159,8 @@ void smmIRGenerateEmbers() {
         float value=smmIRRewardValue(it);
         if (value<=0 && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
         SmmIRWork work; work.kind="more.buy"; work.product=it; work.option=price;
+        work.why="Embers are a daily currency with no sale value, so only the "+(spendable)+" above the reserve are spendable. This buys "+it+" for "+price+" embers; "+smmIRValueNote(it)+". Embers are shared across candidates, so the planner takes the best use.";
+        work.expect=it+" +1 in inventory and the ember balance drops by "+price+".";
         smmIRAdd("2024-09.ember."+it.to_int(),"Spend embers on "+it,work,value,price*max(0,smmIRSetting("emberValue",0)),"embers",price);
     }
 }
@@ -169,6 +181,8 @@ void smmIRGenerateKiwi() {
         float value=smmIRRewardValue(it); float input=smmIRInputValue(kiwi,price);
         if (value<=input && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
         SmmIRWork work; work.kind="more.kiwi"; work.product=it; work.option=price; work.counter="kiwiBuys";
+        work.why="Pays "+price+" mini kiwi"+(price>1 ? "s" : "")+" (worth "+round(input)+" Meat as inputs: "+smmIRValueNote(kiwi)+") for "+it+", which is worth "+round(value)+" Meat; "+smmIRValueNote(it)+".";
+        work.expect=it+" +1 in inventory and mini kiwis -"+price+".";
         smmIRAdd("2024-06.kiwi."+it.to_int(),"Trade "+price+" mini kiwis for "+it,work,value,input,"route.item."+kiwi.to_int(),price);
     }
 }
@@ -180,6 +194,8 @@ void smmIRGenerateLeaves() {
     if (!(get_campground() contains $item[A Guide to Burning Leaves])) return;
     if (!get_property("_leavesJumped").to_boolean()) {
         SmmIRWork work; work.kind="more.leaves.jump"; work.counter="_leavesJumped";
+        work.why="The daily leaf-pile jump costs no adventure and yields inflammable leaves, which are Museum items and crafting inputs.";
+        work.expect="Some inflammable leaves are added to inventory and the daily jumped flag becomes true.";
         smmIRAdd("2023-11.leaves.jump","Jump in the burning leaf pile (free, daily)",work,0,0,"",0);
         smmIRUtility("2023-11.leaves.jump");
     }
@@ -194,6 +210,8 @@ void smmIRGenerateLeaves() {
         float value=smmIRRewardValue(it); float input=smmIRInputValue(leaf,cost);
         if (value<=input && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
         SmmIRWork work; work.kind="more.create"; work.product=it; work.choice_id=1510; work.counter="leafCrafts";
+        work.why="Burns "+cost+" inflammable leaves (worth "+round(input)+" Meat as inputs: "+smmIRValueNote(leaf)+") to make "+it+" worth "+round(value)+" Meat; "+smmIRValueNote(it)+".";
+        work.expect=it+" +1 in inventory and inflammable leaves -"+cost+".";
         smmIRAdd("2023-11.leaves."+it.to_int(),"Burn "+cost+" leaves for "+it,work,value,input,"route.item."+leaf.to_int(),cost);
     }
     if (held) smmIRNote("Inflammable leaves are held for their own Museum rank. Set smm.IR.museumCopyValue."+leaf.to_int()+" (Meat per leaf) to allow burning them.");

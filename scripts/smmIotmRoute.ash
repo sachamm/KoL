@@ -304,6 +304,8 @@ void smmIRReport(SmmRPPlan plan) {
         string id=smmIRNext(remaining);
         SmmRPContext context=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
         print(id+": "+smmIRActions[id].description+" [estimated net "+round(smmRPEconomicValue(smmIRActions[id],context))+" Meat]");
+        print("    why: "+smmIRWhy[id],"gray"); print("    expected result: "+smmIRExpect[id],"gray");
+        if (smmIRThen[id]!="") print("    then: "+smmIRThen[id],"gray");
         remove remaining[id];
     }
     foreach i, message in smmIRNotes print(message,"gray");
@@ -373,12 +375,15 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
             SmmIRWork work=smmIRCopyWork(smmIRWorkers[next]);
             if (work.kind=="museum.deposit") work.option=plan.quantity[next];
             print("IoTM route: "+smmIRActions[next].description,"blue");
+            print("    why: "+smmIRWhy[next],"gray"); print("    expected result: "+smmIRExpect[next],"gray");
+            if (smmIRThen[next]!="") print("    then: "+smmIRThen[next],"gray");
             log.append("ATTEMPT\t"+next+"\n"); log.buffer_to_file("smm-iotm-route-last.txt");
             SmmRPContext valuation=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
             smmIRSelectedLoss=max(0.0,-smmRPEconomicValue(smmIRActions[next],valuation));
             SmmIRResult result=smmIRExecute(work); steps+=1;
             log.append(next+"\t"+result.success+"\tpaid="+result.turns+"\tMeat="+result.meat_delta+"\tadventures gained="+result.adventures_gained+"\tdisplay="+result.displayed+"\t"+result.reason+"\n");
-            if (!result.success) { smmIRBlocked[next]=true; print(result.reason,"orange"); }
+            if (!result.success) { smmIRBlocked[next]=true; print("    NOT achieved ("+smmIRExpect[next]+") - "+result.reason,"orange"); }
+            else print("    achieved: "+smmIRExpect[next],"green");
             if (handling_choice() || current_round()>0 || have_effect($effect[Beaten Up])>0) break;
             // Read real properties/inventory after every worker. The old plan's
             // unexecuted quantities never become fabricated uses or receipts.

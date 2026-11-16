@@ -21,6 +21,8 @@ record SmmIRWork {
     int option;
     int allowed_turns;
     int expected_adventures;
+    string why;
+    string expect;
 };
 
 record SmmIRGear {
@@ -51,6 +53,9 @@ record SmmIRResult {
 
 SmmRPAction [string] smmIRActions;
 SmmIRWork [string] smmIRWorkers;
+string [string] smmIRWhy;
+string [string] smmIRExpect;
+string [string] smmIRThen;
 float [item] smmIRPrices;
 float [item] smmIRReplacementPrices;
 boolean [string] smmIRBlocked;
@@ -445,7 +450,7 @@ float smmIRCombatValue(monster foe, SmmIRWork gear) {
 SmmIRWork smmIRCopyWork(SmmIRWork source) {
     return new SmmIRWork(source.kind,source.product,source.ingredient1,source.ingredient2,source.ingredient3,
         source.cast,source.companion,source.companion_equipment,source.zone,source.foe,source.parameters,
-        source.counter,source.choice_id,source.option,source.allowed_turns,source.expected_adventures);
+        source.counter,source.choice_id,source.option,source.allowed_turns,source.expected_adventures,source.why,source.expect);
 }
 
 float smmIRMonsterProgress(monster foe) {
@@ -476,6 +481,68 @@ float smmIRWorkProgress(SmmIRWork work) {
     return 0;
 }
 
+
+// Plain-language valuation of an item: what a copy sells for and what the
+// Museum objective says about keeping it, so the plan can state its reasoning.
+string smmIRValueNote(item it) {
+    if (it==$item[none]) return "";
+    float sale=smmIRSaleValue(it);
+    string note=it+" is worth about "+round(sale)+" Meat if sold";
+    if (smmMuseumEnabled() && is_displayable(it)) {
+        SmmMuseumGoal goal=smmMuseumGoal(it);
+        if (!goal.known) note+="; Museum ranking is unavailable, so copies are reserved for the Display Case until it is known";
+        else if (smmMuseumMissing(it,goal)>0) note+="; "+smmMuseumMissing(it,goal)+" more are needed for Museum #1, so it is valued at its replacement price of "+round(smmIRReplacementPrices[it])+" Meat";
+        else note+="; the Museum goal is already met, so extra copies are sold";
+    }
+    return note;
+}
+
+// What the route intends for the product once it exists: display, keep to use,
+// or leave for sale. The route values items at sale price but never sells them.
+string smmIRUseNote(item it) {
+    string type=item_type(it);
+    if (it.fullness>0) return "food ("+it.fullness+" fullness), usable in the diet";
+    if (it.inebriety>0) return "booze ("+it.inebriety+" drunkenness), usable in the diet";
+    if (it.spleen>0) return "spleen item ("+it.spleen+" spleen), usable in the diet";
+    if (type=="potion") return "potion, usable for its effect";
+    if (type.starts_with("combat")) return "combat item, useful in fights";
+    if (to_slot(it)!=$slot[none]) return "equipment ("+to_slot(it)+"), wearable if it beats your current gear";
+    return "";
+}
+
+string smmIRDisposition(item it) {
+    if (it==$item[none]) return "";
+    string text; string use=smmIRUseNote(it);
+    int reserved=max(0,smmIRSetting("keepItem."+it.to_int(),0).to_int());
+    if (smmMuseumEnabled() && is_displayable(it)) {
+        SmmMuseumGoal goal=smmMuseumGoal(it);
+        if (!goal.known) text="Hold it: Museum ranking is unknown, so the copy is reserved for the Display Case and will not be sold or consumed until rankings load.";
+        else if (smmMuseumMissing(it,goal)>0) text="Display Case: "+smmMuseumDisplay(it)+" on display against "+goal.first+" needed for #1, so the museum deposit step places it there for rank.";
+        else text="Not needed for the Display Case (goal "+goal.first+" already met), so it is surplus: left in inventory for you to sell at about "+round(smmIRSaleValue(it))+" Meat.";
+    } else {
+        text="Not sold automatically; it stays in inventory, worth about "+round(smmIRSaleValue(it))+" Meat if you sell it.";
+    }
+    if (use!="") text+=" It is also a "+use+"; set smm.IR.keepItem."+it.to_int()+" to hold copies back for that.";
+    if (reserved>0) text+=" "+reserved+" are already reserved on hand.";
+    return text;
+}
+
+string smmIRAutoWhy(SmmIRWork work, float benefits, float costs, string resource, int units) {
+    string text="Gain valued at "+round(benefits)+" Meat";
+    if (work.product!=$item[none]) text+=" ("+smmIRValueNote(work.product)+")";
+    text+=", against "+round(costs)+" Meat of inputs/opportunity cost";
+    if (resource!="" && units>0) text+=" plus "+units+" from the shared pool '"+resource+"'";
+    if (work.allowed_turns>0) text+=" and up to "+work.allowed_turns+" paid turns";
+    if (benefits<=0 && costs<=0) text+=". Free daily action taken for its non-Meat benefit";
+    return text+".";
+}
+
+string smmIRAutoExpect(SmmIRWork work) {
+    if (work.product!=$item[none] && (work.kind=="bones.buy" || work.kind=="coin.buy" || work.kind=="craft" || work.kind=="pasta.summon"))
+        return "Inventory of "+work.product+" should rise by 1 (verified after the action).";
+    return "The action's state change is verified after it runs; the route stops on a mismatch.";
+}
+
 void smmIRAdd(string id, string description, SmmIRWork work, float benefits, float costs, string resource, int units) {
     if (smmIRBlocked[id]) return;
     SmmRPAction action=smmRPNewAction(description,1,benefits);
@@ -504,6 +571,9 @@ void smmIRAdd(string id, string description, SmmIRWork work, float benefits, flo
     float museum_progress=smmIRWorkProgress(work);
     if (museum_progress>0) { action.goal="museum."+id; action.missing=1; action.collection_value=museum_progress; }
     smmIRActions[id]=action; smmIRWorkers[id]=smmIRCopyWork(work);
+    smmIRWhy[id]=work.why!="" ? work.why : smmIRAutoWhy(work,benefits,costs,resource,units);
+    smmIRExpect[id]=work.expect!="" ? work.expect : smmIRAutoExpect(work);
+    smmIRThen[id]=work.product!=$item[none] && work.kind!="museum.deposit" ? smmIRDisposition(work.product) : "";
 }
 
 void smmIRUtility(string id) {

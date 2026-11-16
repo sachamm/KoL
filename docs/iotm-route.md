@@ -120,6 +120,8 @@ The second batch lives in `smmIotmRouteMore.ash` (`more.*` workers). Its mechani
 
 Shop prices use `smmIRShopPrice`: `buy_price()` returns 0 for coinmasters defined by shop rows, which had left the Interesting Coin and knucklebone purchases without candidates.
 
+Every planned action prints a `why:` line (the economic or Museum reasoning: gain, cost, shared pools, and whether the product is kept for rank or sold) and an `expected result:` line, plus a `then:` line saying what happens to the product (Display Case for rank, held pending rankings, or surplus for you to sell) and flagging food, drink, spleen, potion, combat and equipment items worth keeping on hand via `smm.IR.keepItem.<id>`. When the action runs, the route prints `achieved:` or `NOT achieved` against that expectation. Adapters set `work.why` and `work.expect` explicitly; actions that don't get a generated explanation from their benefit, cost and pool figures.
+
 Not yet adapted, newest first: shrunken head, Monodent wave/lightning, Möbius ring, Cooler Yeti, Peridot of Peril, Leprecondo, toy Cupid bow, Peace Turkey, Clan Photo Booth, and everything from 2024-08 back that is not listed above. Other items in the 2016-09–2026-11 registry retain their research and existing daily automation. This execution layer does not claim complete automation of all 123 monthly offerings. Add further generators/workers in reverse release order, with verified prerequisites, explicit shared costs and actual-result checks.
 
 ## Resource ownership, combat and recovery
