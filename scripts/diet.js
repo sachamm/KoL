@@ -281,7 +281,7 @@ function tehtmi(diet_settings) {
 			// item-specific bonuses counted separately AFTER bonuses from munchies/fork/etc
 			
 			if(item["name"] == "Affirmation Cookie") {
-				adv += affirmation_bonus  // smm: was a flat +6 (4th+ cookie of the ascension)
+				adv += affirmation_bonus  // smm: was a flat +6; 0 under KoLmafia, whose data already includes it
 			}
 
 			// smm: KoLmafia's data already lists spaghetti breakfast and Cold One
@@ -1966,7 +1966,9 @@ function buildSettings(opts) {
 		"excluded consumables": excluded,
 		"organ sizes": organs,
 		// smm additions
-		"affirmation bonus": 2 * Math.min(3, prefInt("affirmationCookiesEaten")),
+		// KoLmafia already rewrites the cookie's adventures from affirmationCookiesEaten
+		// (3, 5, 7, then 9), so no bonus is added on top.
+		"affirmation bonus": 0,
 		"speakeasy drinks left": speakeasy_left,
 		"ancestral recall casts left": Math.max(0, 10 - prefInt("_ancestralRecallCasts")),
 		"chocolates used": {
@@ -2052,7 +2054,8 @@ function main(argString) {
 
 	printPlan(result, settings)
 	if (opts.execute) executePlan(result, settings)
-	return result
+	// Return nothing: KoLmafia converts a JS return value to ASH, and the plan
+	// object (with its undefined fields) can't be converted.
 }
 
 
