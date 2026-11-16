@@ -247,8 +247,14 @@ boolean smmIRDispatch(SmmIRWork work) {
     return false;
 }
 
+// Pool snapshots taken around the last attempted worker, kept so the route
+// loop can compare the observed change with what the plan expected.
+SmmRPResource [string] smmIRPoolsBefore;
+SmmRPResource [string] smmIRPoolsAfter;
+
 SmmIRResult smmIRExecute(SmmIRWork work) {
     SmmIRResult result;
+    clear(smmIRPoolsBefore); clear(smmIRPoolsAfter);
     if (work.allowed_turns>smmIRPaidRemaining()) { result.reason="insufficient remaining paid-turn budget"; return result; }
     if (smmIRSelectedLoss>smmIRCollectionRemaining()) { result.reason="daily collection-loss budget exhausted"; smmIRSelectedLoss=0; return result; }
     set_property("smm.IR.lastMuseumDeposit","");
@@ -278,6 +284,7 @@ SmmIRResult smmIRExecute(SmmIRWork work) {
         result.displayed=get_property("smm.IR.lastMuseumDeposit");
         boolean consumed=result.success || result.turns>0 || result.meat_delta<0;
         SmmRPResource [string] after_resources=smmIRResources();
+        smmIRPoolsBefore=before_resources; smmIRPoolsAfter=after_resources;
         foreach resource, previous in before_resources if ((after_resources contains resource) && previous.known && after_resources[resource].known
             && after_resources[resource].remaining<previous.remaining) consumed=true;
         foreach it, quantity in before_inventory if (item_amount(it)<quantity) consumed=true;
@@ -286,6 +293,65 @@ SmmIRResult smmIRExecute(SmmIRWork work) {
         if (result.turns>work.allowed_turns) abort("An expected free/bounded action spent extra turns; recorded the actual cost and stopped the route.");
     }
     return result;
+}
+
+// Cheap fingerprint of the character state the candidate generators gate or
+// value on. Gates are recorded as crossings, not raw numbers, so ordinary
+// HP/MP/adventure movement does not look like a change.
+string smmIRStateSignature() {
+    string value=(my_adventures()>0)+"|"+(my_adventures()>=3)+"|"+(my_hp()<my_maxhp()/3)+"|"+(my_mp()<30)
+        +"|"+(my_inebriety()<inebriety_limit())+"|"+(my_inebriety()>inebriety_limit())
+        +"|"+(have_effect($effect[Lucky!])>0)+"|"+(have_effect($effect[Fishy])>0)+"|"+(have_effect($effect[Beaten Up])>0)
+        +"|"+item_drop_modifier()+"|"+meat_drop_modifier()+"|"+weight_adjustment()+"|"+monster_level_adjustment()
+        +"|"+my_familiar()+"|"+equipped_item($slot[familiar])
+        +"|"+get_property("swordOfSWordsMonster")+"|"+(get_property("_swordOfSWordsKills").to_int()>=100)
+        +"|"+get_property("_seadentWaveZone")+"|"+my_garden_type();
+    // The spade candidates are tied to the last adventured zone.
+    if (available_amount($item[Archaeologist's Spade])>0 && get_property("_archSpadeDigs").to_int()<11) value+="|"+get_property("lastAdventure");
+    foreach id, point in smmIRGarden value+="|"+id+":"+point.done+":"+point.reachable;
+    return value;
+}
+
+// Actions whose results change prices or create capacity that neither the pool
+// comparison nor the state signature can see.
+boolean smmIREnabler(string kind) {
+    return kind=="coin.buy" || kind.starts_with("extra.coin.") || kind=="bones.buy" || kind=="pasta.summon"
+        || kind=="more.taker.collect" || kind=="more.leaves.jump" || kind=="garden.switch";
+}
+
+// A stale plan must not get a worker blocked for a gate the generators would
+// have applied. Returns the reason to replan before running this action.
+string smmIRStaleReason(string id) {
+    SmmIRWork work=smmIRWorkers[id];
+    if (work.cast!=$skill[none] && my_mp()<mp_cost(work.cast)) return "not enough MP left for "+work.cast;
+    return "";
+}
+
+// Decide whether the action just run changed anything the rest of the plan
+// depends on. Returns "" when the remaining plan is still valid, otherwise the
+// reason for replanning. Gains that only make new actions possible (ordinary
+// loot, Meat) are left for the confirming replan at the end of the plan.
+string smmIRMaterialChange(string id, int units, SmmIRResult result, string before, string after) {
+    if (!result.success) return "action failed or was blocked";
+    if (before!=after) return "character state changed (gate, modifier, Sword target or garden)";
+    if (smmIREnabler(smmIRWorkers[id].kind)) return "action changes prices or creates new capacity";
+    // Only pools some candidate draws on can change the allocation.
+    boolean [string] used;
+    foreach other, action in smmIRActions foreach pool, cost in action.costs used[pool]=true;
+    foreach pool, previous in smmIRPoolsBefore {
+        if (!(used contains pool) || !(smmIRPoolsAfter contains pool)) continue;
+        if (!previous.known || !smmIRPoolsAfter[pool].known) {
+            if (previous.known!=smmIRPoolsAfter[pool].known) return "pool "+pool+" changed availability";
+            continue;
+        }
+        int expected=previous.remaining;
+        if (smmIRActions[id].costs contains pool) expected-=units*smmIRActions[id].costs[pool];
+        int actual=smmIRPoolsAfter[pool].remaining;
+        if (actual<expected) return "pool "+pool+" has "+actual+" left, "+expected+" expected";
+        // Extra Meat cannot invalidate anything already planned.
+        if (actual>expected && pool!="route.meat") return "pool "+pool+" has "+actual+" left, "+expected+" expected";
+    }
+    return "";
 }
 
 string smmIRNext(int [string] quantities) {
@@ -303,7 +369,7 @@ void smmIRReport(SmmRPPlan plan) {
     while (count(remaining)>0) {
         string id=smmIRNext(remaining);
         SmmRPContext context=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
-        print(id+": "+smmIRActions[id].description+" [estimated net "+round(smmRPEconomicValue(smmIRActions[id],context))+" Meat]");
+        print(id+": "+smmIRActions[id].description+(remaining[id]>1 ? " x"+remaining[id] : "")+" [estimated net "+round(smmRPEconomicValue(smmIRActions[id],context)*remaining[id])+" Meat]");
         print("    why: "+smmIRWhy[id],"gray"); print("    expected result: "+smmIRExpect[id],"gray");
         if (smmIRThen[id]!="") print("    then: "+smmIRThen[id],"gray");
         remove remaining[id];
@@ -368,27 +434,51 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
         cli_execute("mood apathetic"); set_property("recoveryScript","");
         set_property("manaBurningThreshold",-0.05); set_property("manaBurningTrigger",-0.05);
         set_property("familiarScript", ""); set_property("hpAutoRecovery",-0.05); set_property("mpAutoRecovery",-0.05);
-        int steps;
+        // The solved plan is a work queue. It is rebuilt only when something
+        // material changed (see smmIRMaterialChange), and once more when the
+        // queue empties, to pick up actions the day's results made possible.
+        int steps; int plans=1; boolean stale;
         while (steps<200 && epoch==smmRPEpoch() && plan.valid) {
             string next=smmIRNext(plan.quantity);
-            if (next=="") break;
-            SmmIRWork work=smmIRCopyWork(smmIRWorkers[next]);
-            if (work.kind=="museum.deposit") work.option=plan.quantity[next];
-            print("IoTM route: "+smmIRActions[next].description,"blue");
-            print("    why: "+smmIRWhy[next],"gray"); print("    expected result: "+smmIRExpect[next],"gray");
-            if (smmIRThen[next]!="") print("    then: "+smmIRThen[next],"gray");
-            log.append("ATTEMPT\t"+next+"\n"); log.buffer_to_file("smm-iotm-route-last.txt");
-            SmmRPContext valuation=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
-            smmIRSelectedLoss=max(0.0,-smmRPEconomicValue(smmIRActions[next],valuation));
-            SmmIRResult result=smmIRExecute(work); steps+=1;
-            log.append(next+"\t"+result.success+"\tpaid="+result.turns+"\tMeat="+result.meat_delta+"\tadventures gained="+result.adventures_gained+"\tdisplay="+result.displayed+"\t"+result.reason+"\n");
-            if (!result.success) { smmIRBlocked[next]=true; print("    NOT achieved ("+smmIRExpect[next]+") - "+result.reason,"orange"); }
-            else print("    achieved: "+smmIRExpect[next],"green");
-            if (handling_choice() || current_round()>0 || have_effect($effect[Beaten Up])>0) break;
-            // Read real properties/inventory after every worker. The old plan's
-            // unexecuted quantities never become fabricated uses or receipts.
-            plan=smmIRGenerate();
+            string replan;
+            if (next=="") {
+                if (!stale) break; // a fresh plan with nothing to do: finished
+                replan="plan completed; checking for newly available actions";
+            } else if (stale) replan=smmIRStaleReason(next);
+            if (replan=="") {
+                SmmIRWork work=smmIRCopyWork(smmIRWorkers[next]);
+                // Batched actions run their whole planned quantity in one worker.
+                int units=1;
+                if (work.kind=="museum.deposit") { units=plan.quantity[next]; work.option=units; }
+                else if (work.kind=="farm") { units=plan.quantity[next]; work.allowed_turns=units; }
+                print("IoTM route: "+smmIRActions[next].description+(units>1 && work.kind=="farm" ? " (up to "+units+" turns)" : ""),"blue");
+                print("    why: "+smmIRWhy[next],"gray"); print("    expected result: "+smmIRExpect[next],"gray");
+                if (smmIRThen[next]!="") print("    then: "+smmIRThen[next],"gray");
+                log.append("ATTEMPT\t"+next+"\n"); log.buffer_to_file("smm-iotm-route-last.txt");
+                SmmRPContext valuation=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
+                smmIRSelectedLoss=max(0.0,-smmRPEconomicValue(smmIRActions[next],valuation))*(work.kind=="farm" ? units : 1);
+                string before=smmIRStateSignature();
+                SmmIRResult result=smmIRExecute(work); steps+=1;
+                log.append(next+"\t"+result.success+"\tpaid="+result.turns+"\tMeat="+result.meat_delta+"\tadventures gained="+result.adventures_gained+"\tdisplay="+result.displayed+"\t"+result.reason+"\n");
+                if (!result.success) { smmIRBlocked[next]=true; print("    NOT achieved ("+smmIRExpect[next]+") - "+result.reason,"orange"); }
+                else print("    achieved: "+smmIRExpect[next],"green");
+                if (handling_choice() || current_round()>0 || have_effect($effect[Beaten Up])>0) break;
+                // Real properties/inventory are read after every worker. When they
+                // match what the plan expected, the rest of the plan still stands.
+                replan=smmIRMaterialChange(next,units,result,before,smmIRStateSignature());
+                if (replan=="") {
+                    plan.quantity[next]-=units;
+                    if (plan.quantity[next]<1) remove plan.quantity[next];
+                    stale=true;
+                    continue;
+                }
+            }
+            print("IoTM route: replanning - "+replan,"gray");
+            log.append("REPLAN\t"+replan+"\n");
+            plan=smmIRGenerate(); plans+=1; stale=false;
         }
+        print("IoTM route: "+steps+" actions attempted with "+plans+" planning passes.","blue");
+        log.append("SUMMARY\tactions="+steps+"\tplans="+plans+"\n");
         if (steps==200) print("IoTM route step limit reached; inspect the receipt before continuing.","orange");
     } finally {
         log.buffer_to_file("smm-iotm-route-last.txt");

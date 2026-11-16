@@ -4,7 +4,20 @@ The standing objective is **Museum rank #1 for each displayable item, accepting 
 
 `dailyGrind()` now invokes `smmIRDailyRoute(false,true)` after second breakfast and before legacy daily deeds. `dailyNoAdventureGrind()` invokes `smmIRDailyRoute(true,true)` at the same point. The existing older daily routines continue afterward.
 
-The route builds executable candidates from current character state, solves their shared resource allocation with `smmResourcePlanner.ash`, executes the newest selected candidate, verifies its result, and regenerates the model. A dependency such as a locket fight can carry a newer Sword ability; it is dated as that newer ability. Merely owning an item or having its counter in the planner does **not** mean every ability has an executor.
+The route builds executable candidates from current character state, solves their shared resource allocation with `smmResourcePlanner.ash`, executes the selected candidates newest first, and verifies each result. The model is regenerated only when something material changed (see *When the route replans*). A dependency such as a locket fight can carry a newer Sword ability; it is dated as that newer ability. Merely owning an item or having its counter in the planner does **not** mean every ability has an executor.
+
+## When the route replans
+
+A solved plan is a work queue, not a single step. After each worker the route compares real state with what the plan expected and keeps the remaining plan when they match. It regenerates and re-solves only when:
+
+- the action failed or was blocked;
+- a pool some candidate draws on holds more or less than the plan expected (extra Meat is ignored);
+- a generator gate was crossed (adventures at 0 or below 3, HP below a third, MP below 30, drunkenness, Lucky!, Fishy), or the item/Meat drop modifiers, familiar weight, Sword target or garden layout changed;
+- the action changes prices or creates capacity the checks above cannot see: Interesting Coin and knucklebone purchases, the noodle summon, the TakerSpace collection, the leaf jump and a garden switch;
+- the next queued cast can no longer be afforded;
+- the queue is empty. This confirming pass picks up actions that ordinary loot made possible, and the run ends when it selects nothing.
+
+Zone farming is one candidate covering all remaining paid turns, run as a single block; its worker still rechecks zone income before every turn. Repeated actions other than farming are planned one per pass, so they interleave across passes instead of running back to back. The run prints its action and planning-pass counts.
 
 ## Commands
 
@@ -132,7 +145,7 @@ The dedicated `smm-iotm-route.ccs` invokes the existing damage/survival strategy
 
 Workers restore equipment and familiar equipment when the encounter is finished. The outer route saves/restores CCS, battle action, autoattack, mood, adventure hooks, familiar script, recovery and automatic-purchase settings. Mall/NPC/coinmaster/stash/shop acquisition is disabled while workers run; existing preferences for retrieving owned closet/storage items are retained. Saved settings can be recovered with `reset` following a hard interruption. An unfinished encounter or defeat stops the route; gear restoration waits until that encounter can be resolved.
 
-The receipt is Mafia's `data/smm-iotm-route-last.txt`: attempted action IDs, confirmed success, actual paid turns, direct Meat delta, adventures gained, and confirmed Display Case transfers. Loot may be retained/placed rather than sold, so direct Meat receipts do not equal avoided collection purchases or non-cash rank utility. Consult Mafia's session log for item drops. A failed worker is blocked for the rest of that invocation; it cannot loop indefinitely on a stale flag.
+The receipt is Mafia's `data/smm-iotm-route-last.txt`: attempted action IDs, confirmed success, actual paid turns, direct Meat delta, adventures gained, and confirmed Display Case transfers. `REPLAN` lines give the reason for each new planning pass and the final `SUMMARY` line counts actions and passes. Loot may be retained/placed rather than sold, so direct Meat receipts do not equal avoided collection purchases or non-cash rank utility. Consult Mafia's session log for item drops. A failed worker is blocked for the rest of that invocation; it cannot loop indefinitely on a stale flag.
 
 ## Validation
 
