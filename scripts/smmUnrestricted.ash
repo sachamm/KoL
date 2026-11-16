@@ -4619,11 +4619,15 @@ void grindJelly(item jellyType) {
 
 
 
+// Returns the broken champagne bottle charges we can use now. NOTE: may fold the garbage tote (side effect).
+// Unused charges carry over from the previous day, and the first form change of the day resets them to 11.
+// So: if charges are held over, return them as-is and don't fold (folding first would throw the leftovers away).
+// Once they reach 0, if we haven't changed form today, fold to the bottle to reset to 11. Callers that loop on
+// this function therefore burn the leftovers first and then a fresh 11.
 int garbageChampagneCharge() {
 	int chargesAvailable = to_int(get_property("garbageChampagneCharge"));
 	if (chargesAvailable == 0 && !to_boolean(get_property("_garbageItemChanged"))) {
 		cli_execute("tote 2");
-		// Return max charges (11) when at 0 charges but the first form change of the day is available, which resets charges to 11.
 		chargesAvailable = 11;
 	}
 	return chargesAvailable;
@@ -4633,11 +4637,12 @@ int garbageChampagneCharge() {
 
 void burnBrokenChampagneBottle(AdventureRecord advRecord, int turns) {
 	print("burnBrokenChampagneBottle: " + advRecord.toString(), "green");
-	int chargesAvailable = garbageChampagneCharge();
-	chargesAvailable = min(chargesAvailable, turns); // don't spend more than turns
+	// turns is the cap on the total number of adventures, across held-over charges AND the fresh 11 after a refold
+	int turnsLeft = turns;
+	int chargesAvailable = min(garbageChampagneCharge(), turnsLeft);
 
 	int tries = chargesAvailable + 5;
-	while (chargesAvailable > 0 && tries > 0) {
+	while (chargesAvailable > 0 && turnsLeft > 0 && tries > 0) {
 		int turnsToBurn = chargesAvailable;
 		int otoscopeChargesAvailable = 3 - to_int(get_property("_otoscopeUsed"));
 		int cloakChargesAvailable = 10 - to_int(get_property("_vampyreCloakeFormUses"));
@@ -4660,8 +4665,12 @@ void burnBrokenChampagneBottle(AdventureRecord advRecord, int turns) {
 		healAndRemoveDebuffsWithMPRestore();
 		getToAdventure(advRecord);
 		run_turn();
+		turnsLeft--;
 
-		chargesAvailable = garbageChampagneCharge();
+		int newCharges = garbageChampagneCharge(); // folds for a fresh 11 if we just used the last held-over charge
+		if (newCharges > chargesAvailable)
+			tries += newCharges; // fresh bottle: give it the same tries budget the first batch got
+		chargesAvailable = min(newCharges, turnsLeft);
 		tries--;
 	}
 }
@@ -4677,7 +4686,7 @@ void burnChampagneBottle(boolean drumMachine) {
 		else
 			ar = new AdventureRecord($location[Dreadsylvanian Village], $skill[none], $item[none]);
 	}
-	burnBrokenChampagneBottle(ar, garbageChampagneCharge());
+	burnBrokenChampagneBottle(ar, kMaxInt); // burn everything: held-over charges, then the fresh 11 if we haven't folded today
 }
 
 
@@ -5050,10 +5059,18 @@ void grindScarabBeatles(int maxPerTurnCost, boolean doBlur, int banishesToSave) 
 	print("grindScarabBeatles, banishesToSave: " + banishesToSave, "green");
 	clearAutomateDressup();
 	printBanishPriorityArray(true, false, $location[The Oasis], maxPerTurnCost);
+	// stops when banishes run out, when we're down to the last 10 adventures, or when a pass doesn't use any banishes
 	int banishesAvailable = max(0, banishesAvailable(maxPerTurnCost) - banishesToSave);
-	while (banishesAvailable > 0) {
+	int tries = 5;
+	while (banishesAvailable > 0 && my_adventures() > 10 && tries > 0) {
 		getScarabBeatles(min(banishesAvailable * 10, my_adventures() - 10), maxPerTurnCost, false, doBlur); // false = don't yellow ray
-		banishesAvailable = max(0, banishesAvailable(maxPerTurnCost) - banishesToSave);
+		int banishesLeft = max(0, banishesAvailable(maxPerTurnCost) - banishesToSave);
+		if (banishesLeft >= banishesAvailable) {
+			print("grindScarabBeatles: no banishes used in the last pass, stopping", "orange");
+			break;
+		}
+		banishesAvailable = banishesLeft;
+		tries--;
 	}
 // 	assert(banishesAvailable(maxPerTurnCost) - banishesToSave == 0, "we should have exactly " + banishesToSave + " banishes available, but we have " + banishesAvailable(maxPerTurnCost));
 
@@ -5150,7 +5167,7 @@ void grindDrumMachine(int numberToGet, int maxPerTurnCost, boolean getBeatlesOnY
 void grindDrumMachine(int maxPerTurnCost, boolean getBeatlesOnYellowRay, int banishesToSave) {
 	printBanishPriorityArray(true, false, $location[The Oasis], maxPerTurnCost);
 	int banishesAvailable = max(0, banishesAvailable(maxPerTurnCost) - banishesToSave);
-	if (banishesAvailable > 0)
+	if (banishesAvailable > 0 && my_adventures() > 10)
 		grindDrumMachine(min(banishesAvailable * 10, my_adventures() - 10), maxPerTurnCost, getBeatlesOnYellowRay);
 }
 
@@ -5158,7 +5175,7 @@ void grindDrumMachine(int maxPerTurnCost, boolean getBeatlesOnYellowRay, int ban
 void grindDrumMachine(int maxPerTurnCost, boolean getBeatlesOnYellowRay) {
 	printBanishPriorityArray(true, false, $location[The Oasis], maxPerTurnCost);
 	int banishesAvailable = banishesAvailable(maxPerTurnCost);
-	if (banishesAvailable > 0)
+	if (banishesAvailable > 0 && my_adventures() > 10)
 		grindDrumMachine(min((banishesAvailable + 1) * 10, my_adventures() - 10), maxPerTurnCost, getBeatlesOnYellowRay);
 }
 
@@ -6296,10 +6313,6 @@ void dailyNoAdventureGrind() {
 }
 
 
-void dailyDefaultGrind(int [location] endGameTurnsSpent) {
-}
-
-
 void dailyFishingGrind(int [location] endGameTurnsSpent, int maxPerTurnCost) {
 	print("dailyFishingGrind", "green");
 
@@ -6385,8 +6398,6 @@ void dailyGrind() {
 	// if we have the Fishy buff from the pipe from yesterday
 	if (get_property(gDailyFishingGrindKey).to_boolean())
 		dailyFishingGrind(endGameTurnsSpent, maxPerTurnCost); // 20 turns, burns item buffs
-	else
-		dailyDefaultGrind(endGameTurnsSpent);
 
 	// stuff that needs BANISHERS
 	doBounty(); // 20 adv, 5 banishers?
@@ -6395,13 +6406,14 @@ void dailyGrind() {
 	set_property("_smm.UseBanishersConfirmDone", "true");
 
 	// stuff that needs ITEM DROP -- buffs AFTER this point in case we want to stop and burn the 50 Dreadsylvania turns before boss
+	endGameTurnsSpent = endGameTurnsSpent(); // refresh: the clan may have killed more Dread monsters since the start of the run
 	if (!get_property("_smm.HighItemConfirmDone").to_boolean()
 	    && (get_property("garbageChampagneCharge").to_int() > 0 || !get_property("_garbageItemChanged").to_boolean())
 	    && !user_confirm("Continue to high item drop section? Dread woods: "
 	                     + endGameTurnsSpent[$location[Dreadsylvanian Woods]] + ", village: "
 	                     + endGameTurnsSpent[$location[Dreadsylvanian Village]] + ", castle: "
 	                     + endGameTurnsSpent[$location[Dreadsylvanian Castle]], 60000, true))
-		abort();
+		abort("user aborted before the high item drop section");
 	set_property("_smm.HighItemConfirmDone", "true");
 
 	// stuff that needs ITEM DROP
@@ -6418,15 +6430,19 @@ void dailyGrind() {
 	}
 
 	if (!to_boolean(get_property("_smm.LandPreGrindDone"))) {
-		use_skill($skill[seek out a bird], 6 - to_int(get_property("_birdsSoughtToday")));
+		int birdsToSeek = 6 - to_int(get_property("_birdsSoughtToday"));
+		if (have_skill($skill[seek out a bird]) && birdsToSeek > 0) {
+			if (!use_skill($skill[seek out a bird], birdsToSeek)) // optional buff, don't stop the run over it
+				print("couldn't seek out all " + birdsToSeek + " birds, continuing", "orange");
+		}
 		maximizeForItemDrop(1, $location[none]);
 		currentIncome();
 		incomeCalculator();
 		set_property("_smm.LandPreGrindDone", "true");
 	}
 
-	if (banishesAvailable(maxPerTurnCost) > 0 && !to_boolean(get_property("_smm.GrindDone"))) {
-		int kSaveBanishes = 12;
+	int kSaveBanishes = 12; // for grindBeerLens and grindGhostCostume below
+	if (banishesAvailable(maxPerTurnCost) > kSaveBanishes && my_adventures() > 10 && !to_boolean(get_property("_smm.GrindDone"))) {
 		int perAdventureCost = perAdventureCost($location[The Oasis]);
 		int beatleValue = scarabBeatleValue(perAdventureCost);
 		int blurValue = monsterCurrentTotalMeatValue($monster[blur], false) - perAdventureCost;
@@ -6475,10 +6491,14 @@ void dailyGrind() {
 	}
 
 	if (!get_property("_workshedItemUsed").to_boolean() && isAsdonWorkshed()) {
-		int goalDuration = 600;
-		fueled_asdonmartin("observantly", goalDuration);
-		assert(have_effect($effect[Driving Observantly]) >= goalDuration, "didn't get " + goalDuration + " turns of Driving Observantly");
-		use(1, $item[model train set]);
+		if (!have_item($item[model train set])) {
+			print("Asdon Martin is in the workshed but we have no model train set to swap to, leaving the Asdon in place", "orange");
+		} else {
+			int goalDuration = 600;
+			unused = fueled_asdonmartin("observantly", goalDuration); // the assert below reports a failure more clearly
+			assert(have_effect($effect[Driving Observantly]) >= goalDuration, "didn't get " + goalDuration + " turns of Driving Observantly");
+			assert(use(1, $item[model train set]), "couldn't swap the workshed to the model train set");
+		}
 	}
 
     int [int, string] leaderboard = gingerbreadLeaderboard();
@@ -6488,9 +6508,13 @@ void dailyGrind() {
     if (winSprinkles && gbcTurns == 0) {
         print("We can win the Gingerbread City sprinkles leaderboard, but this should be done manually with 'gbc win'");
         printTop10List(leaderboard);
+    } else if (winSprinkles && gbcTurns < 20) {
+        print("Gingerbread City is part done (" + gbcTurns + " turns) and the sprinkles leaderboard looked winnable, finish it manually", "orange");
+        printTop10List(leaderboard);
     } else if (!winSprinkles && gbcTurns < 20) {
         if (gbcTurns > 0 || user_confirm("We can't win the Gingerbread City sprinkles leaderboard, should we grind items?", 60000, true)) {
-            cli_execute("gbc items");
+            if (!cli_execute("gbc items")) // last grind of the day, report instead of stopping
+                print("'gbc items' failed, finish Gingerbread City manually", "red");
         }
     }
 
