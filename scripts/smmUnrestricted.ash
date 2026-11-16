@@ -3049,7 +3049,9 @@ void LOVadv(item clothes, effect buff, item emporium) {
 	run_combat();
 	visit_url("/place.php?whichplace=town_wrong&action=townwrong_tunnel", true, false);
 
+	int clothesBefore = item_amount(clothes);
 	run_choice(clothes_map[clothes]);
+	assert(clothes == $item[none] || item_amount(clothes) > clothesBefore, "didn't get " + clothes);
 	run_choice(1); // fight engineer
 	run_combat();
 	visit_url("/place.php?whichplace=town_wrong&action=townwrong_tunnel", true, false);
@@ -3060,7 +3062,10 @@ void LOVadv(item clothes, effect buff, item emporium) {
 	run_combat();
 
 	visit_url("/place.php?whichplace=town_wrong&action=townwrong_tunnel", true, false);
+	int emporiumBefore = item_amount(emporium);
 	run_choice(emporium_map[emporium]); // boomerang, etc.
+	// Session item totals are net changes: earlier Museum deposits can make them negative.
+	assert(emporium == $item[none] || item_amount(emporium) > emporiumBefore, "didn't get " + emporium);
 
 	if (my_class() == $class[pastamancer])
 		getDefaultPastaThrall();
@@ -3171,8 +3176,6 @@ void dailyDeedsAdv() {
 	if (!to_boolean(get_property("_loveTunnelUsed"))) {
 		LOVadv($item[LOV Earrings], $effect[Wandering Eye Surgery], $item[LOV Echinacea Bouquet]);
 	}
-	assert(my_session_items($item[LOV Earrings]) > 0 || haveRestartedMafia(), "didn't get LOV Earrings");
-	assert(my_session_items($item[LOV Echinacea Bouquet]) > 0 || haveRestartedMafia(), "didn't get LOV Echinacea Bouquet");
 }
 
 
