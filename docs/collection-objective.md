@@ -41,7 +41,6 @@ Museum policy is enabled by default. Relevant settings:
 
 - `smm.IR.museum=false`: opt out to the previous monetary policy.
 - `smm.IR.museumDeposit=false`: hold acquired copies without automatic placement.
-- `smm.IR.museumLookups=50`: maximum Museum requests per day, shared by every script (see "Museum ranking store" below).
 - `smm.IR.museumBuffer`: override the existing `smm.dcOvershootAmount` (default 11).
 - `smm.IR.museumRankValue`: utility of completing a rank milestone, separate from Meat proceeds.
 - `smm.IR.museumCopyValue.<item ID>`: explicit replacement/opportunity value when market acquisition is unavailable; it is not a claim of resale value.
@@ -56,13 +55,13 @@ This is the collection objective and the first rank-aware routing layer, not a c
 
 ## Museum ranking store
 
-Museum requests are rationed, so every answer is kept and reused across days.
+Every Museum answer is kept and reused across days.
 
 - **File:** `data/smm-museum-ranks-<player id>.txt`, one line per item: time of the request, number of collectors, your count and rank on that page, and the first 11 entries of the list (tied players each get an entry).
-- **Budget:** `smm.IR.museumLookups` requests a day (default 50), counted in `_smm.museumLookupsUsed`, which Mafia clears at rollover. Every request goes through `smmMuseumFetch` in `smmUtils.ash`, so `dc`, `targets`, the route and the spending guards share the one budget.
-- **Use:** `lookupCollection` and the Museum guards use the stored ranking whatever its age. They ask the Museum only for an item never looked up, and only while budget remains; otherwise the ranking is unknown and the guards reserve every copy.
-- **Rotation:** `dc refresh [n]` renews the stalest rankings with what is left of today's budget. It covers the Display Case and every stored item: never-checked first, then oldest. Items you hold no copy of count as 30 days fresher, so the ones you are collecting come round first.
+- **Requests:** there is no daily limit. Every request goes through `smmMuseumFetch` in `smmUtils.ash`, which counts them in `_smm.museumLookupsUsed` (cleared at rollover) for reporting. `dc refresh` and `targets refresh` pause a second between requests.
+- **Use:** `lookupCollection` and the Museum guards use the stored ranking whatever its age. They ask the Museum only for an item never looked up; if that request fails, the ranking is unknown and the guards reserve every copy.
+- **Rotation:** `dc refresh [n]` renews the `n` stalest rankings (default: everything looked up more than 20 hours ago). It covers the Display Case and every stored item: never-checked first, then oldest. Items you hold no copy of count as 30 days fresher, so the ones you are collecting come round first.
 - **One item now:** `dc refresh <item>`.
-- **Status:** `dc cache` shows how many rankings are stored, their ages, lookups used today, and how many days a full pass takes.
+- **Status:** `dc cache` shows how many rankings are stored, their ages, lookups made today, and how long a full pass takes.
 
 The old daily `_smm.DCTop10For<item>` preferences are no longer written or read.

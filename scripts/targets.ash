@@ -89,12 +89,12 @@ void smmTGItem(string name) {
         print("Museum: " + rank.holders + " collectors, largest " + rank.top + "; we are " + (rank.my_rank > 0 ? "#" + rank.my_rank + " with " + rank.mine : "not listed") + ".");
         print("Top ten needs " + rank.top10 + " (ties count): " + max(0, rank.top10 - owned) + " more to acquire, " + max(0, min(smmTGHeld(it), rank.top10 - smmTGCase(it))) + " to move into the case.");
         print("Sole first needs " + rank.top1 + ": " + max(0, rank.top1 - owned) + " more to acquire.");
-    } else print(smmMuseumLookupsLeft() < 1 ? "No stored ranking, and today's Museum lookups are used up." : "Museum ranking unavailable.", "orange");
+    } else print("Museum ranking unavailable.", "orange");
 }
 
 void smmTGHelp() {
     print_html("<b>targets</b> [list] [<i>n</i>|all] -- unbuyable Display Case items, closest to the top ten first (default 40 rows)");
-    print_html("<b>targets refresh</b> [<i>n</i>] -- look up missing, then oldest, Museum rankings for register items (default: today's remaining lookups; 'dc refresh' rotates everything)");
+    print_html("<b>targets refresh</b> [<i>n</i>] -- look up missing, then oldest, Museum rankings for register items (default: all missing or due; 'dc refresh' rotates everything)");
     print_html("<b>targets item</b> <i>name</i> -- everything known about one item, with its stored ranking");
     print_html("<b>targets unknown</b> [all] -- unbuyable items with no known source, to be described in data/" + kSmmTGSeedFile);
     print_html("<b>targets summary</b> -- how every Display Case item is classified");
@@ -112,7 +112,7 @@ void main(string arguments) {
         smmTGList(rest == "all" ? 1000000 : is_integer(rest) ? rest.to_int() : 40);
         break;
     case "refresh": {
-        int limit = is_integer(rest) ? rest.to_int() : smmMuseumLookupsLeft();
+        int limit = is_integer(rest) ? rest.to_int() : 0;
         print("Looked up " + smmTGRefresh(limit) + " Museum rankings.", "blue");
         smmTGList(40);
         break;

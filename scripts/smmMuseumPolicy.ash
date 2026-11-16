@@ -40,8 +40,8 @@ SmmMuseumGoal smmMuseumGoal(item it) {
     if (smmMuseumGoals contains it) return smmMuseumGoals[it];
     int [int,string] rankings=smmMuseumCachedCollection(it);
     // The stored ranking is used whatever its age ("dc refresh" renews the oldest).
-    // Only an item never looked up costs a request, from the shared daily budget.
-    if (!isValidTop10List(rankings) && !smmMuseumStored(it) && smmMuseumLookupsLeft()>0) rankings=smmMuseumLookup(it);
+    // Only an item never looked up costs a request.
+    if (!isValidTop10List(rankings) && !smmMuseumStored(it)) rankings=smmMuseumLookup(it);
     int buffer_size=get_property("smm.IR.museumBuffer")=="" ? 11 : max(1,get_property("smm.IR.museumBuffer").to_int());
     if (get_property("smm.IR.museumBuffer")=="" && get_property("smm.dcOvershootAmount")!="") buffer_size=max(1,get_property("smm.dcOvershootAmount").to_int());
     goal=smmMuseumBounds(rankings,my_name(),buffer_size);
@@ -182,7 +182,7 @@ void smmMuseumReport(item it) {
 int smmMuseumSpareCopies(item it) {
     int owned=smmMuseumOwnedCopies(it);
     if (!smmMuseumEnabled() || !is_displayable(it)) return owned;
-    if (!smmMuseumGoal(it).known) return 0; // budgeted lookup; fills the shared ranking cache
+    if (!smmMuseumGoal(it).known) return 0; // a lookup fills the shared ranking cache
     return max(0,owned-smmMuseumReservedCopies(it,false)); // same rule as the museumSafe* guards
 }
 

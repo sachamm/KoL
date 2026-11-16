@@ -9,7 +9,7 @@ It only reads. It never adventures, buys, sells or moves an item.
 ```text
 targets                 # the 40 targets closest to the top ten
 targets list all        # every target
-targets refresh [n]     # look up missing, then oldest, rankings for register items (within today's budget)
+targets refresh [n]     # look up missing, then oldest, rankings for register items (default: all missing or due)
 targets item <name>     # everything known about one item, with its stored ranking
 targets unknown         # unbuyable items you hold that have no known source
 targets unknown all     # every unbuyable item with no known source
@@ -51,7 +51,7 @@ A line overrides the derived source text and kind. The first lines were seeded f
 
 ## Rankings
 
-Rankings come from the shared Museum ranking store in `smmUtils.ash` (see "Museum ranking store" in `collection-objective.md`). The store keeps every answer in `data/smm-museum-ranks-<player id>.txt` and allows `smm.IR.museumLookups` requests a day (default 50) across all scripts. `targets refresh` spends that budget on register items never looked up, then on the oldest; `dc refresh` rotates through everything stored plus the Display Case.
+Rankings come from the shared Museum ranking store in `smmUtils.ash` (see "Museum ranking store" in `collection-objective.md`). The store keeps every answer in `data/smm-museum-ranks-<player id>.txt` with no daily request limit. `targets refresh` looks up register items never looked up, then the oldest; `dc refresh` rotates through everything stored plus the Display Case.
 
 The Museum page lists every collector, with tied players sharing a row. The register counts each player in a tie.
 
