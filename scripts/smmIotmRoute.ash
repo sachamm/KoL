@@ -8,7 +8,7 @@ SmmRPResource [string] smmIRResources() {
     pools["route.paid"]=new SmmRPResource("Remaining route turn budget",min(my_adventures(),smmIRPaidRemaining()),true,"");
     pools["route.coins"]=new SmmRPResource("Coins above savings reserve",max(0,item_amount($item[Interesting Coin])-max(1,smmIRSetting("coinReserve",10000000).to_int())),true,"");
     pools["route.bones"]=new SmmRPResource("Bones above reserve",max(0,item_amount($item[knucklebone])-max(0,smmIRSetting("boneReserve",0).to_int())),true,"");
-    pools["route.locket"]=new SmmRPResource("Locket free fights",max(0,3-count(cllMonstersFought(false))),true,"");
+    pools["route.locket"]=new SmmRPResource("Locket reminiscences",max(0,3-count(cllMonstersFought(false))),true,"");
     pools["route.liver"]=new SmmRPResource("Available liver",max(0,inebriety_limit()-my_inebriety()),true,"");
     pools["route.cooks"]=new SmmRPResource("Available free cooking",max(0,free_cooks()),true,"");
     foreach id, action in smmIRActions foreach resource, cost in action.costs if (resource.starts_with("route.item.")) {

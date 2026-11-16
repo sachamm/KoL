@@ -548,6 +548,17 @@ string smmIRAutoExpect(SmmIRWork work) {
 
 void smmIRAdd(string id, string description, SmmIRWork work, float benefits, float costs, string resource, int units) {
     if (smmIRBlocked[id]) return;
+    // Reminiscing supplies a monster, not a free combat. Apply the same
+    // one-adventure budget and opportunity cost to ordinary fights, Sword
+    // seeds and Maiden carriers. Record actual usage after execution, even
+    // if the monster or a combat effect happens to make the fight free.
+    boolean locket=work.kind=="locket" || work.kind=="sword.seed" || (work.kind=="extra.maiden" && work.choice_id==1463);
+    if (locket) {
+        if (smmIRPaidRemaining()<1 || my_adventures()<1) return;
+        work=smmIRCopyWork(work);
+        work.allowed_turns=1;
+        costs+=smmIRTurnValue()+max(0,smmIRSetting("combatCost",50));
+    }
     SmmRPAction action=smmRPNewAction(description,1,benefits);
     action.input_cost=costs;
     if (resource!="") action.costs[resource]=units;
@@ -841,7 +852,7 @@ monster [int] smmIRLocketRanked() {
 void smmIRGenerateLocket() {
     if (available_amount($item[combat lover's locket])<1 || my_adventures()<1 || my_inebriety()>inebriety_limit()
         || count(cllMonstersFought(false))>=3 || my_hp()<my_maxhp()/3 || my_mp()<30) return;
-    // Locket is an older dependency: these free carriers feed newer abilities.
+    // Locket is an older dependency: these paid carriers feed newer abilities.
     monster [int] shortlist=smmIRLocketRanked();
     int inspected;
     foreach i, foe in shortlist {
@@ -850,7 +861,7 @@ void smmIRGenerateLocket() {
         SmmIRWork work=smmIRCombatLoadout(foe);
         work.kind="locket"; work.foe=foe;
         float value=smmIRCombatValue(foe,work);
-        smmIRAdd("2022-02.locket."+foe.to_int(),"Free locket fight: "+foe,work,value,0,"route.locket",1);
+        smmIRAdd("2022-02.locket."+foe.to_int(),"Locket fight: "+foe,work,value,0,"route.locket",1);
         if (work.companion==$familiar[Sword of S Words] && (smmIRActions contains ("2022-02.locket."+foe.to_int())))
             smmIRActions["2022-02.locket."+foe.to_int()].costs["sword.loot"]=1;
     }
@@ -877,7 +888,7 @@ void smmIRGenerateSwordSeed() {
         work.companion_equipment=familiar_equipped_equipment(work.companion);
         
         if (value<=old_value) continue;
-        smmIRAdd("2026-06.seed."+foe.to_int(),"Seed improved Sword target in a free locket fight: "+foe,work,
+        smmIRAdd("2026-06.seed."+foe.to_int(),"Seed improved Sword target in a locket fight: "+foe,work,
             value+meat_drop(foe),0,"sword.targets",1);
         if (smmIRActions contains ("2026-06.seed."+foe.to_int())) smmIRActions["2026-06.seed."+foe.to_int()].costs["route.locket"]=1;
     }
