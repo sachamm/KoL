@@ -5737,6 +5737,10 @@ void grindSeaLocation(location seaLocation, monster [] targetArray, boolean maxi
 			// wrong target or failed adventuring in the sea
 			//print("failed adventuring in the sea!", "red");
 		}
+		// The last fight can exhaust Fishy; prepForSea requires it to still be active.
+		if (have_effect($effect[Fishy]) == 0)
+			break;
+
 		if (available_amount($item[cozy scimitar]) == 0)
 			fullAcquire($item[cozy scimitar]);
 
