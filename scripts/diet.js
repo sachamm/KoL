@@ -12,20 +12,29 @@
 //
 // Every plan covers the whole day: all organs full, cleaners used, organ-size
 // gear (and the Stooper) worn for extra space, and an overdrink at the end.
-// It is carried out in three phases:
-//   1. now: fill the organs' normal space and use the cleaners, then adventure
-//      until those adventures are spent;
-//   2. end of day: wear the organ-size gear / Stooper and fill the extra space;
-//   3. overdrink the nightcap and eat anything planned after it.
-// Phases 2 and 3 end useful adventuring (the gear costs you, and overdrunk you
+// It is carried out in four phases:
+//   1. now: food, booze and spleen in the organs' normal space, with the
+//      cleaners; then adventure until those adventures are spent;
+//   2. other turn generation that uses no organ (chocolates, tofu and other
+//      simple items, magical sausages, Ancestral Recall); then adventure
+//      until those are spent;
+//   3. end of day: Sweat Out Some Booze, wear the organ-size gear / Stooper
+//      and fill the extra space;
+//   4. overdrink the nightcap and eat anything planned after it.
+// Phases 3 and 4 end useful adventuring (the gear costs you, and overdrunk you
 // can't adventure), so their adventures roll over to tomorrow. Rollover keeps
-// at most 200 adventures, so phases 2-3 are planned to end the day as close to
+// at most 200 adventures, so phases 3-4 are planned to end the day as close to
 // 200 minus what rollover adds as possible without passing it.
 //
 // Usage (gCLI):  call diet.js [options]     (prints the whole-day plan)
 //   execute        buy and consume phase 1 (asks to confirm)
-//   finish         once phase 1's adventures are spent: re-plan, then buy and
-//                  consume everything left, phases 1 to 3 (asks to confirm)
+//   turngen        once phase 1's adventures are spent: re-plan, then buy and
+//                  consume phases 1-2 (asks to confirm)
+//   finish         once phase 2's adventures are spent: re-plan, then buy and
+//                  consume everything left, phases 1 to 4 (asks to confirm).
+//                  With designer sweatpants, it first casts Sweat Out Some
+//                  Booze as often as your sweat allows (25 each, 3 a day) and
+//                  plans the drunkenness that frees; other runs only flag it
 //   value=N        meat per adventure (default: smm.TurnValue, else 5000)
 //   rollover=N     adventures rollover will add (default: smmUtils'
 //                  adventureGainAtRollover with the best adventure gear)
@@ -34,7 +43,7 @@
 //   pvp=N          meat per PvP fight (default 0)
 //   noRefresh      don't re-check live mall prices of the chosen items
 //   exclude=a|b|c  item names to leave out
-//   (execute and finish handle helpers, effects, Ode to Booze and gear, then
+//   (execute, turngen and finish handle helpers, effects, Ode to Booze and gear, then
 //   restore your outfit and familiar)
 
 var semirare_value = 0  // smm: set from the 11-leaf clover price before running
@@ -2007,7 +2016,7 @@ function buildConsumables(excluded, bonus) {
 		}
 		if (it.name == "Three Sheets to the Wind") {
 			// Wetted Whistle: +10 adventures at rollover, if nothing is adventured
-			// after it -- so it is always drunk in phase 2 (see splitPhases)
+			// after it -- so it is always drunk in phase 3 (see splitPhases)
 			entry["bonusadv"] = 10
 			entry["limit"] = 1
 		}
@@ -2080,7 +2089,7 @@ function isCapacityGearIn(slot) {
 	return !!CAPACITY_GEAR[km.equippedItem(km.Slot.get(slot)).name]
 }
 
-// Organ-capacity gear for phase 2: [{name, slot, size, worn}]. Gear you are
+// Organ-capacity gear for phase 3: [{name, slot, size, worn}]. Gear you are
 // wearing now counts too, but not toward phase 1, since you'd take it off to
 // adventure. The corset is skipped when a tuxedo shirt can boost martinis, and
 // one accessory slot is left for the pinky ring.
@@ -2124,9 +2133,42 @@ function haveUsable(name) {
 	return km.availableAmount(it) > 0 && km.canEquip(it)
 }
 
+// Sweat Out Some Booze (designer sweatpants, held or worn): 25 sweat for -1
+// drunkenness, 3 casts a day. Sweat builds while you adventure in the pants.
+var SWEAT_PER_CAST = 25
+var SWEAT_CASTS_PER_DAY = 3
+
+function sweatBooze() {
+	var have = km.availableAmount(km.Item.get("designer sweatpants")) > 0
+	var sweat = prefInt("sweat")
+	var left = have ? Math.max(0, SWEAT_CASTS_PER_DAY - prefInt("_sweatOutSomeBoozeUsed")) : 0
+	return {have: have, sweat: sweat, left: left, ready: Math.min(left, Math.floor(sweat / SWEAT_PER_CAST))}
+}
+
+// Casts worth making now: each needs drunkenness to remove, and casting is
+// pointless if you'd still be over your liver limit afterwards.
+function sweatCastsNow(sweat) {
+	var n = Math.min(sweat.ready, km.myInebriety())
+	if (km.myInebriety() - n > km.inebrietyLimit()) return 0
+	return Math.max(0, n)
+}
+
+// One cast at a time (multicasting it has been unreliable).
+function castSweatOutBooze(n, log) {
+	var skill = km.Skill.get("Sweat Out Some Booze")
+	var done = 0
+	for (var i = 0; i < n; i++) {
+		var used = prefInt("_sweatOutSomeBoozeUsed"), drunk = km.myInebriety()
+		if (!km.useSkill(1, skill) || (prefInt("_sweatOutSomeBoozeUsed") == used && km.myInebriety() == drunk)) break
+		done++
+	}
+	if (done < n) log.push("warning: cast Sweat Out Some Booze " + done + " of " + n + " times; plan may not fit")
+	return done
+}
+
 function parseArgs(argString) {
 	var opts = {}
-	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|finish\b)/)
+	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|turngen\b|finish\b)/)
 	for (var i = 0; i < parts.length; i++) {
 		var p = parts[i].replace(/^\s+|\s+$/g, "")
 		if (!p) continue
@@ -2140,10 +2182,15 @@ function parseArgs(argString) {
 function buildSettings(opts) {
 	var adv_value = parseFloat(opts.value) ||
 		parseFloat(pref("smm.TurnValue")) || 5000
-	var overdrunk = km.myInebriety() > km.inebrietyLimit()
+	// Sweat Out Some Booze is cast only by finish (the day's last run), so
+	// only finish counts the drunkenness it frees.
+	var sweat = sweatBooze()
+	var sweatCasts = opts.finish && !opts.organs ? sweatCastsNow(sweat) : 0
+	var inebriety = km.myInebriety() - sweatCasts
+	var overdrunk = inebriety > km.inebrietyLimit()
 	var organs = [
 		km.fullnessLimit() - km.myFullness(),
-		Math.max(0, km.inebrietyLimit() - km.myInebriety()),
+		Math.max(0, km.inebrietyLimit() - inebriety),
 		km.spleenLimit() - km.mySpleenUse(),
 	]
 	// always "limited": planDay caps the nightcap's adventures to fit rollover
@@ -2216,6 +2263,8 @@ function buildSettings(opts) {
 		"base organs": base,
 		"capacity gear": gear,
 		"stooper": stooper,
+		"sweat": sweat,
+		"sweat casts": sweatCasts,  // Sweat Out Some Booze casts finish makes first
 		// smm additions
 		// KoLmafia already rewrites the cookie's adventures from affirmationCookiesEaten
 		// (3, 5, 7, then 9), so no bonus is added on top.
@@ -2256,12 +2305,28 @@ function noteText(note) {
 // ---------------------------------------------------------------------------
 // Phases. The optimizer plans the whole day; splitPhases decides which units
 // are consumed in each phase:
-//   1 now: everything that fits the organs' normal space, with all cleaners
-//   2 end of day, wearing organ gear / Stooper: the units that need the extra
-//     space, plus Three Sheets to the Wind (its rollover bonus is lost if you
-//     adventure after it)
-//   3 overdrink: the nightcap, then food planned after it
+//   1 now: food, booze and spleen that fit the organs' normal space, with all
+//     cleaners
+//   2 once phase 1's adventures are spent: other turn generation that uses no
+//     organ (chocolates, simple items such as tofu, magical sausages,
+//     Ancestral Recall) -- by then you have ground more sausages and built
+//     more sweat
+//   3 end of day, wearing organ gear / Stooper (and after Sweat Out Some
+//     Booze): the units that need the extra space, plus Three Sheets to the
+//     Wind (its rollover bonus is lost if you adventure after it)
+//   4 overdrink: the nightcap, then food planned after it
+// Phases 1-2 are adventured today; phases 3-4 roll over.
 // ---------------------------------------------------------------------------
+
+var LAST_PHASE = 4
+
+// Turn generation that uses no organ: phase 2. Milk of magnesium boosts the
+// food eaten after it, so it stays with the food.
+function isTurngen(row) {
+	var s = unitSize(row), item = row.spec.item
+	if (s[0] || s[1] || s[2] || row.is_nightcap || row.name == "milk of magnesium") return false
+	return item.type == "simple" || !!CHOCOLATE_NAMES[row.name] || row.name == "Ancestral Recall"
+}
 
 // Organ use of one unit of a plan row.
 function unitSize(row) {
@@ -2292,15 +2357,16 @@ function smallestCover(units, o, need) {
 	return best[covered[0]]
 }
 
-// Units of each plan row per phase: parts[i] = [0, phase1, phase2, phase3].
+// Units of each plan row per phase: parts[i] = [0, phase1, phase2, phase3, phase4].
 function splitPhases(result, settings) {
 	var rows = result.diet_items, room = settings["base organs"].slice()
 	var used = [0, 0, 0], movable = [], parts = []
 	for (var i = 0; i < rows.length; i++) {
 		var r = rows[i], s = unitSize(r), item = r.spec.item
-		parts.push([0, 0, 0, 0])
-		if (r.is_nightcap || r.spec.after_nightcap) { parts[i][3] = r.amount; continue }
-		if (item.bonusadv) { parts[i][2] = r.amount; continue }
+		parts.push([0, 0, 0, 0, 0])
+		if (r.is_nightcap || r.spec.after_nightcap) { parts[i][4] = r.amount; continue }
+		if (item.bonusadv) { parts[i][3] = r.amount; continue }
+		if (isTurngen(r)) { parts[i][2] = r.amount; continue }
 		parts[i][1] = r.amount
 		for (var o = 0; o < 3; o++) {
 			if (s[o] > 0) used[o] += s[o] * r.amount
@@ -2318,7 +2384,7 @@ function splitPhases(result, settings) {
 		var pick = smallestCover(movable.filter(function (m) { return m.size[org] > 0 }), org, need)
 		for (var p = 0; p < pick.length; p++) {
 			parts[pick[p].row][1]--
-			parts[pick[p].row][2]++
+			parts[pick[p].row][3]++
 			for (var q = 0; q < 3; q++) used[q] -= pick[p].size[q]
 			movable.splice(movable.indexOf(pick[p]), 1)
 		}
@@ -2346,55 +2412,70 @@ function rolloverGain(opts) {
 
 // Adventures each phase actually gives (the nightcap's uncapped).
 function phaseAdventures(result, parts) {
-	var adv = [0, 0, 0, 0], rows = result.diet_items
+	var adv = [0, 0, 0, 0, 0], rows = result.diet_items
 	for (var i = 0; i < rows.length; i++) {
 		var r = rows[i]
 		var per = r.is_nightcap ? (r.spec.adv || 0) : (r.turns || 0) / r.amount
-		for (var ph = 1; ph <= 3; ph++) adv[ph] += per * parts[i][ph]
+		for (var ph = 1; ph <= LAST_PHASE; ph++) adv[ph] += per * parts[i][ph]
 	}
 	return adv
 }
 
-// Plan the day so phases 2-3 end as close to the adventure cap after
-// rollover as possible without passing it -- tomorrow then starts with the
-// most adventures. Phase 2 is set by organ space, so the room is enforced
-// through the optimizer's (strict) nightcap limit on the nightcap and the food
-// after it: re-plan with the room phase 2 leaves until that settles, trim each
-// plan to fit (trimToRoom) and keep the one worth most. At finish, adventures
-// you still hold and phase 1 leftovers eaten then count too.
+// Adventures of phases from..LAST_PHASE.
+function advFrom(adv, from) {
+	var sum = 0
+	for (var ph = from; ph <= LAST_PHASE; ph++) sum += adv[ph]
+	return sum
+}
+
+// Plan the day so the adventures that roll over end as close to the
+// adventure cap after rollover as possible without passing it -- tomorrow
+// then starts with the most adventures. Phases 3-4 roll over; at finish,
+// adventures you still hold and phase 1-2 leftovers eaten then roll over too.
+// Phase 3 is set by organ space, so the room is enforced through the
+// optimizer's (strict) nightcap limit on the nightcap and the food after it:
+// re-plan with the room the earlier rolled-over phases leave until that
+// settles, trim each plan to fit (trimToRoom) and keep the one worth most.
+// Phase 2 turn generation is never dropped to fit: if it (with phase 1
+// leftovers and the adventures you hold) would overflow at finish, finish
+// warns and stops instead.
 function planDay(settings, finish) {
-	var room0 = ADVENTURE_CAP - settings["rollover gain"] - (finish ? km.myAdventures() : 0)
-	var best = null, limit = Math.max(0, room0), tried = {}
+	var roll = finish ? 1 : 3  // first phase whose adventures roll over
+	var room = ADVENTURE_CAP - settings["rollover gain"] - (finish ? km.myAdventures() : 0)
+	var best = null, limit = Math.max(0, room), tried = {}
 	for (var pass = 0; pass < 5 && !tried[limit]; pass++) {
 		tried[limit] = true
 		settings["nightcap limit"] = limit
 		var result = tehtmi(settings), parts = splitPhases(result, settings)
 		var adv = phaseAdventures(result, parts)
-		var room = room0 - (finish ? adv[1] : 0)
-		var plan = {result: result, parts: parts, adv: adv.slice(), room: room, value: 0, limit: limit}
+		var plan = {result: result, parts: parts, adv: adv.slice(), room: room, roll: roll, value: 0, limit: limit}
 		for (var i = 0; i < result.diet_items.length; i++) plan.value += result.diet_items[i].value || 0
-		plan.waste = Math.max(0, Math.round(adv[2] + adv[3] - Math.max(0, room)))
-		trimToRoom(plan, settings)
+		plan.waste = Math.max(0, Math.round(advFrom(adv, roll) - Math.max(0, room)))
+		// Only phases 3-4 are trimmed: phase 1-2 leftovers are worth eating, so
+		// if they alone overflow at finish, finish stops instead (earlyWaste).
+		plan.earlyWaste = finish ? Math.max(0, Math.round(adv[1] + adv[2] - Math.max(0, room))) : 0
+		trimToRoom(plan, settings, 3)
 		if (!best || (plan.waste < best.waste) || (plan.waste == best.waste && plan.value > best.value + k_epsilon))
 			best = plan
-		limit = Math.max(0, Math.floor(room - adv[2]))
+		limit = Math.max(0, Math.floor(room - (advFrom(adv, roll) - adv[LAST_PHASE])))
 	}
 	settings["nightcap limit"] = best.limit
 	return best
 }
 
-// Fit phases 2-3 into the room: keep the subset of their units (the
-// nightcap aside, the optimizer already fit it) worth most whose adventures
-// fit -- a small knapsack, as these phases hold only a few units. Ties go to
-// more adventures, to end the day closer to the cap.
-function trimToRoom(plan, settings) {
+// Fit the rolled-over adventures into the room: keep the subset of the units
+// of phases from..4 (the nightcap aside, the optimizer already fit it) worth
+// most whose adventures fit -- a small knapsack, as these phases hold only a
+// few units. Ties go to more adventures, to end the day closer to the cap.
+function trimToRoom(plan, settings, from) {
 	var rows = plan.result.diet_items
 	plan.dropped = {}
 	if (plan.waste <= 0) return
 	var units = [], fixed = 0
+	for (var f = plan.roll; f < from; f++) fixed += plan.adv[f]  // rolled over but not trimmed
 	for (var i = 0; i < rows.length; i++) {
 		var a = (rows[i].turns || 0) / rows[i].amount
-		for (var ph = 2; ph <= 3; ph++) {
+		for (var ph = from; ph <= LAST_PHASE; ph++) {
 			for (var k = 0; k < plan.parts[i][ph]; k++) {
 				if (rows[i].is_nightcap) { fixed += rows[i].spec.adv || 0; continue }
 				units.push({row: i, phase: ph, adv: Math.ceil(a - k_epsilon), value: (rows[i].value || 0) / rows[i].amount})
@@ -2422,7 +2503,7 @@ function trimToRoom(plan, settings) {
 		plan.value -= un.value
 		plan.dropped[r.name] = (plan.dropped[r.name] || 0) + 1
 	}
-	plan.waste = Math.max(0, Math.round(plan.adv[2] + plan.adv[3] - Math.max(0, plan.room)))
+	plan.waste = Math.max(0, Math.round(advFrom(plan.adv, plan.roll) - Math.max(0, plan.room)))
 }
 
 function gearDescription(settings) {
@@ -2432,9 +2513,10 @@ function gearDescription(settings) {
 }
 
 var PHASE_TITLES = {
-	1: "Phase 1 -- now: fill your organs and use the cleaners, then adventure until these are spent",
-	2: "Phase 2 -- end of day: ",
-	3: "Phase 3 -- overdrink and finish",
+	1: "Phase 1 -- now (execute): food, booze and spleen, with the cleaners; then adventure until these are spent",
+	2: "Phase 2 -- then (turngen): other turn generation; then adventure until these are spent",
+	3: "Phase 3 -- end of day (finish): ",
+	4: "Phase 4 -- overdrink and finish",
 }
 
 function printPlan(plan, settings, finish) {
@@ -2443,8 +2525,8 @@ function printPlan(plan, settings, finish) {
 	km.print("Whole-day diet for " + o[0] + " fullness, " + o[1] + " drunkenness, " + o[2] +
 		" spleen (" + base.join("/") + " without organ gear) at " +
 		fmt(settings["adventure value"]) + " meat/adventure", "blue")
-	var rows = result.diet_items, totalTurns = 0, cost = 0, pvp = 0, phaseTurns = [0, 0, 0, 0]
-	for (var ph = 1; ph <= 3; ph++) {
+	var rows = result.diet_items, totalTurns = 0, cost = 0, pvp = 0, phaseTurns = [0, 0, 0, 0, 0]
+	for (var ph = 1; ph <= LAST_PHASE; ph++) {
 		var lines = []
 		for (var i = 0; i < rows.length; i++) {
 			var r = rows[i], n = parts[i][ph]
@@ -2458,13 +2540,14 @@ function printPlan(plan, settings, finish) {
 		}
 		if (!lines.length) continue
 		var title = PHASE_TITLES[ph]
-		if (ph == 2) title += gearDescription(settings) ? "wear " + gearDescription(settings) + ", fill the extra space" :
+		if (ph == 3) title += gearDescription(settings) ? "wear " + gearDescription(settings) + ", fill the extra space" :
 			"after your adventures are spent"
 		km.print(title + " (" + fmt(phaseTurns[ph]) + " adv):", "blue")
 		for (var l = 0; l < lines.length; l++) km.print("  " + lines[l])
 	}
 	for (var j = 0; j < rows.length; j++) {
-		var units = parts[j][1] + parts[j][2] + parts[j][3]
+		var units = 0
+		for (var up = 1; up <= LAST_PHASE; up++) units += parts[j][up]
 		totalTurns += (rows[j].turns || 0) * units / rows[j].amount
 		cost += (rows[j].price || 0) * units / rows[j].amount
 		pvp += (rows[j].fights || 0) * units / rows[j].amount
@@ -2473,14 +2556,37 @@ function printPlan(plan, settings, finish) {
 		": its adventures would pass " + ADVENTURE_CAP + " at rollover.", "gray")
 	km.print("Total: " + fmt(totalTurns) + " adventures" + (pvp ? " + " + fmt(pvp) + " PvP fights" : "") +
 		" for " + fmt(cost) + " meat; net value " + fmt(plan.value) + " meat", "green")
-	km.print(fmt(phaseTurns[1]) + " adventures to use today; " + fmt(phaseTurns[2] + phaseTurns[3]) +
-		" from phases 2-3 roll over to tomorrow.", "green")
-	var late = Math.round(plan.adv[2] + plan.adv[3])
-	km.print("Rollover adds about " + settings["rollover gain"] + " (best adventure gear); phases 2-3 add " + late +
+	if (finish) km.print("Everything left is consumed now, so all " + fmt(totalTurns) + " roll over to tomorrow.", "green")
+	else km.print(fmt(phaseTurns[1] + phaseTurns[2]) + " adventures from phases 1-2 to use today; " +
+		fmt(phaseTurns[3] + phaseTurns[4]) + " from phases 3-4 roll over to tomorrow.", "green")
+	var late = Math.round(advFrom(plan.adv, plan.roll))
+	var lateWhat = finish ? "the rest of the diet adds " : "phases 3-4 add "
+	km.print("Rollover adds about " + settings["rollover gain"] + " (best adventure gear)" +
+		(finish ? " to the " + km.myAdventures() + " you hold" : "") + "; " + lateWhat + late +
 		" of the " + Math.max(0, plan.room) + " that fit under " + ADVENTURE_CAP + ".", "gray")
 	if (plan.waste > 0)
-		km.print(plan.waste + " adventures from phases 2-3 will be lost at rollover (" + ADVENTURE_CAP + " max).", "orange")
+		km.print(plan.waste + " adventures will be lost at rollover (" + ADVENTURE_CAP + " max).", "orange")
 	if (o[1] > 0) km.print("Booze adventures assume Ode to Booze is active.", "gray")
+	printSweatFlag(settings, finish)
+}
+
+// Flag Sweat Out Some Booze: what finish will cast, or why it isn't counted.
+function printSweatFlag(settings, finish) {
+	var s = settings["sweat"], casts = settings["sweat casts"]
+	if (!s || !s.have || !s.left) return
+	if (casts > 0) {
+		km.print("Sweat Out Some Booze: casting it " + casts + "x first (" + (casts * SWEAT_PER_CAST) + " of " +
+			s.sweat + " sweat) for " + casts + " more drunkenness (counted above).", "blue")
+		if (s.left > casts) km.print("  " + (s.left - casts) + " more casts left today.", "gray")
+		return
+	}
+	var why
+	if (!finish) why = "not counted; it is cast by the last run of the day (call diet.js finish)"
+	else if (s.ready == 0) why = "not enough sweat (" + s.sweat + " of " + SWEAT_PER_CAST + " per cast)"
+	else if (km.myInebriety() == 0) why = "no drunkenness to sweat out yet"
+	else why = "you would still be over your liver limit"
+	km.print("Sweat Out Some Booze: " + s.left + " casts left today, " + s.sweat + " sweat (" + SWEAT_PER_CAST +
+		" per cast) -- " + why + ".", "orange")
 }
 
 function main(argString) {
@@ -2515,8 +2621,16 @@ function main(argString) {
 	}
 
 	printPlan(plan, settings, !!opts.finish)
-	if (opts.finish) executePlan(plan.result, settings, plan.parts, true)
-	else if (opts.execute) executePlan(plan.result, settings, plan.parts, false)
+	if (opts.finish && plan.earlyWaste > 0) {
+		km.print("Not finishing: you hold " + km.myAdventures() + " adventures and phases 1-2 still add " +
+			fmt(plan.adv[1] + plan.adv[2]) + ", so finishing now would waste " + plan.earlyWaste +
+			" adventures at rollover (" + ADVENTURE_CAP + " max, rollover adds about " + settings["rollover gain"] +
+			"). Spend some adventures first (call diet.js turngen uses phase 2 today), then run finish again.", "red")
+		return
+	}
+	if (opts.finish) executePlan(plan.result, settings, plan.parts, LAST_PHASE)
+	else if (opts.turngen) executePlan(plan.result, settings, plan.parts, 2)
+	else if (opts.execute) executePlan(plan.result, settings, plan.parts, 1)
 	// Return nothing: KoLmafia converts a JS return value to ASH, and the plan
 	// object (with its undefined fields) can't be converted.
 }
@@ -2760,7 +2874,7 @@ function runSteps(steps, extenders, log, strict) {
 	return {error: error, left: pending}
 }
 
-// Phase 2 setup: put on the organ-capacity gear and take out the Stooper.
+// Phase 3 setup: put on the organ-capacity gear and take out the Stooper.
 function wearPhase2Gear(settings, log) {
 	var gear = settings["capacity gear"] || []
 	for (var g = 0; g < gear.length; g++) {
@@ -2776,9 +2890,10 @@ function wearPhase2Gear(settings, log) {
 	}
 }
 
-// Carry out phase 1 (finish = false) or everything left, phases 1 to 3.
-function executePlan(result, settings, parts, finish) {
-	var rows = result.diet_items, lastPhase = finish ? 3 : 1
+// Carry out phases 1 to lastPhase (1 execute, 2 turngen, 4 finish), with anything earlier left over.
+function executePlan(result, settings, parts, lastPhase) {
+	var finish = lastPhase == LAST_PHASE
+	var rows = result.diet_items
 	var steps = [], extenders = [], cost = 0
 	wish_budget = {}
 	for (var r = 0; r < rows.length; r++) {
@@ -2800,21 +2915,27 @@ function executePlan(result, settings, parts, finish) {
 	}
 	var byOrder = function (a, b) { return a.phase - b.phase }
 	steps.sort(byOrder)
-	var early = steps.filter(function (s) { return s.stage == 1 })
-	var late = steps.filter(function (s) { return s.stage > 1 })
+	// early: phases 1-2 (organs' normal space, no gear); late: phases 3-4
+	var early = steps.filter(function (s) { return s.stage <= 2 })
+	var late = steps.filter(function (s) { return s.stage > 2 })
+	var nextRun = lastPhase == 1 ? "call diet.js turngen" : "call diet.js finish"
 	if (!steps.length && !extenders.length) {
 		if (finish) km.print("Nothing worth consuming.", "blue")
-		else km.print("Nothing to consume in phase 1. Once your adventures are spent, run: call diet.js finish", "blue")
+		else km.print("Nothing to consume in phase" + (lastPhase == 1 ? " 1" : "s 1-2") +
+			". Once your adventures are spent, run: " + nextRun, "blue")
 		return
 	}
 	if (finish && late.length && km.myAdventures() > 0 &&
-		!km.userConfirm("You still have " + km.myAdventures() + " adventures. Phases 2-3 (organ gear, " +
+		!km.userConfirm("You still have " + km.myAdventures() + " adventures. Phases 3-4 (organ gear, " +
 			"overdrinking) end useful adventuring for today. Finish anyway?", 60000, false)) {
 		km.print("Diet not finished.", "blue")
 		return
 	}
-	var what = finish ? "the rest of today's diet" : "phase 1 of the diet"
-	if (!km.userConfirm("Buy and consume " + what + " (about " + fmt(cost) + " meat)?", 60000, false)) {
+	var what = finish ? "the rest of today's diet" : (lastPhase == 1 ? "phase 1 of the diet" : "phases 1-2 of the diet")
+	var sweatCasts = finish ? settings["sweat casts"] || 0 : 0
+	if (sweatCasts) what = "cast Sweat Out Some Booze " + sweatCasts + "x, then buy and consume " + what
+	else what = "buy and consume " + what
+	if (!km.userConfirm(what.charAt(0).toUpperCase() + what.substring(1) + " (about " + fmt(cost) + " meat)?", 60000, false)) {
 		km.print("Diet not executed.", "blue")
 		return
 	}
@@ -2824,6 +2945,7 @@ function executePlan(result, settings, parts, finish) {
 	var familiar = km.myFamiliar()
 	km.cliExecute("checkpoint")
 	try {
+		if (sweatCasts) castSweatOutBooze(sweatCasts, log)
 		var run = runSteps(early, extenders, log, false)
 		error = run.error
 		left = run.left
@@ -2839,7 +2961,7 @@ function executePlan(result, settings, parts, finish) {
 		if (km.myFamiliar().toString() != familiar.toString()) km.useFamiliar(familiar)
 	}
 	if (error && wore && km.myInebriety() > km.inebrietyLimit())
-		log.push("warning: stopped in phase 2-3 and the organ gear is off -- you are over your liver limit")
+		log.push("warning: stopped in phase 3-4 and the organ gear is off -- you are over your liver limit")
 
 	for (var l = 0; l < log.length; l++) km.print(log[l], "orange")
 	for (var e = 0; e < extenders.length; e++) {
@@ -2852,7 +2974,8 @@ function executePlan(result, settings, parts, finish) {
 	} else if (!finish) {
 		if (left.length) km.print("Didn't fit yet, left for the end of the day: " +
 			left.map(function (s) { return s.row.name }).join(", "), "gray")
-		km.print("Phase 1 done. " + summary + " Adventure until these are spent, then run: call diet.js finish", "green")
+		km.print((lastPhase == 1 ? "Phase 1" : "Phases 1-2") + " done. " + summary +
+			" Adventure until these are spent, then run: " + nextRun, "green")
 	} else {
 		km.print("Diet done. " + summary, "green")
 	}
