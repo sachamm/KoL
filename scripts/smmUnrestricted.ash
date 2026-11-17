@@ -6496,13 +6496,17 @@ void dailyGrind() {
 		restoreSavedProperty("choiceAdventure1251");
 	}
 
-	// FANTASYREALM
-	item frTargetItem = $item[scepter of the Skeleton Lord];
-	if (my_session_items(frTargetItem) <= 0 && !"_fantasyRealmDone".get_property().to_boolean())
-		cli_execute("fr " + frTargetItem); // 	// also need a few ring of the Skeleton Lord, and Master Thief's utility belt (not likely to ever catch Master Thief's utility belt)
-	assert(my_session_items(frTargetItem) > 0 || "_fantasyRealmDone".get_property().to_boolean(), "didn't get " + frTargetItem);
+	// FANTASYREALM: fr.ash picks the reward closest to Museum #1 (smm.frTarget names one instead)
+	boolean frAlreadyDone = "_fantasyRealmDone".get_property().to_boolean();
+	if (!frAlreadyDone)
+		cli_execute("fr best");
+	item frTargetItem = get_property("_smm.frTarget").to_item();
+	assert(frTargetItem != $item[none] || frAlreadyDone, "fr best didn't record its target in _smm.frTarget");
+	if (frTargetItem != $item[none]) {
+		assert(my_session_items(frTargetItem) > 0 || "_fantasyRealmDone".get_property().to_boolean(), "didn't get " + frTargetItem);
+		unused = cli_execute("dc top10 " + frTargetItem);
+	}
 	set_property("_fantasyRealmDone", "true");
-	unused = cli_execute("dc top10 " + frTargetItem);
 
 	// PIRATE REALM
 	item prGoalItem = $item[Red Roger's reliquary];
