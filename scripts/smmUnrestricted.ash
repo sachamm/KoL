@@ -3673,15 +3673,18 @@ void burnCombatLoversLocket() {
 // can be used overdrunk if we're able to get into a combat while overdrunk (such as with drum machines)
 void burnInstaKill() {
 	print("burnInstaKill", "green");
-	assert(instaKillsAvailable() > 0, "no instaKill available!");
 	assert(my_adventures() > 0, "we have insta-kills but we can't insta-kill without any turns!");
 
+	// a drum machine fight without a free kill costs a turn and the drum machine, so make sure we
+	// actually have a free-kill skill before using one
 	PrioritySkillRecord instaKillSkill = chooseInstaKillSkill();
+	assert(instaKillSkill.theSkill != $skill[none], "burnInstaKill: no free-kill skill available, not using a drum machine");
 
 	automate_dressup($location[none], "item", "item", "-equip \"i voted!\" sticker, -equip Kramco Sausage-o-Matic&trade;, -equip Everfull Dart Holster, -equip mafia thumb ring");
 	if (instaKillSkill.theItem != $item[none]) {
 		fullAcquire(instaKillSkill.theItem);
 		dressup("equip " + instaKillSkill.theItem);
+		assert(equipped_amount(instaKillSkill.theItem) > 0, "burnInstaKill: couldn't equip " + instaKillSkill.theItem + " for " + instaKillSkill.theSkill + ", not using a drum machine");
 	}
 
 	fullAcquire($item[drum machine]);
@@ -4003,7 +4006,9 @@ void grindRufusAndTheShadowRiftsForFree() {
 	}
 
 	set_property("_smm.kSpikolodonNextCombat", "false");
-	assert(spikolodonSpikesUsed() >= 5, "grindRufusAndTheShadowRiftsForFree: didn't use all the spikolodon spikes");
+	// running out of free combats and free kills before the spikes is normal; leftover spikes are a
+	// missed opportunity, not a reason to abort the rest of the free Rufus/Cincho work and the day
+	cprint(spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them", "orange");
 
 
 	// CINCHO DE MAYO

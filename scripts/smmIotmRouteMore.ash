@@ -12,9 +12,10 @@ int smmIRDayCount(string name) {
     return get_property("smm.IR."+name+"Epoch")==smmRPEpoch() ? get_property("smm.IR."+name).to_int() : 0;
 }
 
-void smmIRDayBump(string name) {
+void smmIRDayBump(string name, int amount) {
+    if (amount<1) return;
     int used=smmIRDayCount(name);
-    set_property("smm.IR."+name+"Epoch",smmRPEpoch()); set_property("smm.IR."+name,used+1);
+    set_property("smm.IR."+name+"Epoch",smmRPEpoch()); set_property("smm.IR."+name,used+amount);
 }
 
 // Walk away from a non-binding choice (workshed, leaf pile) so the route never
@@ -128,19 +129,23 @@ void smmIRGenerateTaker() {
         if (boolean_modifier(it,"Lasts Until Rollover") || creatable_amount(it)<1) continue;
         float value=smmIRRewardValue(it);
         if (value<=0 && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
-        boolean dips;
-        foreach i, amount in split_string(recipe,",")
-            if (amount.to_int()>0 && get_property(props[i]).to_int()-amount.to_int()<min(get_property(props[i]).to_int(),saved[i])) dips=true;
-        if (dips) continue;
+        // Copies that fit without dipping into supplies saved for the target.
+        int copies=creatable_amount(it);
+        foreach i, amount in split_string(recipe,",") if (amount.to_int()>0) {
+            int have=get_property(props[i]).to_int();
+            copies=min(copies,(have-min(have,saved[i]))/amount.to_int());
+        }
+        if (copies<1) continue;
         SmmIRWork work; work.kind="more.create"; work.product=it; work.choice_id=1537;
         string id="2024-12.taker."+it.to_int();
         string [int] names={"spice","rum","anchor","mast","silk","gold"}; string uses;
         foreach i, amount in split_string(recipe,",") if (amount.to_int()>0) uses+=(uses=="" ? "" : ", ")+amount+" "+names[i];
         work.why="Spends "+uses+" of stored TakerSpace supplies. Supplies carry over and have no other use, so the cost is the products they would otherwise make; "+smmIRValueNote(it)+(it==target ? ". This is the best product per day of deliveries." : ". Supplies needed to save up for "+target+" are not touched.");
-        work.expect=it+" +1 in inventory and "+uses+" removed from the supply counters.";
+        work.expect=it+" +1 in inventory and "+uses+" removed from the supply counters, per copy.";
         smmIRAdd(id,"TakerSpace: make "+it,work,value,0,"",0);
         if (!(smmIRActions contains id)) continue;
         foreach i, amount in split_string(recipe,",") if (amount.to_int()>0) smmIRActions[id].costs[pools[i]]=amount.to_int();
+        smmIRBatch(id,copies);
     }
 }
 
@@ -160,8 +165,9 @@ void smmIRGenerateEmbers() {
         if (value<=0 && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
         SmmIRWork work; work.kind="more.buy"; work.product=it; work.option=price;
         work.why="Embers are a daily currency with no sale value, so only the "+(spendable)+" above the reserve are spendable. This buys "+it+" for "+price+" embers; "+smmIRValueNote(it)+". Embers are shared across candidates, so the planner takes the best use.";
-        work.expect=it+" +1 in inventory and the ember balance drops by "+price+".";
+        work.expect=it+" +1 in inventory and the ember balance drops by "+price+", per copy.";
         smmIRAdd("2024-09.ember."+it.to_int(),"Spend embers on "+it,work,value,price*max(0,smmIRSetting("emberValue",0)),"embers",price);
+        smmIRBatch("2024-09.ember."+it.to_int(),spendable/price);
     }
 }
 
@@ -172,7 +178,8 @@ void smmIRGenerateEmbers() {
 void smmIRGenerateKiwi() {
     item kiwi=$item[mini kiwi];
     coinmaster shop=$coinmaster[Kiwi Kwiki Mart];
-    if (item_amount(kiwi)<1 || !is_accessible(shop) || smmIRDayCount("kiwiBuys")>=max(0,smmIRSetting("kiwiBuyCap",5).to_int())) return;
+    int trades=max(0,smmIRSetting("kiwiBuyCap",5).to_int())-smmIRDayCount("kiwiBuys");
+    if (item_amount(kiwi)<1 || !is_accessible(shop) || trades<1) return;
     foreach it in $items[mini kiwi bikini,mini kiwi icepick,mini kiwi whipping stick,mini kiwi invisible dirigible,mini kiwi silicon tiepin,
         mini kiwi intoxicating spirits,mini kiwi antimilitaristic hippy petition,mini kiwi illicit antibiotic,mini kiwi tipi] {
         if (it==$item[mini kiwi intoxicating spirits] && get_property("_miniKiwiIntoxicatingSpiritsBought").to_boolean()) continue;
@@ -182,8 +189,13 @@ void smmIRGenerateKiwi() {
         if (value<=input && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
         SmmIRWork work; work.kind="more.kiwi"; work.product=it; work.option=price; work.counter="kiwiBuys";
         work.why="Pays "+price+" mini kiwi"+(price>1 ? "s" : "")+" (worth "+round(input)+" Meat as inputs: "+smmIRValueNote(kiwi)+") for "+it+", which is worth "+round(value)+" Meat; "+smmIRValueNote(it)+".";
-        work.expect=it+" +1 in inventory and mini kiwis -"+price+".";
-        smmIRAdd("2024-06.kiwi."+it.to_int(),"Trade "+price+" mini kiwis for "+it,work,value,input,"route.item."+kiwi.to_int(),price);
+        work.expect=it+" +1 in inventory and mini kiwis -"+price+", per copy.";
+        string id="2024-06.kiwi."+it.to_int();
+        smmIRAdd(id,"Trade "+price+" mini kiwis for "+it,work,value,input,"route.item."+kiwi.to_int(),price);
+        if (!(smmIRActions contains id)) continue;
+        // The daily cap is shared by every kiwi trade in the plan.
+        smmIRActions[id].costs["route.kiwiBuys"]=1;
+        smmIRBatch(id,it==$item[mini kiwi intoxicating spirits] ? 1 : trades);
     }
 }
 
@@ -200,7 +212,8 @@ void smmIRGenerateLeaves() {
         smmIRUtility("2023-11.leaves.jump");
     }
     item leaf=$item[inflammable leaf];
-    if (smmIRDayCount("leafCrafts")>=max(0,smmIRSetting("leafCraftCap",5).to_int())) return;
+    int crafts=max(0,smmIRSetting("leafCraftCap",5).to_int())-smmIRDayCount("leafCrafts");
+    if (crafts<1) return;
     int reserve=max(0,smmIRSetting("leafReserve",0).to_int());
     boolean held;
     foreach it in $items[autumnic bomb,distilled resin,autumnal aegis,lit leaf lasso,forest canopy bed,autumnic balm,day shortener,coping juice] {
@@ -211,8 +224,13 @@ void smmIRGenerateLeaves() {
         if (value<=input && !(smmMuseumEnabled() && smmMuseumProgress(it,1)>0)) continue;
         SmmIRWork work; work.kind="more.create"; work.product=it; work.choice_id=1510; work.counter="leafCrafts";
         work.why="Burns "+cost+" inflammable leaves (worth "+round(input)+" Meat as inputs: "+smmIRValueNote(leaf)+") to make "+it+" worth "+round(value)+" Meat; "+smmIRValueNote(it)+".";
-        work.expect=it+" +1 in inventory and inflammable leaves -"+cost+".";
-        smmIRAdd("2023-11.leaves."+it.to_int(),"Burn "+cost+" leaves for "+it,work,value,input,"route.item."+leaf.to_int(),cost);
+        work.expect=it+" +1 in inventory and inflammable leaves -"+cost+", per copy.";
+        string id="2023-11.leaves."+it.to_int();
+        smmIRAdd(id,"Burn "+cost+" leaves for "+it,work,value,input,"route.item."+leaf.to_int(),cost);
+        if (!(smmIRActions contains id)) continue;
+        // The daily cap is shared by every leaf conversion in the plan.
+        smmIRActions[id].costs["route.leafCrafts"]=1;
+        smmIRBatch(id,min(crafts,min(creatable_amount(it),(item_amount(leaf)-reserve)/cost)));
     }
     if (held) smmIRNote("Inflammable leaves are held for their own Museum rank. Set smm.IR.museumCopyValue."+leaf.to_int()+" (Meat per leaf) to allow burning them.");
 }
@@ -255,35 +273,39 @@ boolean smmIRMoreDispatch(SmmIRWork work) {
     }
     if (work.kind=="more.buy") {
         coinmaster shop=$coinmaster[Sept-Ember Censer];
+        int copies=max(1,work.batch);
         int price=smmIRShopPrice(shop,work.product); int balance=get_property("availableSeptEmbers").to_int();
-        if (price<1 || price!=work.option || balance-price<max(0,smmIRSetting("emberReserve",0).to_int())) return false;
+        if (price<1 || price!=work.option || balance-price*copies<max(0,smmIRSetting("emberReserve",0).to_int())) return false;
         int before=item_amount(work.product);
-        buy(shop,1,work.product);
-        return item_amount(work.product)>before && get_property("availableSeptEmbers").to_int()<balance;
+        buy(shop,copies,work.product);
+        return item_amount(work.product)>=before+copies && get_property("availableSeptEmbers").to_int()<balance;
     }
     if (work.kind=="more.kiwi") {
         coinmaster shop=$coinmaster[Kiwi Kwiki Mart];
         int price=smmIRShopPrice(shop,work.product);
-        if (price<1 || price!=work.option || !smmIRMayConsume($item[mini kiwi],price)) return false;
+        int copies=max(1,work.batch);
+        if (price<1 || price!=work.option || !smmIRMayConsume($item[mini kiwi],price*copies)) return false;
         int before=item_amount(work.product); int kiwis=item_amount($item[mini kiwi]);
-        buy(shop,1,work.product);
-        if (item_amount(work.product)<=before || item_amount($item[mini kiwi])>=kiwis) return false;
-        smmIRDayBump(work.counter);
-        return true;
+        buy(shop,copies,work.product);
+        // Count what actually arrived, even when it is fewer than planned.
+        smmIRDayBump(work.counter,item_amount(work.product)-before);
+        return item_amount(work.product)>=before+copies && item_amount($item[mini kiwi])<kiwis;
     }
     if (work.kind=="more.create") {
-        if (creatable_amount(work.product)<1) return false;
+        int copies=max(1,work.batch);
+        if (creatable_amount(work.product)<copies) return false;
         if (work.choice_id==1510) {
-            int cost=get_ingredients(work.product)[$item[inflammable leaf]];
+            int cost=get_ingredients(work.product)[$item[inflammable leaf]]*copies;
             if (cost<1 || !smmIRMayConsume($item[inflammable leaf],cost)
                 || item_amount($item[inflammable leaf])-max(0,smmIRSetting("leafReserve",0).to_int())<cost) return false;
         }
-        int before=item_amount(work.product);
-        boolean made=create(1,work.product);
+        // The workshed and leaf pile leave their page open after a request.
         smmIRWalkAway(work.choice_id);
-        if (!made || item_amount(work.product)<=before) return false;
-        if (work.counter!="") smmIRDayBump(work.counter);
-        return true;
+        int made=smmIRCreateBatch(copies,work.product);
+        smmIRWalkAway(work.choice_id);
+        // Count what was actually made, even when it is fewer than planned.
+        if (work.counter!="") smmIRDayBump(work.counter,made);
+        return made>=copies;
     }
     return false;
 }

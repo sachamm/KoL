@@ -12,29 +12,46 @@
 //
 // Every plan covers the whole day: all organs full, cleaners used, organ-size
 // gear (and the Stooper) worn for extra space, and an overdrink at the end.
-// It is carried out in three phases:
-//   1. now: fill the organs' normal space and use the cleaners, then adventure
-//      until those adventures are spent;
-//   2. end of day: wear the organ-size gear / Stooper and fill the extra space;
-//   3. overdrink the nightcap and eat anything planned after it.
-// Phases 2 and 3 end useful adventuring (the gear costs you, and overdrunk you
+// It is carried out in four phases:
+//   1. now: food, booze and spleen in the organs' normal space, with the
+//      cleaners; then adventure until those adventures are spent;
+//   2. other turn generation that uses no organ (chocolates, tofu and other
+//      simple items, magical sausages, Ancestral Recall); then adventure
+//      until those are spent;
+//   3. end of day: Sweat Out Some Booze, wear the organ-size gear / Stooper
+//      and fill every organ to that capacity, never past it;
+//   4. overdrink exactly one drink: the one worth most, counting only the
+//      adventures that fit under the cap. Nothing is eaten after it.
+// Phases 3 and 4 end useful adventuring (the gear costs you, and overdrunk you
 // can't adventure), so their adventures roll over to tomorrow. Rollover keeps
-// at most 200 adventures, so phases 2-3 are planned to end the day as close to
+// at most 200 adventures, so phases 3-4 are planned to end the day as close to
 // 200 minus what rollover adds as possible without passing it.
 //
 // Usage (gCLI):  call diet.js [options]     (prints the whole-day plan)
 //   execute        buy and consume phase 1 (asks to confirm)
-//   finish         once phase 1's adventures are spent: re-plan, then buy and
-//                  consume everything left, phases 1 to 3 (asks to confirm)
+//   turngen        once phase 1's adventures are spent: re-plan, then buy and
+//                  consume phases 1-2 (asks to confirm)
+//   finish         once phase 2's adventures are spent: re-plan, then buy and
+//                  consume everything left, phases 1 to 4 (asks to confirm).
+//                  With designer sweatpants, it first casts Sweat Out Some
+//                  Booze as often as your sweat allows (25 each, 3 a day) and
+//                  plans the drunkenness that frees; other runs only flag it
 //   value=N        meat per adventure (default: smm.TurnValue, else 5000)
 //   rollover=N     adventures rollover will add (default: smmUtils'
 //                  adventureGainAtRollover with the best adventure gear)
 //   organs=F,D,S   override remaining fullness,drunkenness,spleen (no gear counted)
 //   lucky=N        Lucky! adventures wanted from Lucky Lindy (default 3)
 //   pvp=N          meat per PvP fight (default 0)
+//   itemdrop=N     meat one adventure with +1% Item Drop is worth, for the
+//                  effects consumables give (default: smm.ItemDropValue, else
+//                  0.2% of the adventure value: +100% is worth a fifth of an
+//                  adventure). Every modifier in EFFECT_MODIFIERS has such an
+//                  option and preference, named after it without spaces
+//                  (meatdrop=N / smm.MeatDropValue, familiarweight=N / ...);
+//                  0 ignores that modifier
 //   noRefresh      don't re-check live mall prices of the chosen items
 //   exclude=a|b|c  item names to leave out
-//   (execute and finish handle helpers, effects, Ode to Booze and gear, then
+//   (execute, turngen and finish handle helpers, effects, Ode to Booze and gear, then
 //   restore your outfit and familiar)
 
 var semirare_value = 0  // smm: set from the 11-leaf clover price before running
@@ -133,7 +150,12 @@ function tehtmi(diet_settings) {
 	// smm: strict -- never plan past the limit (adventures past it are lost to
 	// the 200-adventure cap), instead of counting what's past it as worthless
 	var strict_nightcap_limit = use_nightcap_limit && diet_settings["strict nightcap limit"]
-	
+	// smm: single-drink overdrink candidates, chosen outside the optimizer
+	// (with "include nightcap" "no"): booze needing no stomach or spleen. Kept
+	// only if no other is at least as many adventures for no more cost
+	// (cost = adv * adv_value - value), so any adventure cap still finds the best.
+	var overdrink_list = diet_settings["overdrink candidates"] ? [] : null
+
 	var workshed = diet_settings["workshed"]
 
 	// smm: daily counters the page assumed were all unused
@@ -389,6 +411,7 @@ function tehtmi(diet_settings) {
 			value += item["bonusadv"] * adv_value
 		}
 		if(item["bonusvalue"]) value += item["bonusvalue"]
+		if(item["effectvalue"]) value += item["effectvalue"]  // smm: the effect it gives (see effectOf)
 		var spec = {"item": item, "opts": opts, "value": value, "size": item["size"], "adv": adv, "pvp": pvp, "price": price, "limit": item["limit"]}
 		
 		if(opts["fortune"]) {
@@ -499,6 +522,22 @@ function tehtmi(diet_settings) {
 			}
 		}
 		
+		if(overdrink_list && item["type"] == "booze" && size[1] > 0 && size[0] <= 0 && size[2] <= 0 &&
+		   !item["speakeasy"] && spec.value > k_epsilon &&  // limits are checked when choosing
+		   !(spec.opts && (spec.opts["mayodiol"] || spec.opts["brie"] || spec.opts["fortune"]))) {
+			var od_cost = function (s) { return s.adv * adv_value - s.value }
+			// a limited drink may be used up by the rest of the plan, so it never rules others out
+			var od_dominates = function (a, b) { return !a.item["limit"] && a.adv >= b.adv && od_cost(a) <= od_cost(b) + k_epsilon }
+			var od_keep = true
+			for(var odi = 0; odi < overdrink_list.length; odi++) {
+				if(od_dominates(overdrink_list[odi], spec)) { od_keep = false; break }
+			}
+			if(od_keep) {
+				overdrink_list = overdrink_list.filter(function (o) { return !od_dominates(spec, o) })
+				overdrink_list.push(spec)
+			}
+		}
+
 		if(after_nightcap_spec) {
 			spec = after_nightcap_spec
 			key = key + "after_nightcap"
@@ -1527,191 +1566,199 @@ function tehtmi(diet_settings) {
 	//console.log("time taken", after - before)
 	
 	// convert to Eleron's format
-	var diet_map = {}
-	var node = diet
-	while(node["first"]) {
-		var spec = node["first"]
-		//console.log(spec.item.name)
-		var key = spec["desc"]
-		if(!key) {key = spec["item"]["name"]}
-		var is_nightcap = node["is_nightcap"]
-		var is_fortune = spec.opts && spec.opts["fortune"]
-		var has_mayodiol = spec["opts"] && spec.opts["mayodiol"]
-		var using_spork = spec["opts"] && spec.opts["fudge spork"]
-		var with_beer_nuts = spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])
-		var with_brie = spec.opts && spec.opts["brie"]
-		var wish_refined_palate = spec.opts && spec.opts["wish_refined_palate"]
-		var wish_salty_mouth = spec.opts && spec.opts["wish_salty_mouth"]
-		var with_mime_shotglass = node["mime shotglass"]
-		var with_dieting_pill = spec.opts && spec.opts["dieting pill"]
-		var with_special_seasoning = spec.opts && spec.opts["special seasoning"]
-		if(is_nightcap) {
-			key += " (nightcap)"
-		}
-		if(is_fortune) {
-			key += " (fortune)"
-		}
-		if(has_mayodiol) {
-			key += " (mayodiol)"
-		}
-		if(using_spork) {
-			key += " (fudge spork)"
-		}
-		if(with_beer_nuts) {
-			key += " (with beer nuts)"
-		}
-		if(with_brie) {
-			key += " (with brie)"
-		}
-		if(wish_refined_palate) {
-			key += " (wish refined)"
-		}
-		if(wish_salty_mouth) {
-			key += " (wish salty)"
-		}
-		if(with_mime_shotglass) {
-			key += " (with mime shotglass)"
-		}
-		if(with_dieting_pill) {
-			key += " (with dieting pill)"
-		}
-		if(with_special_seasoning) {
-			key += " (with special seasoning)"
-		}
-		var entry = diet_map[key]
-		if(!entry) {
-			entry = {
-				"spec": spec,
-				"node": node,
-				"amount": 1,
-				"name": spec["item"]["name"],
-				"turns": node["adv_override"] || spec["adv"],
-				"fights": (spec["pvp"] || 0),
-				"price": spec["price"],
-				"value": spec["value"],
-				"idx": spec["item"]["idx"],
-				"is_nightcap": is_nightcap,
-				"using_mime_shotglass": with_mime_shotglass,
-				"fortune": 0,
-				"fortune_value": spec["fortune_value"] || 0,
-				//"after_nightcap": node["after_nightcap"]
+	// smm: a function, so overdrink candidates get rows in the same format
+	function diet_rows(diet) {
+		var diet_map = {}
+		var node = diet
+		while(node["first"]) {
+			var spec = node["first"]
+			//console.log(spec.item.name)
+			var key = spec["desc"]
+			if(!key) {key = spec["item"]["name"]}
+			var is_nightcap = node["is_nightcap"]
+			var is_fortune = spec.opts && spec.opts["fortune"]
+			var has_mayodiol = spec["opts"] && spec.opts["mayodiol"]
+			var using_spork = spec["opts"] && spec.opts["fudge spork"]
+			var with_beer_nuts = spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])
+			var with_brie = spec.opts && spec.opts["brie"]
+			var wish_refined_palate = spec.opts && spec.opts["wish_refined_palate"]
+			var wish_salty_mouth = spec.opts && spec.opts["wish_salty_mouth"]
+			var with_mime_shotglass = node["mime shotglass"]
+			var with_dieting_pill = spec.opts && spec.opts["dieting pill"]
+			var with_special_seasoning = spec.opts && spec.opts["special seasoning"]
+			if(is_nightcap) {
+				key += " (nightcap)"
 			}
-			diet_map[key] = entry
-		} else {
-			entry["amount"]++
-			entry["turns"] += node["adv_override"] || spec["adv"]
-			entry["fights"] += (spec["pvp"] || 0)
-			entry["value"] += spec["value"]
+			if(is_fortune) {
+				key += " (fortune)"
+			}
+			if(has_mayodiol) {
+				key += " (mayodiol)"
+			}
+			if(using_spork) {
+				key += " (fudge spork)"
+			}
+			if(with_beer_nuts) {
+				key += " (with beer nuts)"
+			}
+			if(with_brie) {
+				key += " (with brie)"
+			}
+			if(wish_refined_palate) {
+				key += " (wish refined)"
+			}
+			if(wish_salty_mouth) {
+				key += " (wish salty)"
+			}
+			if(with_mime_shotglass) {
+				key += " (with mime shotglass)"
+			}
+			if(with_dieting_pill) {
+				key += " (with dieting pill)"
+			}
+			if(with_special_seasoning) {
+				key += " (with special seasoning)"
+			}
+			var entry = diet_map[key]
+			if(!entry) {
+				entry = {
+					"spec": spec,
+					"node": node,
+					"amount": 1,
+					"name": spec["item"]["name"],
+					"turns": node["adv_override"] || spec["adv"],
+					"fights": (spec["pvp"] || 0),
+					"price": spec["price"],
+					"value": spec["value"],
+					"idx": spec["item"]["idx"],
+					"is_nightcap": is_nightcap,
+					"using_mime_shotglass": with_mime_shotglass,
+					"fortune": 0,
+					"fortune_value": spec["fortune_value"] || 0,
+					//"after_nightcap": node["after_nightcap"]
+				}
+				diet_map[key] = entry
+			} else {
+				entry["amount"]++
+				entry["turns"] += node["adv_override"] || spec["adv"]
+				entry["fights"] += (spec["pvp"] || 0)
+				entry["value"] += spec["value"]
+			}
+			node = node["rest"]
 		}
-		node = node["rest"]
+		var diet_items = []
+		for(idx in diet_map) {
+			var item = diet_map[idx]
+			var spec = item["spec"]
+			item["desc"] = {
+				"amount": item["amount"] + "x",
+				"turns": "",//(item["turns"] ? item["turns"].toFixed(0) : ""),
+				"idx": item["idx"],
+				"price": item["price"].toFixed(0),
+				"name": item["name"],
+				"extra": [],
+				"notes": (spec.item.specialprice || ""),
+				"item": item,
+			}
+			
+			if(item["fights"] && item["turns"]) {
+				item.desc["turns"] = item.turns.toFixed(0) + " + " + item.fights.toFixed(0) + " PvP"
+			} else if(item["turns"]) {
+				item.desc["turns"] = item.turns.toFixed(0)
+			} else if(item["fights"]) {
+				item.desc["turns"] = item.fights.toFixed(0) + " PvP"
+			}
+			
+			item["price"] *= item["amount"]
+			
+			var notes = []
+			
+			if(item["is_nightcap"]) {
+				notes.push({type: "text", text: "nightcap"})
+			} else if(item["after_nightcap"] || spec["after_nightcap"]) {
+				notes.push({type: "text", text: "after nightcap"})
+			}
+			if(spec.opts && spec.opts["fortune"]) {
+				item.fortune = item.amount
+				item.fortune_value *= item.amount
+				notes.push({type: "text", text: "semi-rare"})
+			}
+			if(spec.opts && spec.opts["wish_refined_palate"]) {
+				notes.push({type: "effect", verb: "wish for", effect: "Refined Palate"})
+			}
+			if(spec.opts && spec.opts["wish_salty_mouth"]) {
+				notes.push({type: "effect", verb: "wish for", effect: "Salty Mouth"})
+			}
+			if(spec.opts && spec.opts["salad fork"]) {
+				notes.push({type: "item", verb: "using", item: fork_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["fudge spork"]) {
+				notes.push({type: "item", verb: "using", item: spork_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["taco sauce"]) {
+				notes.push({type: "item", verb: "with", item: taco_sauce_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["frosty mug"]) {
+				notes.push({type: "item", verb: "using", item: frosty_mug_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["shotglass"]) {
+				notes.push({type: "item", verb: "using", item: shotglass_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["gar-ish"]) {
+				notes.push({type: "effect", verb: "with", effect: "Gar-ish"})
+			}
+			if(spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])) {
+				notes.push({type: "effect", verb: "with", effect: "Salty Mouth"})
+			}
+			if(spec.item["item class"] == "wine" && mafia_ring_available) {
+				notes.push({type: "item", verb: "wearing", item: {name: "mafia pinky ring"}, exclude: false})
+			}
+			if(spec.opts && spec.opts["brie"]) {
+				notes.push({type: "effect", verb: "with", effect: "Refined Palate"})
+			}
+			if(spec.opts && spec.opts["munchies pill"]) {
+				notes.push({type: "item", verb: "with", item: munchies_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["dieting pill"]) {
+				notes.push({type: "item", verb: "with", item: dieting_pill_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["special seasoning"]) {
+				notes.push({type: "item", verb: "with", item: special_seasoning_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["mayoflex"]) {
+				notes.push({type: "item", verb: "with", item: mayoflex_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["mayodiol"]) {
+				notes.push({type: "item", verb: "with", item: mayodiol_item, exclude: true})
+			}
+			if(spec["tuxedo_boosted"]) {
+				notes.push({type: "item", verb: "wearing", item: {name: "tuxedo shirt"}, exclude: false})
+			}
+			if(item["using_mime_shotglass"]) {
+				notes.push({type: "item", verb: "using", item: {name: "mime army shotglass"}, exclude: false})
+			}
+			for(var i in notes) {
+				item.desc.extra.push(notes[i]);
+			}
+			
+			//console.log("price", item["name"], item["price"], desc_number(item["price"]))
+			item.sortkey = tehtmi_sortkey(item)
+			diet_items.push(item)
+		}
+		
+		diet_items.sort(function (a, b) {
+			if (a.sortkey < b.sortkey) return -1
+			if (a.sortkey > b.sortkey) return 1
+			return a.name.localeCompare(b.name)
+		})
+		
+		return diet_items
 	}
-	var diet_items = []
-	for(idx in diet_map) {
-		var item = diet_map[idx]
-		var spec = item["spec"]
-		item["desc"] = {
-			"amount": item["amount"] + "x",
-			"turns": "",//(item["turns"] ? item["turns"].toFixed(0) : ""),
-			"idx": item["idx"],
-			"price": item["price"].toFixed(0),
-			"name": item["name"],
-			"extra": [],
-			"notes": (spec.item.specialprice || ""),
-			"item": item,
-		}
-		
-		if(item["fights"] && item["turns"]) {
-			item.desc["turns"] = item.turns.toFixed(0) + " + " + item.fights.toFixed(0) + " PvP"
-		} else if(item["turns"]) {
-			item.desc["turns"] = item.turns.toFixed(0)
-		} else if(item["fights"]) {
-			item.desc["turns"] = item.fights.toFixed(0) + " PvP"
-		}
-		
-		item["price"] *= item["amount"]
-		
-		var notes = []
-		
-		if(item["is_nightcap"]) {
-			notes.push({type: "text", text: "nightcap"})
-		} else if(item["after_nightcap"] || spec["after_nightcap"]) {
-			notes.push({type: "text", text: "after nightcap"})
-		}
-		if(spec.opts && spec.opts["fortune"]) {
-			item.fortune = item.amount
-			item.fortune_value *= item.amount
-			notes.push({type: "text", text: "semi-rare"})
-		}
-		if(spec.opts && spec.opts["wish_refined_palate"]) {
-			notes.push({type: "effect", verb: "wish for", effect: "Refined Palate"})
-		}
-		if(spec.opts && spec.opts["wish_salty_mouth"]) {
-			notes.push({type: "effect", verb: "wish for", effect: "Salty Mouth"})
-		}
-		if(spec.opts && spec.opts["salad fork"]) {
-			notes.push({type: "item", verb: "using", item: fork_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["fudge spork"]) {
-			notes.push({type: "item", verb: "using", item: spork_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["taco sauce"]) {
-			notes.push({type: "item", verb: "with", item: taco_sauce_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["frosty mug"]) {
-			notes.push({type: "item", verb: "using", item: frosty_mug_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["shotglass"]) {
-			notes.push({type: "item", verb: "using", item: shotglass_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["gar-ish"]) {
-			notes.push({type: "effect", verb: "with", effect: "Gar-ish"})
-		}
-		if(spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])) {
-			notes.push({type: "effect", verb: "with", effect: "Salty Mouth"})
-		}
-		if(spec.item["item class"] == "wine" && mafia_ring_available) {
-			notes.push({type: "item", verb: "wearing", item: {name: "mafia pinky ring"}, exclude: false})
-		}
-		if(spec.opts && spec.opts["brie"]) {
-			notes.push({type: "effect", verb: "with", effect: "Refined Palate"})
-		}
-		if(spec.opts && spec.opts["munchies pill"]) {
-			notes.push({type: "item", verb: "with", item: munchies_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["dieting pill"]) {
-			notes.push({type: "item", verb: "with", item: dieting_pill_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["special seasoning"]) {
-			notes.push({type: "item", verb: "with", item: special_seasoning_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["mayoflex"]) {
-			notes.push({type: "item", verb: "with", item: mayoflex_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["mayodiol"]) {
-			notes.push({type: "item", verb: "with", item: mayodiol_item, exclude: true})
-		}
-		if(spec["tuxedo_boosted"]) {
-			notes.push({type: "item", verb: "wearing", item: {name: "tuxedo shirt"}, exclude: false})
-		}
-		if(item["using_mime_shotglass"]) {
-			notes.push({type: "item", verb: "using", item: {name: "mime army shotglass"}, exclude: false})
-		}
-		for(var i in notes) {
-			item.desc.extra.push(notes[i]);
-		}
-		
-		//console.log("price", item["name"], item["price"], desc_number(item["price"]))
-		item.sortkey = tehtmi_sortkey(item)
-		diet_items.push(item)
-	}
-	
-	diet_items.sort(function (a, b) {
-		if (a.sortkey < b.sortkey) return -1
-		if (a.sortkey > b.sortkey) return 1
-		return a.name.localeCompare(b.name)
+	var diet_items = diet_rows(diet)
+	var overdrinks = !overdrink_list ? [] : overdrink_list.map(function (spec) {
+		return diet_rows({"first": spec, "rest": {}, "value": spec.value, "is_nightcap": true})[0]
 	})
-	
-	return {diet_items: diet_items, value: diet.value}
+	return {diet_items: diet_items, value: diet.value, overdrinks: overdrinks}
 }
 
 
@@ -1959,6 +2006,80 @@ function sausageEntry() {
 		"owned": true, "eat": true}
 }
 
+// smm: effects. A consumable that gives an effect (Sacramento wine: 50
+// adventures of +50% Item Drop) is worth more than its adventures. Effects only
+// wear off as you adventure, so every turn of one counts, whenever it is
+// consumed. Each modifier below is worth a set amount of meat per adventure
+// per point, given here as a fraction of the adventure value and anchored at
+// +100% Item Drop = a fifth of an adventure. The rest are rough estimates
+// relative to that for aftercore farming; override any of them with its option
+// or preference (see effectRates). Left out: modifiers whose worth has no fixed
+// sign or size (Combat Rate, Fumble, zone- and path-specific ones).
+var EFFECT_MODIFIERS = {
+	// drops
+	"Item Drop": 0.002, "Item Drop Penalty": 0.002, "Sporadic Item Drop": 0.0005,
+	"Meat Drop": 0.001, "Meat Drop Penalty": 0.001, "Sporadic Meat Drop": 0.00025,
+	"Food Drop": 0.0005, "Booze Drop": 0.0005, "Candy Drop": 0.0005, "Gear Drop": 0.0005,
+	"Hat Drop": 0.0005, "Weapon Drop": 0.0005, "Offhand Drop": 0.0005, "Shirt Drop": 0.0005,
+	"Pants Drop": 0.0005, "Accessory Drop": 0.0005, "Spleen Drop": 0.0005, "Potion Drop": 0.0005,
+	"Pickpocket Chance": 0.0005,
+	// familiar
+	"Familiar Weight": 0.005, "Hidden Familiar Weight": 0.005, "Familiar Weight Percent": 0.001,
+	"Familiar Experience": 0.005, "Familiar Action Bonus": 0.0005, "Familiar Damage": 0.00002,
+	// stats and experience
+	"Experience": 0.0005, "Monster Level": 0.0002, "Monster Level Percent": 0.0002,
+	"Muscle Experience": 0.0002, "Mysticality Experience": 0.0002, "Moxie Experience": 0.0002,
+	"Muscle Experience Percent": 0.00005, "Mysticality Experience Percent": 0.00005,
+	"Moxie Experience Percent": 0.00005,
+	"Muscle": 0.00002, "Mysticality": 0.00002, "Moxie": 0.00002,
+	"Muscle Percent": 0.00002, "Mysticality Percent": 0.00002, "Moxie Percent": 0.00002,
+	// HP and MP (a cheaper skill is a negative Mana Cost)
+	"Maximum HP": 0.000005, "Maximum MP": 0.000005, "Maximum HP Percent": 0.00001, "Maximum MP Percent": 0.00001,
+	"HP Regen Min": 0.00002, "HP Regen Max": 0.00002, "MP Regen Min": 0.0002, "MP Regen Max": 0.0002,
+	"Mana Cost": -0.001, "Stackable Mana Cost": -0.001, "Combat Mana Cost": -0.0005,
+	// combat
+	"Initiative": 0.00005, "Initiative Penalty": 0.00005,
+	"Damage Absorption": 0.00001, "Damage Reduction": 0.0001,
+	"Cold Resistance": 0.0002, "Hot Resistance": 0.0002, "Sleaze Resistance": 0.0002,
+	"Spooky Resistance": 0.0002, "Stench Resistance": 0.0002,
+	"Weapon Damage": 0.00002, "Weapon Damage Percent": 0.00002, "Ranged Damage": 0.00002,
+	"Ranged Damage Percent": 0.00002, "Spell Damage": 0.00002, "Spell Damage Percent": 0.00002,
+	"Cold Damage": 0.00002, "Hot Damage": 0.00002, "Sleaze Damage": 0.00002,
+	"Spooky Damage": 0.00002, "Stench Damage": 0.00002,
+	"Cold Spell Damage": 0.00002, "Hot Spell Damage": 0.00002, "Sleaze Spell Damage": 0.00002,
+	"Spooky Spell Damage": 0.00002, "Stench Spell Damage": 0.00002,
+	"Critical Hit Percent": 0.00005, "Spell Critical Percent": 0.00005,
+	"Damage Aura": 0.00002, "Thorns": 0.00002,
+}
+
+// Meat per adventure per point of each valued modifier. "Item Drop" is set by
+// option itemdrop=N, else preference smm.ItemDropValue, else its fraction
+// above; the others likewise.
+function effectRates(opts, adv_value) {
+	var rates = {}
+	for (var name in EFFECT_MODIFIERS) {
+		var key = name.replace(/[^A-Za-z]/g, "")
+		var v = parseFloat(opts[key.toLowerCase()])
+		if (isNaN(v)) v = parseFloat(pref("smm." + key + "Value"))
+		if (isNaN(v)) v = EFFECT_MODIFIERS[name] * adv_value
+		if (v) rates[name] = v
+	}
+	return rates
+}
+
+// The effect one of an item gives and what it is worth: {name, turns, value},
+// or null when it gives none or none of its modifiers is valued.
+function effectOf(it, rates) {
+	var eff = km.effectModifier(it, "Effect")
+	if (!eff || !eff.name || eff.name == "none") return null
+	var turns = km.numericModifier(it, "Effect Duration")
+	if (!(turns > 0)) return null
+	var perTurn = 0
+	for (var name in rates) perTurn += km.numericModifier(eff, name) * rates[name]
+	if (!perTurn) return null
+	return {name: eff.name, turns: turns, value: Math.round(turns * perTurn)}
+}
+
 function parseAdventures(s) {
 	var m = /^\s*(-?\d+(?:\.\d+)?)(?:\s*-\s*(-?\d+(?:\.\d+)?))?\s*$/.exec(s || "")
 	if (!m) return [0, 0]
@@ -1966,7 +2087,7 @@ function parseAdventures(s) {
 	return [lo, m[2] ? parseFloat(m[2]) : lo]
 }
 
-// bonus: {lucky: Lucky! effects wanted}
+// bonus: {lucky: Lucky! effects wanted, effects: effectRates()}
 function buildConsumables(excluded, bonus) {
 	var cons = []
 	var myLevel = km.myLevel()
@@ -2007,9 +2128,15 @@ function buildConsumables(excluded, bonus) {
 		}
 		if (it.name == "Three Sheets to the Wind") {
 			// Wetted Whistle: +10 adventures at rollover, if nothing is adventured
-			// after it -- so it is always drunk in phase 2 (see splitPhases)
+			// after it -- so it is always drunk in phase 3 (see splitPhases)
 			entry["bonusadv"] = 10
 			entry["limit"] = 1
+		}
+
+		var effect = bonus.effects ? effectOf(it, bonus.effects) : null
+		if (effect) {
+			entry["effect"] = effect
+			entry["effectvalue"] = effect.value
 		}
 
 		var id = km.toInt(it)
@@ -2080,7 +2207,7 @@ function isCapacityGearIn(slot) {
 	return !!CAPACITY_GEAR[km.equippedItem(km.Slot.get(slot)).name]
 }
 
-// Organ-capacity gear for phase 2: [{name, slot, size, worn}]. Gear you are
+// Organ-capacity gear for phase 3: [{name, slot, size, worn}]. Gear you are
 // wearing now counts too, but not toward phase 1, since you'd take it off to
 // adventure. The corset is skipped when a tuxedo shirt can boost martinis, and
 // one accessory slot is left for the pinky ring.
@@ -2124,9 +2251,42 @@ function haveUsable(name) {
 	return km.availableAmount(it) > 0 && km.canEquip(it)
 }
 
+// Sweat Out Some Booze (designer sweatpants, held or worn): 25 sweat for -1
+// drunkenness, 3 casts a day. Sweat builds while you adventure in the pants.
+var SWEAT_PER_CAST = 25
+var SWEAT_CASTS_PER_DAY = 3
+
+function sweatBooze() {
+	var have = km.availableAmount(km.Item.get("designer sweatpants")) > 0
+	var sweat = prefInt("sweat")
+	var left = have ? Math.max(0, SWEAT_CASTS_PER_DAY - prefInt("_sweatOutSomeBoozeUsed")) : 0
+	return {have: have, sweat: sweat, left: left, ready: Math.min(left, Math.floor(sweat / SWEAT_PER_CAST))}
+}
+
+// Casts worth making now: each needs drunkenness to remove, and casting is
+// pointless if you'd still be over your liver limit afterwards.
+function sweatCastsNow(sweat) {
+	var n = Math.min(sweat.ready, km.myInebriety())
+	if (km.myInebriety() - n > km.inebrietyLimit()) return 0
+	return Math.max(0, n)
+}
+
+// One cast at a time (multicasting it has been unreliable).
+function castSweatOutBooze(n, log) {
+	var skill = km.Skill.get("Sweat Out Some Booze")
+	var done = 0
+	for (var i = 0; i < n; i++) {
+		var used = prefInt("_sweatOutSomeBoozeUsed"), drunk = km.myInebriety()
+		if (!km.useSkill(1, skill) || (prefInt("_sweatOutSomeBoozeUsed") == used && km.myInebriety() == drunk)) break
+		done++
+	}
+	if (done < n) log.push("warning: cast Sweat Out Some Booze " + done + " of " + n + " times; plan may not fit")
+	return done
+}
+
 function parseArgs(argString) {
 	var opts = {}
-	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|finish\b)/)
+	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|turngen\b|finish\b)/)
 	for (var i = 0; i < parts.length; i++) {
 		var p = parts[i].replace(/^\s+|\s+$/g, "")
 		if (!p) continue
@@ -2140,14 +2300,19 @@ function parseArgs(argString) {
 function buildSettings(opts) {
 	var adv_value = parseFloat(opts.value) ||
 		parseFloat(pref("smm.TurnValue")) || 5000
-	var overdrunk = km.myInebriety() > km.inebrietyLimit()
+	// Sweat Out Some Booze is cast only by finish (the day's last run), so
+	// only finish counts the drunkenness it frees.
+	var sweat = sweatBooze()
+	var sweatCasts = opts.finish && !opts.organs ? sweatCastsNow(sweat) : 0
+	var inebriety = km.myInebriety() - sweatCasts
+	var overdrunk = inebriety > km.inebrietyLimit()
 	var organs = [
 		km.fullnessLimit() - km.myFullness(),
-		Math.max(0, km.inebrietyLimit() - km.myInebriety()),
+		Math.max(0, km.inebrietyLimit() - inebriety),
 		km.spleenLimit() - km.mySpleenUse(),
 	]
-	// always "limited": planDay caps the nightcap's adventures to fit rollover
-	var nightcap = overdrunk ? "no" : "limited"
+	// The optimizer plans no nightcap: phase 4 is one overdrink, picked by
+	// planDay from the optimizer's single-drink candidates.
 
 	// organs: space for the whole day. base: what phase 1 may use -- without
 	// organ gear or the Stooper, even if they're on now.
@@ -2192,9 +2357,8 @@ function buildSettings(opts) {
 		"adventure value": adv_value,
 		"pvp fight value": parseFloat(opts.pvp) || 0,
 		"classid": CLASS_IDS[km.myClass().toString()] || 0,
-		"include nightcap": nightcap,
-		"nightcap limit": 0,  // set by planDay
-		"strict nightcap limit": true,
+		"include nightcap": "no",
+		"overdrink candidates": !overdrunk,
 		"rollover gain": 0,   // set by main
 		"saucemaven available": km.haveSkill(km.Skill.get("Saucemaven")),
 		"pizza lover available": km.haveSkill(km.Skill.get("Pizza Lover")),
@@ -2210,12 +2374,15 @@ function buildSettings(opts) {
 		"speakeasy": has_speakeasy,
 		"semirares available": has_speakeasy ? Math.min(lucky, speakeasy_left) : 0,
 		"lucky wanted": lucky,
+		"effect rates": effectRates(opts, adv_value),
 		"workshed": km.getWorkshed().name == "portable Mayo Clinic" ? "mayo" : "none",
 		"excluded consumables": excluded,
 		"organ sizes": organs,
 		"base organs": base,
 		"capacity gear": gear,
 		"stooper": stooper,
+		"sweat": sweat,
+		"sweat casts": sweatCasts,  // Sweat Out Some Booze casts finish makes first
 		// smm additions
 		// KoLmafia already rewrites the cookie's adventures from affirmationCookiesEaten
 		// (3, 5, 7, then 9), so no bonus is added on top.
@@ -2256,12 +2423,28 @@ function noteText(note) {
 // ---------------------------------------------------------------------------
 // Phases. The optimizer plans the whole day; splitPhases decides which units
 // are consumed in each phase:
-//   1 now: everything that fits the organs' normal space, with all cleaners
-//   2 end of day, wearing organ gear / Stooper: the units that need the extra
-//     space, plus Three Sheets to the Wind (its rollover bonus is lost if you
-//     adventure after it)
-//   3 overdrink: the nightcap, then food planned after it
+//   1 now: food, booze and spleen that fit the organs' normal space, with all
+//     cleaners
+//   2 once phase 1's adventures are spent: other turn generation that uses no
+//     organ (chocolates, simple items such as tofu, magical sausages,
+//     Ancestral Recall) -- by then you have ground more sausages and built
+//     more sweat
+//   3 end of day, wearing organ gear / Stooper (and after Sweat Out Some
+//     Booze): the units that need the extra space, plus Three Sheets to the
+//     Wind (its rollover bonus is lost if you adventure after it)
+//   4 overdrink: one drink, picked by chooseLate (the optimizer plans none)
+// Phases 1-2 are adventured today; phases 3-4 roll over.
 // ---------------------------------------------------------------------------
+
+var LAST_PHASE = 4
+
+// Turn generation that uses no organ: phase 2. Milk of magnesium boosts the
+// food eaten after it, so it stays with the food.
+function isTurngen(row) {
+	var s = unitSize(row), item = row.spec.item
+	if (s[0] || s[1] || s[2] || row.is_nightcap || row.name == "milk of magnesium") return false
+	return item.type == "simple" || !!CHOCOLATE_NAMES[row.name] || row.name == "Ancestral Recall"
+}
 
 // Organ use of one unit of a plan row.
 function unitSize(row) {
@@ -2292,15 +2475,16 @@ function smallestCover(units, o, need) {
 	return best[covered[0]]
 }
 
-// Units of each plan row per phase: parts[i] = [0, phase1, phase2, phase3].
+// Units of each plan row per phase: parts[i] = [0, phase1, phase2, phase3, phase4].
 function splitPhases(result, settings) {
 	var rows = result.diet_items, room = settings["base organs"].slice()
 	var used = [0, 0, 0], movable = [], parts = []
 	for (var i = 0; i < rows.length; i++) {
 		var r = rows[i], s = unitSize(r), item = r.spec.item
-		parts.push([0, 0, 0, 0])
-		if (r.is_nightcap || r.spec.after_nightcap) { parts[i][3] = r.amount; continue }
-		if (item.bonusadv) { parts[i][2] = r.amount; continue }
+		parts.push([0, 0, 0, 0, 0])
+		if (r.is_nightcap || r.spec.after_nightcap) { parts[i][4] = r.amount; continue }
+		if (item.bonusadv) { parts[i][3] = r.amount; continue }
+		if (isTurngen(r)) { parts[i][2] = r.amount; continue }
 		parts[i][1] = r.amount
 		for (var o = 0; o < 3; o++) {
 			if (s[o] > 0) used[o] += s[o] * r.amount
@@ -2318,7 +2502,7 @@ function splitPhases(result, settings) {
 		var pick = smallestCover(movable.filter(function (m) { return m.size[org] > 0 }), org, need)
 		for (var p = 0; p < pick.length; p++) {
 			parts[pick[p].row][1]--
-			parts[pick[p].row][2]++
+			parts[pick[p].row][3]++
 			for (var q = 0; q < 3; q++) used[q] -= pick[p].size[q]
 			movable.splice(movable.indexOf(pick[p]), 1)
 		}
@@ -2346,83 +2530,116 @@ function rolloverGain(opts) {
 
 // Adventures each phase actually gives (the nightcap's uncapped).
 function phaseAdventures(result, parts) {
-	var adv = [0, 0, 0, 0], rows = result.diet_items
+	var adv = [0, 0, 0, 0, 0], rows = result.diet_items
 	for (var i = 0; i < rows.length; i++) {
 		var r = rows[i]
 		var per = r.is_nightcap ? (r.spec.adv || 0) : (r.turns || 0) / r.amount
-		for (var ph = 1; ph <= 3; ph++) adv[ph] += per * parts[i][ph]
+		for (var ph = 1; ph <= LAST_PHASE; ph++) adv[ph] += per * parts[i][ph]
 	}
 	return adv
 }
 
-// Plan the day so phases 2-3 end as close to the adventure cap after
-// rollover as possible without passing it -- tomorrow then starts with the
-// most adventures. Phase 2 is set by organ space, so the room is enforced
-// through the optimizer's (strict) nightcap limit on the nightcap and the food
-// after it: re-plan with the room phase 2 leaves until that settles, trim each
-// plan to fit (trimToRoom) and keep the one worth most. At finish, adventures
-// you still hold and phase 1 leftovers eaten then count too.
-function planDay(settings, finish) {
-	var room0 = ADVENTURE_CAP - settings["rollover gain"] - (finish ? km.myAdventures() : 0)
-	var best = null, limit = Math.max(0, room0), tried = {}
-	for (var pass = 0; pass < 5 && !tried[limit]; pass++) {
-		tried[limit] = true
-		settings["nightcap limit"] = limit
-		var result = tehtmi(settings), parts = splitPhases(result, settings)
-		var adv = phaseAdventures(result, parts)
-		var room = room0 - (finish ? adv[1] : 0)
-		var plan = {result: result, parts: parts, adv: adv.slice(), room: room, value: 0, limit: limit}
-		for (var i = 0; i < result.diet_items.length; i++) plan.value += result.diet_items[i].value || 0
-		plan.waste = Math.max(0, Math.round(adv[2] + adv[3] - Math.max(0, room)))
-		trimToRoom(plan, settings)
-		if (!best || (plan.waste < best.waste) || (plan.waste == best.waste && plan.value > best.value + k_epsilon))
-			best = plan
-		limit = Math.max(0, Math.floor(room - adv[2]))
-	}
-	settings["nightcap limit"] = best.limit
-	return best
+// Adventures of phases from..LAST_PHASE.
+function advFrom(adv, from) {
+	var sum = 0
+	for (var ph = from; ph <= LAST_PHASE; ph++) sum += adv[ph]
+	return sum
 }
 
-// Fit phases 2-3 into the room: keep the subset of their units (the
-// nightcap aside, the optimizer already fit it) worth most whose adventures
-// fit -- a small knapsack, as these phases hold only a few units. Ties go to
-// more adventures, to end the day closer to the cap.
-function trimToRoom(plan, settings) {
-	var rows = plan.result.diet_items
+// Plan the day so the adventures that roll over end as close to the
+// adventure cap after rollover as possible without passing it -- tomorrow
+// then starts with the most adventures. Phases 3-4 roll over; at finish,
+// adventures you still hold and phase 1-2 leftovers eaten then roll over too.
+// The optimizer fills every organ (organ gear and Stooper included) with no
+// nightcap; chooseLate then picks the one overdrink and trims phase 3 to fit.
+// Phase 2 turn generation is never dropped to fit: if it (with phase 1
+// leftovers and the adventures you hold) would overflow at finish, finish
+// warns and stops instead.
+function planDay(settings, finish) {
+	var roll = finish ? 1 : 3  // first phase whose adventures roll over
+	var room = ADVENTURE_CAP - settings["rollover gain"] - (finish ? km.myAdventures() : 0)
+	var result = tehtmi(settings), parts = splitPhases(result, settings)
+	var adv = phaseAdventures(result, parts)
+	var plan = {result: result, parts: parts, adv: adv.slice(), room: room, roll: roll, value: 0}
+	for (var i = 0; i < result.diet_items.length; i++) plan.value += result.diet_items[i].value || 0
+	// Only phase 3 is trimmed: phase 1-2 leftovers are worth eating, so if
+	// they alone overflow at finish, finish stops instead (earlyWaste).
+	plan.earlyWaste = finish ? Math.max(0, Math.round(adv[1] + adv[2] - Math.max(0, room))) : 0
+	chooseLate(plan, settings)
+	return plan
+}
+
+// Phase 4 is a single overdrink: the candidate worth most, counting only the
+// adventures that fit under the cap (value of those adventures minus what it
+// costs). It is chosen together with the phase 3 units to keep -- a small
+// knapsack over phase 3 (it holds only a few units), tried with the room each
+// overdrink would leave. Ties go to more adventures, to end the day closer to
+// the cap.
+function chooseLate(plan, settings) {
+	var rows = plan.result.diet_items, advValue = settings["adventure value"]
 	plan.dropped = {}
-	if (plan.waste <= 0) return
+	plan.overdrink = null
 	var units = [], fixed = 0
+	for (var f = plan.roll; f < 3; f++) fixed += plan.adv[f]  // rolled over but not trimmed
 	for (var i = 0; i < rows.length; i++) {
+		if (rows[i].is_nightcap) continue  // the optimizer plans none; never trim one
 		var a = (rows[i].turns || 0) / rows[i].amount
-		for (var ph = 2; ph <= 3; ph++) {
+		for (var ph = 3; ph <= LAST_PHASE; ph++) {
 			for (var k = 0; k < plan.parts[i][ph]; k++) {
-				if (rows[i].is_nightcap) { fixed += rows[i].spec.adv || 0; continue }
-				units.push({row: i, phase: ph, adv: Math.ceil(a - k_epsilon), value: (rows[i].value || 0) / rows[i].amount})
+				var v = (rows[i].value || 0) / rows[i].amount
+				units.push({row: i, phase: ph, adv: Math.ceil(a - k_epsilon), value: v,
+					score: Math.max(v, 0) + (a + 1) * k_epsilon})  // keep 0-value units when they fit
 			}
 		}
 	}
-	var cap = Math.max(0, Math.floor(plan.room - fixed))
-	// best[c] = {score, take} using at most c adventures
+	var avail = Math.max(0, Math.floor(plan.room - fixed))
+	// best[c] = {score, take}: the phase 3 units worth most using at most c adventures
 	var best = []
-	for (var c = 0; c <= cap; c++) best.push({score: 0, take: []})
+	for (var c = 0; c <= avail; c++) best.push({score: 0, take: []})
 	for (var u = 0; u < units.length; u++) {
-		var score = units[u].value + units[u].adv * k_epsilon
-		for (var c2 = cap; c2 >= units[u].adv; c2--) {
-			var prev = best[c2 - units[u].adv], cand = prev.score + score
+		for (var c2 = avail; c2 >= units[u].adv; c2--) {
+			var prev = best[c2 - units[u].adv], cand = prev.score + units[u].score
 			if (cand > best[c2].score + k_epsilon * k_epsilon) best[c2] = {score: cand, take: prev.take.concat([u])}
 		}
 	}
-	var keep = {}
-	for (var t = 0; t < best[cap].take.length; t++) keep[best[cap].take[t]] = true
-	for (var d = 0; d < units.length; d++) {
-		if (keep[d]) continue
-		var un = units[d], r = rows[un.row]
-		plan.parts[un.row][un.phase]--
-		plan.adv[un.phase] -= (r.turns || 0) / r.amount
-		plan.value -= un.value
-		plan.dropped[r.name] = (plan.dropped[r.name] || 0) + 1
+
+	var used = {}  // copies of each item the plan already uses
+	for (var r = 0; r < rows.length; r++) {
+		var n = 0
+		for (var up = 1; up <= LAST_PHASE; up++) n += plan.parts[r][up]
+		used[rows[r].name] = (used[rows[r].name] || 0) + n
 	}
-	plan.waste = Math.max(0, Math.round(plan.adv[2] + plan.adv[3] - Math.max(0, plan.room)))
+	var pick = {score: best[avail].score, take: best[avail].take, drink: null, value: 0}
+	var drinks = plan.result.overdrinks || []
+	for (var d = 0; d < drinks.length; d++) {
+		var od = drinks[d], limit = od.spec.item.limit
+		if (limit && (used[od.name] || 0) >= limit) continue
+		var counted = Math.min(od.turns, avail)  // adventures that fit under the cap
+		var odValue = od.value - (od.turns - counted) * advValue
+		if (odValue <= k_epsilon) continue
+		var left = avail - Math.ceil(counted - k_epsilon)
+		var score = best[left].score + odValue + counted * k_epsilon
+		if (score > pick.score + k_epsilon * k_epsilon) pick = {score: score, take: best[left].take, drink: od, value: odValue}
+	}
+
+	var keep = {}
+	for (var t = 0; t < pick.take.length; t++) keep[pick.take[t]] = true
+	for (var x = 0; x < units.length; x++) {
+		if (keep[x]) continue
+		var un = units[x], row = rows[un.row]
+		plan.parts[un.row][un.phase]--
+		plan.adv[un.phase] -= (row.turns || 0) / row.amount
+		plan.value -= un.value
+		plan.dropped[row.name] = (plan.dropped[row.name] || 0) + 1
+	}
+	if (pick.drink) {
+		rows.push(pick.drink)
+		plan.parts.push([0, 0, 0, 0, 1])
+		plan.adv[LAST_PHASE] += pick.drink.turns
+		plan.value += pick.value
+		plan.overdrink = pick.drink
+	}
+	plan.waste = Math.max(0, Math.round(advFrom(plan.adv, plan.roll) - Math.max(0, plan.room)))
 }
 
 function gearDescription(settings) {
@@ -2432,9 +2649,10 @@ function gearDescription(settings) {
 }
 
 var PHASE_TITLES = {
-	1: "Phase 1 -- now: fill your organs and use the cleaners, then adventure until these are spent",
-	2: "Phase 2 -- end of day: ",
-	3: "Phase 3 -- overdrink and finish",
+	1: "Phase 1 -- now (execute): food, booze and spleen, with the cleaners; then adventure until these are spent",
+	2: "Phase 2 -- then (turngen): other turn generation; then adventure until these are spent",
+	3: "Phase 3 -- end of day (finish): ",
+	4: "Phase 4 -- overdrink one drink, the one worth most (adventures past the cap count for nothing)",
 }
 
 function printPlan(plan, settings, finish) {
@@ -2443,14 +2661,19 @@ function printPlan(plan, settings, finish) {
 	km.print("Whole-day diet for " + o[0] + " fullness, " + o[1] + " drunkenness, " + o[2] +
 		" spleen (" + base.join("/") + " without organ gear) at " +
 		fmt(settings["adventure value"]) + " meat/adventure", "blue")
-	var rows = result.diet_items, totalTurns = 0, cost = 0, pvp = 0, phaseTurns = [0, 0, 0, 0]
-	for (var ph = 1; ph <= 3; ph++) {
+	var rows = result.diet_items, totalTurns = 0, cost = 0, pvp = 0, effects = 0, phaseTurns = [0, 0, 0, 0, 0]
+	for (var ph = 1; ph <= LAST_PHASE; ph++) {
 		var lines = []
 		for (var i = 0; i < rows.length; i++) {
 			var r = rows[i], n = parts[i][ph]
 			if (!n) continue
 			var notes = r.desc.extra.map(noteText)
 			if (r.desc.notes) notes.push(r.desc.notes)
+			var eff = r.spec.item.effect
+			if (eff) {
+				notes.push(fmt(eff.turns * n) + " adv of " + eff.name + " worth " + fmt(eff.value * n) + " meat")
+				effects += eff.value * n
+			}
 			var turns = (r.turns || 0) * n / r.amount
 			lines.push(n + "x " + r.name + " -- " + fmt(turns) + " adv, " +
 				fmt((r.price || 0) * n / r.amount) + " meat" + (notes.length ? " (" + notes.join("; ") + ")" : ""))
@@ -2458,29 +2681,57 @@ function printPlan(plan, settings, finish) {
 		}
 		if (!lines.length) continue
 		var title = PHASE_TITLES[ph]
-		if (ph == 2) title += gearDescription(settings) ? "wear " + gearDescription(settings) + ", fill the extra space" :
-			"after your adventures are spent"
+		if (ph == 3) title += gearDescription(settings) ? "wear " + gearDescription(settings) +
+			", fill every organ to the new capacity (never over)" : "fill every organ (never over)"
 		km.print(title + " (" + fmt(phaseTurns[ph]) + " adv):", "blue")
 		for (var l = 0; l < lines.length; l++) km.print("  " + lines[l])
 	}
 	for (var j = 0; j < rows.length; j++) {
-		var units = parts[j][1] + parts[j][2] + parts[j][3]
+		var units = 0
+		for (var up = 1; up <= LAST_PHASE; up++) units += parts[j][up]
 		totalTurns += (rows[j].turns || 0) * units / rows[j].amount
 		cost += (rows[j].price || 0) * units / rows[j].amount
 		pvp += (rows[j].fights || 0) * units / rows[j].amount
 	}
 	for (var dn in plan.dropped) km.print("Leaving out " + plan.dropped[dn] + "x " + dn +
 		": its adventures would pass " + ADVENTURE_CAP + " at rollover.", "gray")
+	if (!plan.overdrink && settings["overdrink candidates"])
+		km.print("No overdrink: no single drink is worth its price in the adventures that fit under " +
+			ADVENTURE_CAP + ".", "orange")
 	km.print("Total: " + fmt(totalTurns) + " adventures" + (pvp ? " + " + fmt(pvp) + " PvP fights" : "") +
-		" for " + fmt(cost) + " meat; net value " + fmt(plan.value) + " meat", "green")
-	km.print(fmt(phaseTurns[1]) + " adventures to use today; " + fmt(phaseTurns[2] + phaseTurns[3]) +
-		" from phases 2-3 roll over to tomorrow.", "green")
-	var late = Math.round(plan.adv[2] + plan.adv[3])
-	km.print("Rollover adds about " + settings["rollover gain"] + " (best adventure gear); phases 2-3 add " + late +
+		" for " + fmt(cost) + " meat; net value " + fmt(plan.value) + " meat" +
+		(effects ? " (" + fmt(effects) + " of it from effects)" : ""), "green")
+	if (finish) km.print("Everything left is consumed now, so all " + fmt(totalTurns) + " roll over to tomorrow.", "green")
+	else km.print(fmt(phaseTurns[1] + phaseTurns[2]) + " adventures from phases 1-2 to use today; " +
+		fmt(phaseTurns[3] + phaseTurns[4]) + " from phases 3-4 roll over to tomorrow.", "green")
+	var late = Math.round(advFrom(plan.adv, plan.roll))
+	var lateWhat = finish ? "the rest of the diet adds " : "phases 3-4 add "
+	km.print("Rollover adds about " + settings["rollover gain"] + " (best adventure gear)" +
+		(finish ? " to the " + km.myAdventures() + " you hold" : "") + "; " + lateWhat + late +
 		" of the " + Math.max(0, plan.room) + " that fit under " + ADVENTURE_CAP + ".", "gray")
 	if (plan.waste > 0)
-		km.print(plan.waste + " adventures from phases 2-3 will be lost at rollover (" + ADVENTURE_CAP + " max).", "orange")
+		km.print(plan.waste + " adventures will be lost at rollover (" + ADVENTURE_CAP + " max).", "orange")
 	if (o[1] > 0) km.print("Booze adventures assume Ode to Booze is active.", "gray")
+	printSweatFlag(settings, finish)
+}
+
+// Flag Sweat Out Some Booze: what finish will cast, or why it isn't counted.
+function printSweatFlag(settings, finish) {
+	var s = settings["sweat"], casts = settings["sweat casts"]
+	if (!s || !s.have || !s.left) return
+	if (casts > 0) {
+		km.print("Sweat Out Some Booze: casting it " + casts + "x first (" + (casts * SWEAT_PER_CAST) + " of " +
+			s.sweat + " sweat) for " + casts + " more drunkenness (counted above).", "blue")
+		if (s.left > casts) km.print("  " + (s.left - casts) + " more casts left today.", "gray")
+		return
+	}
+	var why
+	if (!finish) why = "not counted; it is cast by the last run of the day (call diet.js finish)"
+	else if (s.ready == 0) why = "not enough sweat (" + s.sweat + " of " + SWEAT_PER_CAST + " per cast)"
+	else if (km.myInebriety() == 0) why = "no drunkenness to sweat out yet"
+	else why = "you would still be over your liver limit"
+	km.print("Sweat Out Some Booze: " + s.left + " casts left today, " + s.sweat + " sweat (" + SWEAT_PER_CAST +
+		" per cast) -- " + why + ".", "orange")
 }
 
 function main(argString) {
@@ -2490,7 +2741,7 @@ function main(argString) {
 	semirare_value = km.mallPrice(km.Item.get("11-leaf clover"))
 	price_cache = {}
 	loadMuseumSpare(dietCandidates())
-	diet_consumables = buildConsumables(settings["excluded consumables"], {lucky: settings["lucky wanted"]})
+	diet_consumables = buildConsumables(settings["excluded consumables"], {lucky: settings["lucky wanted"], effects: settings["effect rates"]})
 
 	settings["rollover gain"] = rolloverGain(opts)
 	var plan = planDay(settings, !!opts.finish)
@@ -2515,8 +2766,16 @@ function main(argString) {
 	}
 
 	printPlan(plan, settings, !!opts.finish)
-	if (opts.finish) executePlan(plan.result, settings, plan.parts, true)
-	else if (opts.execute) executePlan(plan.result, settings, plan.parts, false)
+	if (opts.finish && plan.earlyWaste > 0) {
+		km.print("Not finishing: you hold " + km.myAdventures() + " adventures and phases 1-2 still add " +
+			fmt(plan.adv[1] + plan.adv[2]) + ", so finishing now would waste " + plan.earlyWaste +
+			" adventures at rollover (" + ADVENTURE_CAP + " max, rollover adds about " + settings["rollover gain"] +
+			"). Spend some adventures first (call diet.js turngen uses phase 2 today), then run finish again.", "red")
+		return
+	}
+	if (opts.finish) executePlan(plan.result, settings, plan.parts, LAST_PHASE)
+	else if (opts.turngen) executePlan(plan.result, settings, plan.parts, 2)
+	else if (opts.execute) executePlan(plan.result, settings, plan.parts, 1)
 	// Return nothing: KoLmafia converts a JS return value to ASH, and the plan
 	// object (with its undefined fields) can't be converted.
 }
@@ -2716,20 +2975,21 @@ function castOde(steps) {
 
 // Consume steps in a safe order. Multiple passes: units that don't fit yet
 // (food waiting on a cleaning booze), and cleaning items whose organ isn't
-// full enough yet, are retried later. The nightcap waits for everything
-// before it. Waste is allowed only when a pass makes no other progress.
+// full enough yet, are retried later. The overdrink waits until everything
+// else is in, so organs are filled to capacity first and only that one drink
+// goes over. Waste is allowed only when a pass makes no other progress.
 // Returns {error, left}; units that never fit are an error only when strict.
 function runSteps(steps, extenders, log, strict) {
-	var pending = steps, allowWaste = false, releaseNightcap = false, error = "", odeDone = false
+	var pending = steps, allowWaste = false, error = "", odeDone = false
 	while (pending.length && !error) {
 		var next = [], progress = false
 		for (var s = 0; s < pending.length && !error; s++) {
 			var step = pending[s]
-			if (step.phase >= 7 && next.some(function (p) {
-				return p.phase < step.phase && !(releaseNightcap && p.phase < 5)
-			})) {
+			if (step.row.is_nightcap && (next.length || pending.slice(s + 1).some(function (p) { return !p.row.is_nightcap }))) {
 				next.push(step); continue
 			}
+			if (step.row.is_nightcap && km.myInebriety() < km.inebrietyLimit())
+				log.push("note: overdrinking at " + km.myInebriety() + " of " + km.inebrietyLimit() + " drunkenness (liver not full)")
 			if (step.phase >= 5 && !odeDone) { castOde(steps); odeDone = true }
 			var organ = blockingOrgan(step)
 			while (organ >= 0 && useExtenderFor(organ, extenders, allowWaste)) organ = blockingOrgan(step)
@@ -2743,13 +3003,8 @@ function runSteps(steps, extenders, log, strict) {
 			if (err) error = err
 			else progress = true
 		}
-		var boozeLeft = next.some(function (p) { return p.phase == 5 || p.phase == 6 })
-		if (progress) { allowWaste = false; releaseNightcap = false }
+		if (progress) allowWaste = false
 		else if (!allowWaste && next.length) allowWaste = true
-		// a nightcap that cleans an organ (pickle juice) may be what frees
-		// the last food/spleen item; let it go once regular booze is done
-		else if (!releaseNightcap && !boozeLeft && next.some(function (p) { return p.phase == 7 }))
-			releaseNightcap = true
 		else if (next.length && !error) {
 			if (!strict) return {error: "", left: next}
 			error = "can't fit " + next[0].row.name + " (organs " + organState().join("/") +
@@ -2760,7 +3015,7 @@ function runSteps(steps, extenders, log, strict) {
 	return {error: error, left: pending}
 }
 
-// Phase 2 setup: put on the organ-capacity gear and take out the Stooper.
+// Phase 3 setup: put on the organ-capacity gear and take out the Stooper.
 function wearPhase2Gear(settings, log) {
 	var gear = settings["capacity gear"] || []
 	for (var g = 0; g < gear.length; g++) {
@@ -2776,9 +3031,10 @@ function wearPhase2Gear(settings, log) {
 	}
 }
 
-// Carry out phase 1 (finish = false) or everything left, phases 1 to 3.
-function executePlan(result, settings, parts, finish) {
-	var rows = result.diet_items, lastPhase = finish ? 3 : 1
+// Carry out phases 1 to lastPhase (1 execute, 2 turngen, 4 finish), with anything earlier left over.
+function executePlan(result, settings, parts, lastPhase) {
+	var finish = lastPhase == LAST_PHASE
+	var rows = result.diet_items
 	var steps = [], extenders = [], cost = 0
 	wish_budget = {}
 	for (var r = 0; r < rows.length; r++) {
@@ -2800,21 +3056,27 @@ function executePlan(result, settings, parts, finish) {
 	}
 	var byOrder = function (a, b) { return a.phase - b.phase }
 	steps.sort(byOrder)
-	var early = steps.filter(function (s) { return s.stage == 1 })
-	var late = steps.filter(function (s) { return s.stage > 1 })
+	// early: phases 1-2 (organs' normal space, no gear); late: phases 3-4
+	var early = steps.filter(function (s) { return s.stage <= 2 })
+	var late = steps.filter(function (s) { return s.stage > 2 })
+	var nextRun = lastPhase == 1 ? "call diet.js turngen" : "call diet.js finish"
 	if (!steps.length && !extenders.length) {
 		if (finish) km.print("Nothing worth consuming.", "blue")
-		else km.print("Nothing to consume in phase 1. Once your adventures are spent, run: call diet.js finish", "blue")
+		else km.print("Nothing to consume in phase" + (lastPhase == 1 ? " 1" : "s 1-2") +
+			". Once your adventures are spent, run: " + nextRun, "blue")
 		return
 	}
 	if (finish && late.length && km.myAdventures() > 0 &&
-		!km.userConfirm("You still have " + km.myAdventures() + " adventures. Phases 2-3 (organ gear, " +
+		!km.userConfirm("You still have " + km.myAdventures() + " adventures. Phases 3-4 (organ gear, " +
 			"overdrinking) end useful adventuring for today. Finish anyway?", 60000, false)) {
 		km.print("Diet not finished.", "blue")
 		return
 	}
-	var what = finish ? "the rest of today's diet" : "phase 1 of the diet"
-	if (!km.userConfirm("Buy and consume " + what + " (about " + fmt(cost) + " meat)?", 60000, false)) {
+	var what = finish ? "the rest of today's diet" : (lastPhase == 1 ? "phase 1 of the diet" : "phases 1-2 of the diet")
+	var sweatCasts = finish ? settings["sweat casts"] || 0 : 0
+	if (sweatCasts) what = "cast Sweat Out Some Booze " + sweatCasts + "x, then buy and consume " + what
+	else what = "buy and consume " + what
+	if (!km.userConfirm(what.charAt(0).toUpperCase() + what.substring(1) + " (about " + fmt(cost) + " meat)?", 60000, false)) {
 		km.print("Diet not executed.", "blue")
 		return
 	}
@@ -2824,6 +3086,7 @@ function executePlan(result, settings, parts, finish) {
 	var familiar = km.myFamiliar()
 	km.cliExecute("checkpoint")
 	try {
+		if (sweatCasts) castSweatOutBooze(sweatCasts, log)
 		var run = runSteps(early, extenders, log, false)
 		error = run.error
 		left = run.left
@@ -2839,7 +3102,7 @@ function executePlan(result, settings, parts, finish) {
 		if (km.myFamiliar().toString() != familiar.toString()) km.useFamiliar(familiar)
 	}
 	if (error && wore && km.myInebriety() > km.inebrietyLimit())
-		log.push("warning: stopped in phase 2-3 and the organ gear is off -- you are over your liver limit")
+		log.push("warning: stopped in phase 3-4 and the organ gear is off -- you are over your liver limit")
 
 	for (var l = 0; l < log.length; l++) km.print(log[l], "orange")
 	for (var e = 0; e < extenders.length; e++) {
@@ -2852,7 +3115,8 @@ function executePlan(result, settings, parts, finish) {
 	} else if (!finish) {
 		if (left.length) km.print("Didn't fit yet, left for the end of the day: " +
 			left.map(function (s) { return s.row.name }).join(", "), "gray")
-		km.print("Phase 1 done. " + summary + " Adventure until these are spent, then run: call diet.js finish", "green")
+		km.print((lastPhase == 1 ? "Phase 1" : "Phases 1-2") + " done. " + summary +
+			" Adventure until these are spent, then run: " + nextRun, "green")
 	} else {
 		km.print("Diet done. " + summary, "green")
 	}
@@ -2862,6 +3126,8 @@ module.exports.main = main
 module.exports.tehtmi = tehtmi
 module.exports.splitPhases = splitPhases
 module.exports.planDay = planDay
+module.exports.effectRates = effectRates
+module.exports.effectOf = effectOf
 module.exports._setData = function (consumables, srValue) {  // for tests
 	diet_consumables = consumables
 	semirare_value = srValue
