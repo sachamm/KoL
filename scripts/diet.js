@@ -42,6 +42,13 @@
 //   organs=F,D,S   override remaining fullness,drunkenness,spleen (no gear counted)
 //   lucky=N        Lucky! adventures wanted from Lucky Lindy (default 3)
 //   pvp=N          meat per PvP fight (default 0)
+//   itemdrop=N     meat one adventure with +1% Item Drop is worth, for the
+//                  effects consumables give (default: smm.ItemDropValue, else
+//                  0.2% of the adventure value: +100% is worth a fifth of an
+//                  adventure). Every modifier in EFFECT_MODIFIERS has such an
+//                  option and preference, named after it without spaces
+//                  (meatdrop=N / smm.MeatDropValue, familiarweight=N / ...);
+//                  0 ignores that modifier
 //   noRefresh      don't re-check live mall prices of the chosen items
 //   exclude=a|b|c  item names to leave out
 //   (execute, turngen and finish handle helpers, effects, Ode to Booze and gear, then
@@ -404,6 +411,7 @@ function tehtmi(diet_settings) {
 			value += item["bonusadv"] * adv_value
 		}
 		if(item["bonusvalue"]) value += item["bonusvalue"]
+		if(item["effectvalue"]) value += item["effectvalue"]  // smm: the effect it gives (see effectOf)
 		var spec = {"item": item, "opts": opts, "value": value, "size": item["size"], "adv": adv, "pvp": pvp, "price": price, "limit": item["limit"]}
 		
 		if(opts["fortune"]) {
@@ -1998,6 +2006,80 @@ function sausageEntry() {
 		"owned": true, "eat": true}
 }
 
+// smm: effects. A consumable that gives an effect (Sacramento wine: 50
+// adventures of +50% Item Drop) is worth more than its adventures. Effects only
+// wear off as you adventure, so every turn of one counts, whenever it is
+// consumed. Each modifier below is worth a set amount of meat per adventure
+// per point, given here as a fraction of the adventure value and anchored at
+// +100% Item Drop = a fifth of an adventure. The rest are rough estimates
+// relative to that for aftercore farming; override any of them with its option
+// or preference (see effectRates). Left out: modifiers whose worth has no fixed
+// sign or size (Combat Rate, Fumble, zone- and path-specific ones).
+var EFFECT_MODIFIERS = {
+	// drops
+	"Item Drop": 0.002, "Item Drop Penalty": 0.002, "Sporadic Item Drop": 0.0005,
+	"Meat Drop": 0.001, "Meat Drop Penalty": 0.001, "Sporadic Meat Drop": 0.00025,
+	"Food Drop": 0.0005, "Booze Drop": 0.0005, "Candy Drop": 0.0005, "Gear Drop": 0.0005,
+	"Hat Drop": 0.0005, "Weapon Drop": 0.0005, "Offhand Drop": 0.0005, "Shirt Drop": 0.0005,
+	"Pants Drop": 0.0005, "Accessory Drop": 0.0005, "Spleen Drop": 0.0005, "Potion Drop": 0.0005,
+	"Pickpocket Chance": 0.0005,
+	// familiar
+	"Familiar Weight": 0.005, "Hidden Familiar Weight": 0.005, "Familiar Weight Percent": 0.001,
+	"Familiar Experience": 0.005, "Familiar Action Bonus": 0.0005, "Familiar Damage": 0.00002,
+	// stats and experience
+	"Experience": 0.0005, "Monster Level": 0.0002, "Monster Level Percent": 0.0002,
+	"Muscle Experience": 0.0002, "Mysticality Experience": 0.0002, "Moxie Experience": 0.0002,
+	"Muscle Experience Percent": 0.00005, "Mysticality Experience Percent": 0.00005,
+	"Moxie Experience Percent": 0.00005,
+	"Muscle": 0.00002, "Mysticality": 0.00002, "Moxie": 0.00002,
+	"Muscle Percent": 0.00002, "Mysticality Percent": 0.00002, "Moxie Percent": 0.00002,
+	// HP and MP (a cheaper skill is a negative Mana Cost)
+	"Maximum HP": 0.000005, "Maximum MP": 0.000005, "Maximum HP Percent": 0.00001, "Maximum MP Percent": 0.00001,
+	"HP Regen Min": 0.00002, "HP Regen Max": 0.00002, "MP Regen Min": 0.0002, "MP Regen Max": 0.0002,
+	"Mana Cost": -0.001, "Stackable Mana Cost": -0.001, "Combat Mana Cost": -0.0005,
+	// combat
+	"Initiative": 0.00005, "Initiative Penalty": 0.00005,
+	"Damage Absorption": 0.00001, "Damage Reduction": 0.0001,
+	"Cold Resistance": 0.0002, "Hot Resistance": 0.0002, "Sleaze Resistance": 0.0002,
+	"Spooky Resistance": 0.0002, "Stench Resistance": 0.0002,
+	"Weapon Damage": 0.00002, "Weapon Damage Percent": 0.00002, "Ranged Damage": 0.00002,
+	"Ranged Damage Percent": 0.00002, "Spell Damage": 0.00002, "Spell Damage Percent": 0.00002,
+	"Cold Damage": 0.00002, "Hot Damage": 0.00002, "Sleaze Damage": 0.00002,
+	"Spooky Damage": 0.00002, "Stench Damage": 0.00002,
+	"Cold Spell Damage": 0.00002, "Hot Spell Damage": 0.00002, "Sleaze Spell Damage": 0.00002,
+	"Spooky Spell Damage": 0.00002, "Stench Spell Damage": 0.00002,
+	"Critical Hit Percent": 0.00005, "Spell Critical Percent": 0.00005,
+	"Damage Aura": 0.00002, "Thorns": 0.00002,
+}
+
+// Meat per adventure per point of each valued modifier. "Item Drop" is set by
+// option itemdrop=N, else preference smm.ItemDropValue, else its fraction
+// above; the others likewise.
+function effectRates(opts, adv_value) {
+	var rates = {}
+	for (var name in EFFECT_MODIFIERS) {
+		var key = name.replace(/[^A-Za-z]/g, "")
+		var v = parseFloat(opts[key.toLowerCase()])
+		if (isNaN(v)) v = parseFloat(pref("smm." + key + "Value"))
+		if (isNaN(v)) v = EFFECT_MODIFIERS[name] * adv_value
+		if (v) rates[name] = v
+	}
+	return rates
+}
+
+// The effect one of an item gives and what it is worth: {name, turns, value},
+// or null when it gives none or none of its modifiers is valued.
+function effectOf(it, rates) {
+	var eff = km.effectModifier(it, "Effect")
+	if (!eff || !eff.name || eff.name == "none") return null
+	var turns = km.numericModifier(it, "Effect Duration")
+	if (!(turns > 0)) return null
+	var perTurn = 0
+	for (var name in rates) perTurn += km.numericModifier(eff, name) * rates[name]
+	if (!perTurn) return null
+	return {name: eff.name, turns: turns, value: Math.round(turns * perTurn)}
+}
+
 function parseAdventures(s) {
 	var m = /^\s*(-?\d+(?:\.\d+)?)(?:\s*-\s*(-?\d+(?:\.\d+)?))?\s*$/.exec(s || "")
 	if (!m) return [0, 0]
@@ -2005,7 +2087,7 @@ function parseAdventures(s) {
 	return [lo, m[2] ? parseFloat(m[2]) : lo]
 }
 
-// bonus: {lucky: Lucky! effects wanted}
+// bonus: {lucky: Lucky! effects wanted, effects: effectRates()}
 function buildConsumables(excluded, bonus) {
 	var cons = []
 	var myLevel = km.myLevel()
@@ -2049,6 +2131,12 @@ function buildConsumables(excluded, bonus) {
 			// after it -- so it is always drunk in phase 3 (see splitPhases)
 			entry["bonusadv"] = 10
 			entry["limit"] = 1
+		}
+
+		var effect = bonus.effects ? effectOf(it, bonus.effects) : null
+		if (effect) {
+			entry["effect"] = effect
+			entry["effectvalue"] = effect.value
 		}
 
 		var id = km.toInt(it)
@@ -2286,6 +2374,7 @@ function buildSettings(opts) {
 		"speakeasy": has_speakeasy,
 		"semirares available": has_speakeasy ? Math.min(lucky, speakeasy_left) : 0,
 		"lucky wanted": lucky,
+		"effect rates": effectRates(opts, adv_value),
 		"workshed": km.getWorkshed().name == "portable Mayo Clinic" ? "mayo" : "none",
 		"excluded consumables": excluded,
 		"organ sizes": organs,
@@ -2572,7 +2661,7 @@ function printPlan(plan, settings, finish) {
 	km.print("Whole-day diet for " + o[0] + " fullness, " + o[1] + " drunkenness, " + o[2] +
 		" spleen (" + base.join("/") + " without organ gear) at " +
 		fmt(settings["adventure value"]) + " meat/adventure", "blue")
-	var rows = result.diet_items, totalTurns = 0, cost = 0, pvp = 0, phaseTurns = [0, 0, 0, 0, 0]
+	var rows = result.diet_items, totalTurns = 0, cost = 0, pvp = 0, effects = 0, phaseTurns = [0, 0, 0, 0, 0]
 	for (var ph = 1; ph <= LAST_PHASE; ph++) {
 		var lines = []
 		for (var i = 0; i < rows.length; i++) {
@@ -2580,6 +2669,11 @@ function printPlan(plan, settings, finish) {
 			if (!n) continue
 			var notes = r.desc.extra.map(noteText)
 			if (r.desc.notes) notes.push(r.desc.notes)
+			var eff = r.spec.item.effect
+			if (eff) {
+				notes.push(fmt(eff.turns * n) + " adv of " + eff.name + " worth " + fmt(eff.value * n) + " meat")
+				effects += eff.value * n
+			}
 			var turns = (r.turns || 0) * n / r.amount
 			lines.push(n + "x " + r.name + " -- " + fmt(turns) + " adv, " +
 				fmt((r.price || 0) * n / r.amount) + " meat" + (notes.length ? " (" + notes.join("; ") + ")" : ""))
@@ -2605,7 +2699,8 @@ function printPlan(plan, settings, finish) {
 		km.print("No overdrink: no single drink is worth its price in the adventures that fit under " +
 			ADVENTURE_CAP + ".", "orange")
 	km.print("Total: " + fmt(totalTurns) + " adventures" + (pvp ? " + " + fmt(pvp) + " PvP fights" : "") +
-		" for " + fmt(cost) + " meat; net value " + fmt(plan.value) + " meat", "green")
+		" for " + fmt(cost) + " meat; net value " + fmt(plan.value) + " meat" +
+		(effects ? " (" + fmt(effects) + " of it from effects)" : ""), "green")
 	if (finish) km.print("Everything left is consumed now, so all " + fmt(totalTurns) + " roll over to tomorrow.", "green")
 	else km.print(fmt(phaseTurns[1] + phaseTurns[2]) + " adventures from phases 1-2 to use today; " +
 		fmt(phaseTurns[3] + phaseTurns[4]) + " from phases 3-4 roll over to tomorrow.", "green")
@@ -2646,7 +2741,7 @@ function main(argString) {
 	semirare_value = km.mallPrice(km.Item.get("11-leaf clover"))
 	price_cache = {}
 	loadMuseumSpare(dietCandidates())
-	diet_consumables = buildConsumables(settings["excluded consumables"], {lucky: settings["lucky wanted"]})
+	diet_consumables = buildConsumables(settings["excluded consumables"], {lucky: settings["lucky wanted"], effects: settings["effect rates"]})
 
 	settings["rollover gain"] = rolloverGain(opts)
 	var plan = planDay(settings, !!opts.finish)
@@ -3031,6 +3126,8 @@ module.exports.main = main
 module.exports.tehtmi = tehtmi
 module.exports.splitPhases = splitPhases
 module.exports.planDay = planDay
+module.exports.effectRates = effectRates
+module.exports.effectOf = effectOf
 module.exports._setData = function (consumables, srValue) {  // for tests
 	diet_consumables = consumables
 	semirare_value = srValue
