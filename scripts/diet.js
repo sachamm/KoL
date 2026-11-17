@@ -19,8 +19,9 @@
 //      simple items, magical sausages, Ancestral Recall); then adventure
 //      until those are spent;
 //   3. end of day: Sweat Out Some Booze, wear the organ-size gear / Stooper
-//      and fill the extra space;
-//   4. overdrink the nightcap and eat anything planned after it.
+//      and fill every organ to that capacity, never past it;
+//   4. overdrink exactly one drink: the one worth most, counting only the
+//      adventures that fit under the cap. Nothing is eaten after it.
 // Phases 3 and 4 end useful adventuring (the gear costs you, and overdrunk you
 // can't adventure), so their adventures roll over to tomorrow. Rollover keeps
 // at most 200 adventures, so phases 3-4 are planned to end the day as close to
@@ -142,7 +143,12 @@ function tehtmi(diet_settings) {
 	// smm: strict -- never plan past the limit (adventures past it are lost to
 	// the 200-adventure cap), instead of counting what's past it as worthless
 	var strict_nightcap_limit = use_nightcap_limit && diet_settings["strict nightcap limit"]
-	
+	// smm: single-drink overdrink candidates, chosen outside the optimizer
+	// (with "include nightcap" "no"): booze needing no stomach or spleen. Kept
+	// only if no other is at least as many adventures for no more cost
+	// (cost = adv * adv_value - value), so any adventure cap still finds the best.
+	var overdrink_list = diet_settings["overdrink candidates"] ? [] : null
+
 	var workshed = diet_settings["workshed"]
 
 	// smm: daily counters the page assumed were all unused
@@ -508,6 +514,22 @@ function tehtmi(diet_settings) {
 			}
 		}
 		
+		if(overdrink_list && item["type"] == "booze" && size[1] > 0 && size[0] <= 0 && size[2] <= 0 &&
+		   !item["speakeasy"] && spec.value > k_epsilon &&  // limits are checked when choosing
+		   !(spec.opts && (spec.opts["mayodiol"] || spec.opts["brie"] || spec.opts["fortune"]))) {
+			var od_cost = function (s) { return s.adv * adv_value - s.value }
+			// a limited drink may be used up by the rest of the plan, so it never rules others out
+			var od_dominates = function (a, b) { return !a.item["limit"] && a.adv >= b.adv && od_cost(a) <= od_cost(b) + k_epsilon }
+			var od_keep = true
+			for(var odi = 0; odi < overdrink_list.length; odi++) {
+				if(od_dominates(overdrink_list[odi], spec)) { od_keep = false; break }
+			}
+			if(od_keep) {
+				overdrink_list = overdrink_list.filter(function (o) { return !od_dominates(spec, o) })
+				overdrink_list.push(spec)
+			}
+		}
+
 		if(after_nightcap_spec) {
 			spec = after_nightcap_spec
 			key = key + "after_nightcap"
@@ -1536,191 +1558,199 @@ function tehtmi(diet_settings) {
 	//console.log("time taken", after - before)
 	
 	// convert to Eleron's format
-	var diet_map = {}
-	var node = diet
-	while(node["first"]) {
-		var spec = node["first"]
-		//console.log(spec.item.name)
-		var key = spec["desc"]
-		if(!key) {key = spec["item"]["name"]}
-		var is_nightcap = node["is_nightcap"]
-		var is_fortune = spec.opts && spec.opts["fortune"]
-		var has_mayodiol = spec["opts"] && spec.opts["mayodiol"]
-		var using_spork = spec["opts"] && spec.opts["fudge spork"]
-		var with_beer_nuts = spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])
-		var with_brie = spec.opts && spec.opts["brie"]
-		var wish_refined_palate = spec.opts && spec.opts["wish_refined_palate"]
-		var wish_salty_mouth = spec.opts && spec.opts["wish_salty_mouth"]
-		var with_mime_shotglass = node["mime shotglass"]
-		var with_dieting_pill = spec.opts && spec.opts["dieting pill"]
-		var with_special_seasoning = spec.opts && spec.opts["special seasoning"]
-		if(is_nightcap) {
-			key += " (nightcap)"
-		}
-		if(is_fortune) {
-			key += " (fortune)"
-		}
-		if(has_mayodiol) {
-			key += " (mayodiol)"
-		}
-		if(using_spork) {
-			key += " (fudge spork)"
-		}
-		if(with_beer_nuts) {
-			key += " (with beer nuts)"
-		}
-		if(with_brie) {
-			key += " (with brie)"
-		}
-		if(wish_refined_palate) {
-			key += " (wish refined)"
-		}
-		if(wish_salty_mouth) {
-			key += " (wish salty)"
-		}
-		if(with_mime_shotglass) {
-			key += " (with mime shotglass)"
-		}
-		if(with_dieting_pill) {
-			key += " (with dieting pill)"
-		}
-		if(with_special_seasoning) {
-			key += " (with special seasoning)"
-		}
-		var entry = diet_map[key]
-		if(!entry) {
-			entry = {
-				"spec": spec,
-				"node": node,
-				"amount": 1,
-				"name": spec["item"]["name"],
-				"turns": node["adv_override"] || spec["adv"],
-				"fights": (spec["pvp"] || 0),
-				"price": spec["price"],
-				"value": spec["value"],
-				"idx": spec["item"]["idx"],
-				"is_nightcap": is_nightcap,
-				"using_mime_shotglass": with_mime_shotglass,
-				"fortune": 0,
-				"fortune_value": spec["fortune_value"] || 0,
-				//"after_nightcap": node["after_nightcap"]
+	// smm: a function, so overdrink candidates get rows in the same format
+	function diet_rows(diet) {
+		var diet_map = {}
+		var node = diet
+		while(node["first"]) {
+			var spec = node["first"]
+			//console.log(spec.item.name)
+			var key = spec["desc"]
+			if(!key) {key = spec["item"]["name"]}
+			var is_nightcap = node["is_nightcap"]
+			var is_fortune = spec.opts && spec.opts["fortune"]
+			var has_mayodiol = spec["opts"] && spec.opts["mayodiol"]
+			var using_spork = spec["opts"] && spec.opts["fudge spork"]
+			var with_beer_nuts = spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])
+			var with_brie = spec.opts && spec.opts["brie"]
+			var wish_refined_palate = spec.opts && spec.opts["wish_refined_palate"]
+			var wish_salty_mouth = spec.opts && spec.opts["wish_salty_mouth"]
+			var with_mime_shotglass = node["mime shotglass"]
+			var with_dieting_pill = spec.opts && spec.opts["dieting pill"]
+			var with_special_seasoning = spec.opts && spec.opts["special seasoning"]
+			if(is_nightcap) {
+				key += " (nightcap)"
 			}
-			diet_map[key] = entry
-		} else {
-			entry["amount"]++
-			entry["turns"] += node["adv_override"] || spec["adv"]
-			entry["fights"] += (spec["pvp"] || 0)
-			entry["value"] += spec["value"]
+			if(is_fortune) {
+				key += " (fortune)"
+			}
+			if(has_mayodiol) {
+				key += " (mayodiol)"
+			}
+			if(using_spork) {
+				key += " (fudge spork)"
+			}
+			if(with_beer_nuts) {
+				key += " (with beer nuts)"
+			}
+			if(with_brie) {
+				key += " (with brie)"
+			}
+			if(wish_refined_palate) {
+				key += " (wish refined)"
+			}
+			if(wish_salty_mouth) {
+				key += " (wish salty)"
+			}
+			if(with_mime_shotglass) {
+				key += " (with mime shotglass)"
+			}
+			if(with_dieting_pill) {
+				key += " (with dieting pill)"
+			}
+			if(with_special_seasoning) {
+				key += " (with special seasoning)"
+			}
+			var entry = diet_map[key]
+			if(!entry) {
+				entry = {
+					"spec": spec,
+					"node": node,
+					"amount": 1,
+					"name": spec["item"]["name"],
+					"turns": node["adv_override"] || spec["adv"],
+					"fights": (spec["pvp"] || 0),
+					"price": spec["price"],
+					"value": spec["value"],
+					"idx": spec["item"]["idx"],
+					"is_nightcap": is_nightcap,
+					"using_mime_shotglass": with_mime_shotglass,
+					"fortune": 0,
+					"fortune_value": spec["fortune_value"] || 0,
+					//"after_nightcap": node["after_nightcap"]
+				}
+				diet_map[key] = entry
+			} else {
+				entry["amount"]++
+				entry["turns"] += node["adv_override"] || spec["adv"]
+				entry["fights"] += (spec["pvp"] || 0)
+				entry["value"] += spec["value"]
+			}
+			node = node["rest"]
 		}
-		node = node["rest"]
+		var diet_items = []
+		for(idx in diet_map) {
+			var item = diet_map[idx]
+			var spec = item["spec"]
+			item["desc"] = {
+				"amount": item["amount"] + "x",
+				"turns": "",//(item["turns"] ? item["turns"].toFixed(0) : ""),
+				"idx": item["idx"],
+				"price": item["price"].toFixed(0),
+				"name": item["name"],
+				"extra": [],
+				"notes": (spec.item.specialprice || ""),
+				"item": item,
+			}
+			
+			if(item["fights"] && item["turns"]) {
+				item.desc["turns"] = item.turns.toFixed(0) + " + " + item.fights.toFixed(0) + " PvP"
+			} else if(item["turns"]) {
+				item.desc["turns"] = item.turns.toFixed(0)
+			} else if(item["fights"]) {
+				item.desc["turns"] = item.fights.toFixed(0) + " PvP"
+			}
+			
+			item["price"] *= item["amount"]
+			
+			var notes = []
+			
+			if(item["is_nightcap"]) {
+				notes.push({type: "text", text: "nightcap"})
+			} else if(item["after_nightcap"] || spec["after_nightcap"]) {
+				notes.push({type: "text", text: "after nightcap"})
+			}
+			if(spec.opts && spec.opts["fortune"]) {
+				item.fortune = item.amount
+				item.fortune_value *= item.amount
+				notes.push({type: "text", text: "semi-rare"})
+			}
+			if(spec.opts && spec.opts["wish_refined_palate"]) {
+				notes.push({type: "effect", verb: "wish for", effect: "Refined Palate"})
+			}
+			if(spec.opts && spec.opts["wish_salty_mouth"]) {
+				notes.push({type: "effect", verb: "wish for", effect: "Salty Mouth"})
+			}
+			if(spec.opts && spec.opts["salad fork"]) {
+				notes.push({type: "item", verb: "using", item: fork_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["fudge spork"]) {
+				notes.push({type: "item", verb: "using", item: spork_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["taco sauce"]) {
+				notes.push({type: "item", verb: "with", item: taco_sauce_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["frosty mug"]) {
+				notes.push({type: "item", verb: "using", item: frosty_mug_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["shotglass"]) {
+				notes.push({type: "item", verb: "using", item: shotglass_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["gar-ish"]) {
+				notes.push({type: "effect", verb: "with", effect: "Gar-ish"})
+			}
+			if(spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])) {
+				notes.push({type: "effect", verb: "with", effect: "Salty Mouth"})
+			}
+			if(spec.item["item class"] == "wine" && mafia_ring_available) {
+				notes.push({type: "item", verb: "wearing", item: {name: "mafia pinky ring"}, exclude: false})
+			}
+			if(spec.opts && spec.opts["brie"]) {
+				notes.push({type: "effect", verb: "with", effect: "Refined Palate"})
+			}
+			if(spec.opts && spec.opts["munchies pill"]) {
+				notes.push({type: "item", verb: "with", item: munchies_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["dieting pill"]) {
+				notes.push({type: "item", verb: "with", item: dieting_pill_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["special seasoning"]) {
+				notes.push({type: "item", verb: "with", item: special_seasoning_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["mayoflex"]) {
+				notes.push({type: "item", verb: "with", item: mayoflex_item, exclude: true})
+			}
+			if(spec.opts && spec.opts["mayodiol"]) {
+				notes.push({type: "item", verb: "with", item: mayodiol_item, exclude: true})
+			}
+			if(spec["tuxedo_boosted"]) {
+				notes.push({type: "item", verb: "wearing", item: {name: "tuxedo shirt"}, exclude: false})
+			}
+			if(item["using_mime_shotglass"]) {
+				notes.push({type: "item", verb: "using", item: {name: "mime army shotglass"}, exclude: false})
+			}
+			for(var i in notes) {
+				item.desc.extra.push(notes[i]);
+			}
+			
+			//console.log("price", item["name"], item["price"], desc_number(item["price"]))
+			item.sortkey = tehtmi_sortkey(item)
+			diet_items.push(item)
+		}
+		
+		diet_items.sort(function (a, b) {
+			if (a.sortkey < b.sortkey) return -1
+			if (a.sortkey > b.sortkey) return 1
+			return a.name.localeCompare(b.name)
+		})
+		
+		return diet_items
 	}
-	var diet_items = []
-	for(idx in diet_map) {
-		var item = diet_map[idx]
-		var spec = item["spec"]
-		item["desc"] = {
-			"amount": item["amount"] + "x",
-			"turns": "",//(item["turns"] ? item["turns"].toFixed(0) : ""),
-			"idx": item["idx"],
-			"price": item["price"].toFixed(0),
-			"name": item["name"],
-			"extra": [],
-			"notes": (spec.item.specialprice || ""),
-			"item": item,
-		}
-		
-		if(item["fights"] && item["turns"]) {
-			item.desc["turns"] = item.turns.toFixed(0) + " + " + item.fights.toFixed(0) + " PvP"
-		} else if(item["turns"]) {
-			item.desc["turns"] = item.turns.toFixed(0)
-		} else if(item["fights"]) {
-			item.desc["turns"] = item.fights.toFixed(0) + " PvP"
-		}
-		
-		item["price"] *= item["amount"]
-		
-		var notes = []
-		
-		if(item["is_nightcap"]) {
-			notes.push({type: "text", text: "nightcap"})
-		} else if(item["after_nightcap"] || spec["after_nightcap"]) {
-			notes.push({type: "text", text: "after nightcap"})
-		}
-		if(spec.opts && spec.opts["fortune"]) {
-			item.fortune = item.amount
-			item.fortune_value *= item.amount
-			notes.push({type: "text", text: "semi-rare"})
-		}
-		if(spec.opts && spec.opts["wish_refined_palate"]) {
-			notes.push({type: "effect", verb: "wish for", effect: "Refined Palate"})
-		}
-		if(spec.opts && spec.opts["wish_salty_mouth"]) {
-			notes.push({type: "effect", verb: "wish for", effect: "Salty Mouth"})
-		}
-		if(spec.opts && spec.opts["salad fork"]) {
-			notes.push({type: "item", verb: "using", item: fork_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["fudge spork"]) {
-			notes.push({type: "item", verb: "using", item: spork_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["taco sauce"]) {
-			notes.push({type: "item", verb: "with", item: taco_sauce_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["frosty mug"]) {
-			notes.push({type: "item", verb: "using", item: frosty_mug_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["shotglass"]) {
-			notes.push({type: "item", verb: "using", item: shotglass_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["gar-ish"]) {
-			notes.push({type: "effect", verb: "with", effect: "Gar-ish"})
-		}
-		if(spec.opts && (spec.opts["beer nuts"] || spec.opts["beer nuts (wish)"])) {
-			notes.push({type: "effect", verb: "with", effect: "Salty Mouth"})
-		}
-		if(spec.item["item class"] == "wine" && mafia_ring_available) {
-			notes.push({type: "item", verb: "wearing", item: {name: "mafia pinky ring"}, exclude: false})
-		}
-		if(spec.opts && spec.opts["brie"]) {
-			notes.push({type: "effect", verb: "with", effect: "Refined Palate"})
-		}
-		if(spec.opts && spec.opts["munchies pill"]) {
-			notes.push({type: "item", verb: "with", item: munchies_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["dieting pill"]) {
-			notes.push({type: "item", verb: "with", item: dieting_pill_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["special seasoning"]) {
-			notes.push({type: "item", verb: "with", item: special_seasoning_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["mayoflex"]) {
-			notes.push({type: "item", verb: "with", item: mayoflex_item, exclude: true})
-		}
-		if(spec.opts && spec.opts["mayodiol"]) {
-			notes.push({type: "item", verb: "with", item: mayodiol_item, exclude: true})
-		}
-		if(spec["tuxedo_boosted"]) {
-			notes.push({type: "item", verb: "wearing", item: {name: "tuxedo shirt"}, exclude: false})
-		}
-		if(item["using_mime_shotglass"]) {
-			notes.push({type: "item", verb: "using", item: {name: "mime army shotglass"}, exclude: false})
-		}
-		for(var i in notes) {
-			item.desc.extra.push(notes[i]);
-		}
-		
-		//console.log("price", item["name"], item["price"], desc_number(item["price"]))
-		item.sortkey = tehtmi_sortkey(item)
-		diet_items.push(item)
-	}
-	
-	diet_items.sort(function (a, b) {
-		if (a.sortkey < b.sortkey) return -1
-		if (a.sortkey > b.sortkey) return 1
-		return a.name.localeCompare(b.name)
+	var diet_items = diet_rows(diet)
+	var overdrinks = !overdrink_list ? [] : overdrink_list.map(function (spec) {
+		return diet_rows({"first": spec, "rest": {}, "value": spec.value, "is_nightcap": true})[0]
 	})
-	
-	return {diet_items: diet_items, value: diet.value}
+	return {diet_items: diet_items, value: diet.value, overdrinks: overdrinks}
 }
 
 
@@ -2193,8 +2223,8 @@ function buildSettings(opts) {
 		Math.max(0, km.inebrietyLimit() - inebriety),
 		km.spleenLimit() - km.mySpleenUse(),
 	]
-	// always "limited": planDay caps the nightcap's adventures to fit rollover
-	var nightcap = overdrunk ? "no" : "limited"
+	// The optimizer plans no nightcap: phase 4 is one overdrink, picked by
+	// planDay from the optimizer's single-drink candidates.
 
 	// organs: space for the whole day. base: what phase 1 may use -- without
 	// organ gear or the Stooper, even if they're on now.
@@ -2239,9 +2269,8 @@ function buildSettings(opts) {
 		"adventure value": adv_value,
 		"pvp fight value": parseFloat(opts.pvp) || 0,
 		"classid": CLASS_IDS[km.myClass().toString()] || 0,
-		"include nightcap": nightcap,
-		"nightcap limit": 0,  // set by planDay
-		"strict nightcap limit": true,
+		"include nightcap": "no",
+		"overdrink candidates": !overdrunk,
 		"rollover gain": 0,   // set by main
 		"saucemaven available": km.haveSkill(km.Skill.get("Saucemaven")),
 		"pizza lover available": km.haveSkill(km.Skill.get("Pizza Lover")),
@@ -2314,7 +2343,7 @@ function noteText(note) {
 //   3 end of day, wearing organ gear / Stooper (and after Sweat Out Some
 //     Booze): the units that need the extra space, plus Three Sheets to the
 //     Wind (its rollover bonus is lost if you adventure after it)
-//   4 overdrink: the nightcap, then food planned after it
+//   4 overdrink: one drink, picked by chooseLate (the optimizer plans none)
 // Phases 1-2 are adventured today; phases 3-4 roll over.
 // ---------------------------------------------------------------------------
 
@@ -2432,76 +2461,94 @@ function advFrom(adv, from) {
 // adventure cap after rollover as possible without passing it -- tomorrow
 // then starts with the most adventures. Phases 3-4 roll over; at finish,
 // adventures you still hold and phase 1-2 leftovers eaten then roll over too.
-// Phase 3 is set by organ space, so the room is enforced through the
-// optimizer's (strict) nightcap limit on the nightcap and the food after it:
-// re-plan with the room the earlier rolled-over phases leave until that
-// settles, trim each plan to fit (trimToRoom) and keep the one worth most.
+// The optimizer fills every organ (organ gear and Stooper included) with no
+// nightcap; chooseLate then picks the one overdrink and trims phase 3 to fit.
 // Phase 2 turn generation is never dropped to fit: if it (with phase 1
 // leftovers and the adventures you hold) would overflow at finish, finish
 // warns and stops instead.
 function planDay(settings, finish) {
 	var roll = finish ? 1 : 3  // first phase whose adventures roll over
 	var room = ADVENTURE_CAP - settings["rollover gain"] - (finish ? km.myAdventures() : 0)
-	var best = null, limit = Math.max(0, room), tried = {}
-	for (var pass = 0; pass < 5 && !tried[limit]; pass++) {
-		tried[limit] = true
-		settings["nightcap limit"] = limit
-		var result = tehtmi(settings), parts = splitPhases(result, settings)
-		var adv = phaseAdventures(result, parts)
-		var plan = {result: result, parts: parts, adv: adv.slice(), room: room, roll: roll, value: 0, limit: limit}
-		for (var i = 0; i < result.diet_items.length; i++) plan.value += result.diet_items[i].value || 0
-		plan.waste = Math.max(0, Math.round(advFrom(adv, roll) - Math.max(0, room)))
-		// Only phases 3-4 are trimmed: phase 1-2 leftovers are worth eating, so
-		// if they alone overflow at finish, finish stops instead (earlyWaste).
-		plan.earlyWaste = finish ? Math.max(0, Math.round(adv[1] + adv[2] - Math.max(0, room))) : 0
-		trimToRoom(plan, settings, 3)
-		if (!best || (plan.waste < best.waste) || (plan.waste == best.waste && plan.value > best.value + k_epsilon))
-			best = plan
-		limit = Math.max(0, Math.floor(room - (advFrom(adv, roll) - adv[LAST_PHASE])))
-	}
-	settings["nightcap limit"] = best.limit
-	return best
+	var result = tehtmi(settings), parts = splitPhases(result, settings)
+	var adv = phaseAdventures(result, parts)
+	var plan = {result: result, parts: parts, adv: adv.slice(), room: room, roll: roll, value: 0}
+	for (var i = 0; i < result.diet_items.length; i++) plan.value += result.diet_items[i].value || 0
+	// Only phase 3 is trimmed: phase 1-2 leftovers are worth eating, so if
+	// they alone overflow at finish, finish stops instead (earlyWaste).
+	plan.earlyWaste = finish ? Math.max(0, Math.round(adv[1] + adv[2] - Math.max(0, room))) : 0
+	chooseLate(plan, settings)
+	return plan
 }
 
-// Fit the rolled-over adventures into the room: keep the subset of the units
-// of phases from..4 (the nightcap aside, the optimizer already fit it) worth
-// most whose adventures fit -- a small knapsack, as these phases hold only a
-// few units. Ties go to more adventures, to end the day closer to the cap.
-function trimToRoom(plan, settings, from) {
-	var rows = plan.result.diet_items
+// Phase 4 is a single overdrink: the candidate worth most, counting only the
+// adventures that fit under the cap (value of those adventures minus what it
+// costs). It is chosen together with the phase 3 units to keep -- a small
+// knapsack over phase 3 (it holds only a few units), tried with the room each
+// overdrink would leave. Ties go to more adventures, to end the day closer to
+// the cap.
+function chooseLate(plan, settings) {
+	var rows = plan.result.diet_items, advValue = settings["adventure value"]
 	plan.dropped = {}
-	if (plan.waste <= 0) return
+	plan.overdrink = null
 	var units = [], fixed = 0
-	for (var f = plan.roll; f < from; f++) fixed += plan.adv[f]  // rolled over but not trimmed
+	for (var f = plan.roll; f < 3; f++) fixed += plan.adv[f]  // rolled over but not trimmed
 	for (var i = 0; i < rows.length; i++) {
+		if (rows[i].is_nightcap) continue  // the optimizer plans none; never trim one
 		var a = (rows[i].turns || 0) / rows[i].amount
-		for (var ph = from; ph <= LAST_PHASE; ph++) {
+		for (var ph = 3; ph <= LAST_PHASE; ph++) {
 			for (var k = 0; k < plan.parts[i][ph]; k++) {
-				if (rows[i].is_nightcap) { fixed += rows[i].spec.adv || 0; continue }
-				units.push({row: i, phase: ph, adv: Math.ceil(a - k_epsilon), value: (rows[i].value || 0) / rows[i].amount})
+				var v = (rows[i].value || 0) / rows[i].amount
+				units.push({row: i, phase: ph, adv: Math.ceil(a - k_epsilon), value: v,
+					score: Math.max(v, 0) + (a + 1) * k_epsilon})  // keep 0-value units when they fit
 			}
 		}
 	}
-	var cap = Math.max(0, Math.floor(plan.room - fixed))
-	// best[c] = {score, take} using at most c adventures
+	var avail = Math.max(0, Math.floor(plan.room - fixed))
+	// best[c] = {score, take}: the phase 3 units worth most using at most c adventures
 	var best = []
-	for (var c = 0; c <= cap; c++) best.push({score: 0, take: []})
+	for (var c = 0; c <= avail; c++) best.push({score: 0, take: []})
 	for (var u = 0; u < units.length; u++) {
-		var score = units[u].value + units[u].adv * k_epsilon
-		for (var c2 = cap; c2 >= units[u].adv; c2--) {
-			var prev = best[c2 - units[u].adv], cand = prev.score + score
+		for (var c2 = avail; c2 >= units[u].adv; c2--) {
+			var prev = best[c2 - units[u].adv], cand = prev.score + units[u].score
 			if (cand > best[c2].score + k_epsilon * k_epsilon) best[c2] = {score: cand, take: prev.take.concat([u])}
 		}
 	}
+
+	var used = {}  // copies of each item the plan already uses
+	for (var r = 0; r < rows.length; r++) {
+		var n = 0
+		for (var up = 1; up <= LAST_PHASE; up++) n += plan.parts[r][up]
+		used[rows[r].name] = (used[rows[r].name] || 0) + n
+	}
+	var pick = {score: best[avail].score, take: best[avail].take, drink: null, value: 0}
+	var drinks = plan.result.overdrinks || []
+	for (var d = 0; d < drinks.length; d++) {
+		var od = drinks[d], limit = od.spec.item.limit
+		if (limit && (used[od.name] || 0) >= limit) continue
+		var counted = Math.min(od.turns, avail)  // adventures that fit under the cap
+		var odValue = od.value - (od.turns - counted) * advValue
+		if (odValue <= k_epsilon) continue
+		var left = avail - Math.ceil(counted - k_epsilon)
+		var score = best[left].score + odValue + counted * k_epsilon
+		if (score > pick.score + k_epsilon * k_epsilon) pick = {score: score, take: best[left].take, drink: od, value: odValue}
+	}
+
 	var keep = {}
-	for (var t = 0; t < best[cap].take.length; t++) keep[best[cap].take[t]] = true
-	for (var d = 0; d < units.length; d++) {
-		if (keep[d]) continue
-		var un = units[d], r = rows[un.row]
+	for (var t = 0; t < pick.take.length; t++) keep[pick.take[t]] = true
+	for (var x = 0; x < units.length; x++) {
+		if (keep[x]) continue
+		var un = units[x], row = rows[un.row]
 		plan.parts[un.row][un.phase]--
-		plan.adv[un.phase] -= (r.turns || 0) / r.amount
+		plan.adv[un.phase] -= (row.turns || 0) / row.amount
 		plan.value -= un.value
-		plan.dropped[r.name] = (plan.dropped[r.name] || 0) + 1
+		plan.dropped[row.name] = (plan.dropped[row.name] || 0) + 1
+	}
+	if (pick.drink) {
+		rows.push(pick.drink)
+		plan.parts.push([0, 0, 0, 0, 1])
+		plan.adv[LAST_PHASE] += pick.drink.turns
+		plan.value += pick.value
+		plan.overdrink = pick.drink
 	}
 	plan.waste = Math.max(0, Math.round(advFrom(plan.adv, plan.roll) - Math.max(0, plan.room)))
 }
@@ -2516,7 +2563,7 @@ var PHASE_TITLES = {
 	1: "Phase 1 -- now (execute): food, booze and spleen, with the cleaners; then adventure until these are spent",
 	2: "Phase 2 -- then (turngen): other turn generation; then adventure until these are spent",
 	3: "Phase 3 -- end of day (finish): ",
-	4: "Phase 4 -- overdrink and finish",
+	4: "Phase 4 -- overdrink one drink, the one worth most (adventures past the cap count for nothing)",
 }
 
 function printPlan(plan, settings, finish) {
@@ -2540,8 +2587,8 @@ function printPlan(plan, settings, finish) {
 		}
 		if (!lines.length) continue
 		var title = PHASE_TITLES[ph]
-		if (ph == 3) title += gearDescription(settings) ? "wear " + gearDescription(settings) + ", fill the extra space" :
-			"after your adventures are spent"
+		if (ph == 3) title += gearDescription(settings) ? "wear " + gearDescription(settings) +
+			", fill every organ to the new capacity (never over)" : "fill every organ (never over)"
 		km.print(title + " (" + fmt(phaseTurns[ph]) + " adv):", "blue")
 		for (var l = 0; l < lines.length; l++) km.print("  " + lines[l])
 	}
@@ -2554,6 +2601,9 @@ function printPlan(plan, settings, finish) {
 	}
 	for (var dn in plan.dropped) km.print("Leaving out " + plan.dropped[dn] + "x " + dn +
 		": its adventures would pass " + ADVENTURE_CAP + " at rollover.", "gray")
+	if (!plan.overdrink && settings["overdrink candidates"])
+		km.print("No overdrink: no single drink is worth its price in the adventures that fit under " +
+			ADVENTURE_CAP + ".", "orange")
 	km.print("Total: " + fmt(totalTurns) + " adventures" + (pvp ? " + " + fmt(pvp) + " PvP fights" : "") +
 		" for " + fmt(cost) + " meat; net value " + fmt(plan.value) + " meat", "green")
 	if (finish) km.print("Everything left is consumed now, so all " + fmt(totalTurns) + " roll over to tomorrow.", "green")
@@ -2830,20 +2880,21 @@ function castOde(steps) {
 
 // Consume steps in a safe order. Multiple passes: units that don't fit yet
 // (food waiting on a cleaning booze), and cleaning items whose organ isn't
-// full enough yet, are retried later. The nightcap waits for everything
-// before it. Waste is allowed only when a pass makes no other progress.
+// full enough yet, are retried later. The overdrink waits until everything
+// else is in, so organs are filled to capacity first and only that one drink
+// goes over. Waste is allowed only when a pass makes no other progress.
 // Returns {error, left}; units that never fit are an error only when strict.
 function runSteps(steps, extenders, log, strict) {
-	var pending = steps, allowWaste = false, releaseNightcap = false, error = "", odeDone = false
+	var pending = steps, allowWaste = false, error = "", odeDone = false
 	while (pending.length && !error) {
 		var next = [], progress = false
 		for (var s = 0; s < pending.length && !error; s++) {
 			var step = pending[s]
-			if (step.phase >= 7 && next.some(function (p) {
-				return p.phase < step.phase && !(releaseNightcap && p.phase < 5)
-			})) {
+			if (step.row.is_nightcap && (next.length || pending.slice(s + 1).some(function (p) { return !p.row.is_nightcap }))) {
 				next.push(step); continue
 			}
+			if (step.row.is_nightcap && km.myInebriety() < km.inebrietyLimit())
+				log.push("note: overdrinking at " + km.myInebriety() + " of " + km.inebrietyLimit() + " drunkenness (liver not full)")
 			if (step.phase >= 5 && !odeDone) { castOde(steps); odeDone = true }
 			var organ = blockingOrgan(step)
 			while (organ >= 0 && useExtenderFor(organ, extenders, allowWaste)) organ = blockingOrgan(step)
@@ -2857,13 +2908,8 @@ function runSteps(steps, extenders, log, strict) {
 			if (err) error = err
 			else progress = true
 		}
-		var boozeLeft = next.some(function (p) { return p.phase == 5 || p.phase == 6 })
-		if (progress) { allowWaste = false; releaseNightcap = false }
+		if (progress) allowWaste = false
 		else if (!allowWaste && next.length) allowWaste = true
-		// a nightcap that cleans an organ (pickle juice) may be what frees
-		// the last food/spleen item; let it go once regular booze is done
-		else if (!releaseNightcap && !boozeLeft && next.some(function (p) { return p.phase == 7 }))
-			releaseNightcap = true
 		else if (next.length && !error) {
 			if (!strict) return {error: "", left: next}
 			error = "can't fit " + next[0].row.name + " (organs " + organState().join("/") +
