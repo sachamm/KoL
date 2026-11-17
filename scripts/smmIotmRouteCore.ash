@@ -927,9 +927,18 @@ monster [int] smmIRLocketRanked() {
     return ranked;
 }
 
+// Locket fights cost an adventure but need no zone, so they work overdrunk. By default they
+// wait for the overdrunk pass after the nightcap (good_night_adv): adventures spent there
+// are ones that would otherwise roll over past the cap. smm.IR.locketWhenSober=true fights
+// them in the sober runs instead. (Sword seeds and Maiden carriers still use the locket
+// while sober: they pay off in the fights that follow.)
 void smmIRGenerateLocket() {
-    if (available_amount($item[combat lover's locket])<1 || my_adventures()<1 || my_inebriety()>inebriety_limit()
+    if (available_amount($item[combat lover's locket])<1 || my_adventures()<1
         || count(cllMonstersFought(false))>=3 || my_hp()<my_maxhp()/3 || my_mp()<30) return;
+    if (my_inebriety()<=inebriety_limit() && !get_property("smm.IR.locketWhenSober").to_boolean()) {
+        smmIRNote("Locket fights wait for the overdrunk pass after the nightcap (smm.IR.locketWhenSober=true to fight them now).");
+        return;
+    }
     // Locket is an older dependency: these paid carriers feed newer abilities.
     monster [int] shortlist=smmIRLocketRanked();
     int inspected;

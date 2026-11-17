@@ -20,25 +20,46 @@
 //      until those are spent;
 //   3. end of day: Sweat Out Some Booze, wear the organ-size gear / Stooper
 //      and fill every organ to that capacity, never past it;
-//   4. overdrink exactly one drink: the one worth most, counting only the
-//      adventures that fit under the cap. Nothing is eaten after it.
+//   4. overdrink exactly one drink: the one worth most whose adventures fit
+//      under the cap; then the gear comes off. Nothing is eaten after it.
 // Phases 3 and 4 end useful adventuring (the gear costs you, and overdrunk you
-// can't adventure), so their adventures roll over to tomorrow. Rollover keeps
-// at most 200 adventures, so phases 3-4 are planned to end the day as close to
-// 200 minus what rollover adds as possible without passing it.
+// can only fight from items and skills), so their adventures roll over to
+// tomorrow. Rollover keeps at most 200 adventures, so the plan gives a stop
+// point: stop adventuring with that many adventures left, then finish. It is
+// 200 - what rollover adds - what phases 3-4 add + the turns good_night_adv
+// (smmUnrestricted.ash) will spend overdrunk afterwards (fax, Time-Spinner,
+// locket, Daycare: smmUtils' goodNightAdvTurns). Holding those turns back
+// for after the overdrink is what lets the day end close to 200. When the
+// whole nightcap passes 200 even with no adventures held, the stop point is 0
+// and the adventures past 200 are spent overdrunk on the best sink (trick-or-
+// treating on Hallowe'en, garbo with Drunkula's wineglass, the Beach Comb:
+// smmUtils' overdrunkSinks; good_night_adv does it). The nightcap is trimmed
+// only where a consumable isn't worth its price at the sink's value per
+// adventure, or when there is no sink.
+// Organ-reducing items (mojo filter, spice melange, ...) the plan buys are
+// phase 1: they are used during execute, as soon as the organ they clear is
+// full, since adventuring after them costs nothing.
 //
 // Usage (gCLI):  call diet.js [options]     (prints the whole-day plan)
 //   execute        buy and consume phase 1 (asks to confirm)
 //   turngen        once phase 1's adventures are spent: re-plan, then buy and
 //                  consume phases 1-2 (asks to confirm)
-//   finish         once phase 2's adventures are spent: re-plan, then buy and
-//                  consume everything left, phases 1 to 4 (asks to confirm).
+//   finish         at the stop point: re-plan, then buy and consume everything
+//   (or nightcap)  left, phases 1 to 4 (asks to confirm). It does nothing if
+//                  you hold more adventures than the stop point, or if the
+//                  plan would lose any adventure at rollover. The organ gear
+//                  and Stooper stay on until the overdrink is in. Then run
+//                  good_night_adv for the overdrunk fights.
 //                  With designer sweatpants, it first casts Sweat Out Some
 //                  Booze as often as your sweat allows (25 each, 3 a day) and
 //                  plans the drunkenness that frees; other runs only flag it
 //   value=N        meat per adventure (default: smm.TurnValue, else 5000)
 //   rollover=N     adventures rollover will add (default: smmUtils'
 //                  adventureGainAtRollover with the best adventure gear)
+//   overdrunk=N    adventures good_night_adv will spend after the overdrink
+//                  (default: smmUtils' goodNightAdvTurns)
+//   sinkvalue=N    meat per adventure spent overdrunk past the cap (default:
+//                  the best of smmUtils' overdrunkSinks; 0: none, trim instead)
 //   organs=F,D,S   override remaining fullness,drunkenness,spleen (no gear counted)
 //   lucky=N        Lucky! adventures wanted from Lucky Lindy (default 3)
 //   pvp=N          meat per PvP fight (default 0)
@@ -2286,7 +2307,7 @@ function castSweatOutBooze(n, log) {
 
 function parseArgs(argString) {
 	var opts = {}
-	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|turngen\b|finish\b)/)
+	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|turngen\b|finish\b|nightcap\b)/)
 	for (var i = 0; i < parts.length; i++) {
 		var p = parts[i].replace(/^\s+|\s+$/g, "")
 		if (!p) continue
@@ -2294,6 +2315,7 @@ function parseArgs(argString) {
 		if (eq < 0) opts[p] = true
 		else opts[p.substring(0, eq)] = p.substring(eq + 1)
 	}
+	if (opts.nightcap) opts.finish = true  // same thing
 	return opts
 }
 
@@ -2528,6 +2550,49 @@ function rolloverGain(opts) {
 	return guess
 }
 
+// Adventures good_night_adv will spend after the overdrink, while overdrunk:
+// smmUtils' goodNightAdvTurns, asked through the gCLI like rolloverGain.
+function overdrunkTurns(opts) {
+	if (opts.overdrunk !== undefined) return Math.max(0, parseInt(opts.overdrunk, 10) || 0)
+	var out = ""
+	try {
+		out = km.cliExecuteOutput("ash import <smmUtils.ash>; goodNightAdvTurns(false)")
+	} catch (e) { out = "" }
+	var m = /Returned: (-?\d+)\s*$/.exec(out || "")
+	if (m) return Math.max(0, parseInt(m[1], 10))
+	km.print("smmUtils' goodNightAdvTurns is unavailable; planning no overdrunk turns.", "orange")
+	return 0
+}
+
+// The best way to spend any number of adventures while overdrunk -- {name,
+// value: meat per adventure} -- or null: smmUtils' overdrunkSinks (trick-or-
+// treating on Hallowe'en, garbo with Drunkula's wineglass, the Beach Comb).
+// With one, the nightcap is only trimmed where its adventures are worth less
+// spent that way than the consumable costs. Option sinkvalue=N overrides the
+// value (0: plan with no sink).
+function overdrunkSink(opts) {
+	var sinks = []
+	var out = ""
+	try {
+		out = km.cliExecuteOutput("ash import <smmUtils.ash>; overdrunkSinkList()")
+	} catch (e) { out = "" }
+	var m = /Returned: (.*?)\s*$/.exec(out || "")
+	if (!m) km.print("smmUtils' overdrunkSinkList is unavailable; planning no overdrunk sink.", "orange")
+	else if (m[1]) {
+		var parts = m[1].split(";")
+		for (var i = 0; i < parts.length; i++) {
+			var f = parts[i].split("|")
+			if (f.length == 2 && parseInt(f[1], 10) > 0) sinks.push({name: f[0], value: parseInt(f[1], 10)})
+		}
+	}
+	var best = sinks.length ? sinks[0] : null
+	if (opts.sinkvalue !== undefined) {
+		var v = parseInt(opts.sinkvalue, 10) || 0
+		best = v > 0 ? {name: best ? best.name : "overdrunk adventures", value: v} : null
+	}
+	return best
+}
+
 // Adventures each phase actually gives (the nightcap's uncapped).
 function phaseAdventures(result, parts) {
 	var adv = [0, 0, 0, 0, 0], rows = result.diet_items
@@ -2546,60 +2611,94 @@ function advFrom(adv, from) {
 	return sum
 }
 
-// Plan the day so the adventures that roll over end as close to the
-// adventure cap after rollover as possible without passing it -- tomorrow
-// then starts with the most adventures. Phases 3-4 roll over; at finish,
-// adventures you still hold and phase 1-2 leftovers eaten then roll over too.
-// The optimizer fills every organ (organ gear and Stooper included) with no
-// nightcap; chooseLate then picks the one overdrink and trims phase 3 to fit.
-// Phase 2 turn generation is never dropped to fit: if it (with phase 1
-// leftovers and the adventures you hold) would overflow at finish, finish
-// warns and stops instead.
+// Plan the day around the rollover cap. Everything consumed at finish (phases
+// 3-4, plus at finish any phase 1-2 leftovers) rolls over with the adventures
+// you still hold, less what good_night_adv spends overdrunk, plus what
+// rollover adds. Nothing of that may pass the cap, so:
+//   stop point = cap - rollover gain + overdrunk turns - finish's adventures
+// for the full nightcap (organs filled to the gear's capacity, the best
+// overdrink). Finish runs only with at most that many adventures held. When
+// the stop point is below 0 -- the nightcap alone passes the cap even with no
+// adventures held -- it is 0 and chooseLate trims the nightcap to what fits.
+// No plan loses an adventure at rollover.
 function planDay(settings, finish) {
-	var roll = finish ? 1 : 3  // first phase whose adventures roll over
-	var room = ADVENTURE_CAP - settings["rollover gain"] - (finish ? km.myAdventures() : 0)
-	var result = tehtmi(settings), parts = splitPhases(result, settings)
-	var adv = phaseAdventures(result, parts)
-	var plan = {result: result, parts: parts, adv: adv.slice(), room: room, roll: roll, value: 0}
-	for (var i = 0; i < result.diet_items.length; i++) plan.value += result.diet_items[i].value || 0
-	// Only phase 3 is trimmed: phase 1-2 leftovers are worth eating, so if
-	// they alone overflow at finish, finish stops instead (earlyWaste).
-	plan.earlyWaste = finish ? Math.max(0, Math.round(adv[1] + adv[2] - Math.max(0, room))) : 0
-	chooseLate(plan, settings)
+	var result = tehtmi(settings)
+	var base = ADVENTURE_CAP - settings["rollover gain"] + settings["overdrunk turns"]
+	var plan = latePlan(result, settings, finish, Infinity)
+	// plan for every consumable rolling the top of its adventure range
+	var spread = plan.spread
+	plan.stopAt = Math.floor(base - plan.late - spread + k_epsilon)
+	plan.trimmed = plan.stopAt < 0
+	if (plan.trimmed) {
+		plan = latePlan(result, settings, finish, base)  // as if you hold no adventures
+		plan.stopAt = 0
+		plan.trimmed = true
+	}
+	plan.base = base
+	plan.held = finish ? km.myAdventures() : 0
 	return plan
 }
 
-// Phase 4 is a single overdrink: the candidate worth most, counting only the
-// adventures that fit under the cap (value of those adventures minus what it
-// costs). It is chosen together with the phase 3 units to keep -- a small
-// knapsack over phase 3 (it holds only a few units), tried with the room each
-// overdrink would leave. Ties go to more adventures, to end the day closer to
-// the cap.
+// The optimizer's result with its own row list, which chooseLate extends.
+function copyResult(result) {
+	var copy = {}
+	for (var k in result) copy[k] = result[k]
+	copy.diet_items = result.diet_items.slice()
+	return copy
+}
+
+// Phases split and nightcap chosen for `room` adventures at finish (Infinity:
+// nothing trimmed). plan.late: the adventures finish adds.
+function latePlan(result, settings, finish, room) {
+	var res = copyResult(result), parts = splitPhases(res, settings)
+	var adv = phaseAdventures(res, parts)
+	var plan = {result: res, parts: parts, adv: adv.slice(), room: room, roll: finish ? 1 : 3, value: 0}
+	for (var i = 0; i < res.diet_items.length; i++) plan.value += res.diet_items[i].value || 0
+	chooseLate(plan, settings)
+	plan.late = advFrom(plan.adv, plan.roll)
+	// how far above the average (the plan's figure) finish's adventures can roll
+	plan.spread = 0
+	var rows = res.diet_items
+	for (var r = 0; r < rows.length; r++) {
+		var n = 0
+		for (var ph = plan.roll; ph <= LAST_PHASE; ph++) n += plan.parts[r][ph]
+		plan.spread += n * halfRange(rows[r])
+	}
+	return plan
+}
+
+// How far one unit's adventures can roll above the plan's (average) figure.
+function halfRange(row) {
+	var it = row.spec.item
+	return it.advmax > it.advmin ? (it.advmax - it.advmin) / 2 : 0
+}
+
+// Phase 4 is a single overdrink, chosen together with the units finish
+// consumes (phases 3-4; at finish also phase 1-2 leftovers) so that their
+// adventures fit in plan.room: a small knapsack over those units, tried with
+// each overdrink. Without an overdrunk sink nothing may pass the room. With
+// one, adventures past it are allowed, each worth the sink's value instead of
+// an adventure's (plan.overflow: how many good_night_adv must spend that way). Every unit is fitted at the
+// top of its adventure range. Units that clean an organ
+// are always kept (others rely on the space they free). Ties go to more
+// adventures, to end the day closer to the cap. With unlimited room nothing
+// is dropped and the overdrink worth most is picked.
 function chooseLate(plan, settings) {
-	var rows = plan.result.diet_items, advValue = settings["adventure value"]
+	var rows = plan.result.diet_items
 	plan.dropped = {}
 	plan.overdrink = null
-	var units = [], fixed = 0
-	for (var f = plan.roll; f < 3; f++) fixed += plan.adv[f]  // rolled over but not trimmed
+	var units = [], fixed = 0, unlimited = plan.room == Infinity
 	for (var i = 0; i < rows.length; i++) {
 		if (rows[i].is_nightcap) continue  // the optimizer plans none; never trim one
-		var a = (rows[i].turns || 0) / rows[i].amount
-		for (var ph = 3; ph <= LAST_PHASE; ph++) {
+		var a = (rows[i].turns || 0) / rows[i].amount, top = a + halfRange(rows[i])
+		var cleans = unitSize(rows[i]).some(function (x) { return x < 0 })
+		for (var ph = plan.roll; ph <= LAST_PHASE; ph++) {
 			for (var k = 0; k < plan.parts[i][ph]; k++) {
+				if (unlimited || cleans) { fixed += top; continue }
 				var v = (rows[i].value || 0) / rows[i].amount
-				units.push({row: i, phase: ph, adv: Math.ceil(a - k_epsilon), value: v,
+				units.push({row: i, phase: ph, adv: Math.ceil(top - k_epsilon), value: v,
 					score: Math.max(v, 0) + (a + 1) * k_epsilon})  // keep 0-value units when they fit
 			}
-		}
-	}
-	var avail = Math.max(0, Math.floor(plan.room - fixed))
-	// best[c] = {score, take}: the phase 3 units worth most using at most c adventures
-	var best = []
-	for (var c = 0; c <= avail; c++) best.push({score: 0, take: []})
-	for (var u = 0; u < units.length; u++) {
-		for (var c2 = avail; c2 >= units[u].adv; c2--) {
-			var prev = best[c2 - units[u].adv], cand = prev.score + units[u].score
-			if (cand > best[c2].score + k_epsilon * k_epsilon) best[c2] = {score: cand, take: prev.take.concat([u])}
 		}
 	}
 
@@ -2609,17 +2708,50 @@ function chooseLate(plan, settings) {
 		for (var up = 1; up <= LAST_PHASE; up++) n += plan.parts[r][up]
 		used[rows[r].name] = (used[rows[r].name] || 0) + n
 	}
-	var pick = {score: best[avail].score, take: best[avail].take, drink: null, value: 0}
-	var drinks = plan.result.overdrinks || []
-	for (var d = 0; d < drinks.length; d++) {
-		var od = drinks[d], limit = od.spec.item.limit
-		if (limit && (used[od.name] || 0) >= limit) continue
-		var counted = Math.min(od.turns, avail)  // adventures that fit under the cap
-		var odValue = od.value - (od.turns - counted) * advValue
-		if (odValue <= k_epsilon) continue
-		var left = avail - Math.ceil(counted - k_epsilon)
-		var score = best[left].score + odValue + counted * k_epsilon
-		if (score > pick.score + k_epsilon * k_epsilon) pick = {score: score, take: best[left].take, drink: od, value: odValue}
+	var drinks = (plan.result.overdrinks || []).filter(function (od) {
+		var limit = od.spec.item.limit
+		return !(limit && (used[od.name] || 0) >= limit) && od.value > k_epsilon
+	})
+
+	var pick = {score: 0, take: [], drink: null}
+	plan.overflow = 0  // adventures past the room, spent overdrunk on settings["overdrunk sink"]
+	if (unlimited) {
+		for (var d0 = 0; d0 < drinks.length; d0++) {
+			var sc = drinks[d0].value + drinks[d0].turns * k_epsilon
+			if (sc > pick.score + k_epsilon * k_epsilon) pick = {score: sc, take: [], drink: drinks[d0]}
+		}
+	} else {
+		var avail = Math.max(0, Math.floor(plan.room - fixed + k_epsilon))
+		// Adventures past the room: spent overdrunk on the best sink (each then
+		// worth sink.value instead of an adventure), or not allowed without one.
+		var sink = settings["overdrunk sink"]
+		var penalty = sink ? Math.max(0, settings["adventure value"] - sink.value) : Infinity
+		var size = avail
+		if (sink) for (var su = 0; su < units.length; su++) size += units[su].adv
+		// best[c] = {score, take}: the units worth most using at most c adventures
+		var best = []
+		for (var c = 0; c <= size; c++) best.push({score: 0, take: []})
+		for (var u = 0; u < units.length; u++) {
+			for (var c2 = size; c2 >= units[u].adv; c2--) {
+				var prev = best[c2 - units[u].adv], cand = prev.score + units[u].score
+				if (cand > best[c2].score + k_epsilon * k_epsilon) best[c2] = {score: cand, take: prev.take.concat([u])}
+			}
+		}
+		var options = [{drink: null, need: 0, value: 0}]
+		for (var d = 0; d < drinks.length; d++)
+			options.push({drink: drinks[d], need: Math.ceil(drinks[d].turns + halfRange(drinks[d]) - k_epsilon),
+				value: drinks[d].value + drinks[d].turns * k_epsilon})
+		pick = {score: -Infinity, take: [], drink: null, over: 0}
+		for (var c3 = 0; c3 <= size; c3++) {
+			for (var op = 0; op < options.length; op++) {
+				var over = Math.max(0, c3 + options[op].need - avail)
+				if (over > 0 && !sink) continue  // its adventures would pass the cap
+				var score = best[c3].score + options[op].value - (over > 0 ? over * penalty : 0)
+				if (score > pick.score + k_epsilon * k_epsilon)
+					pick = {score: score, take: best[c3].take, drink: options[op].drink, over: over}
+			}
+		}
+		plan.overflow = pick.over
 	}
 
 	var keep = {}
@@ -2636,10 +2768,42 @@ function chooseLate(plan, settings) {
 		rows.push(pick.drink)
 		plan.parts.push([0, 0, 0, 0, 1])
 		plan.adv[LAST_PHASE] += pick.drink.turns
-		plan.value += pick.value
+		plan.value += pick.drink.value
 		plan.overdrink = pick.drink
 	}
-	plan.waste = Math.max(0, Math.round(advFrom(plan.adv, plan.roll) - Math.max(0, plan.room)))
+	if (!unlimited) dropIdleExtenders(plan, settings)
+}
+
+// After trimming, an organ-space extender (mojo filter, spice melange, ...)
+// may free space nothing uses any more: don't buy it.
+function dropIdleExtenders(plan, settings) {
+	var rows = plan.result.diet_items, size = settings["organ sizes"]
+	var used = [0, 0, 0], freed = [0, 0, 0], ext = []
+	for (var i = 0; i < rows.length; i++) {
+		var s = rows[i].is_nightcap ? [0, 0, 0] : unitSize(rows[i]), n = 0
+		for (var ph = 1; ph <= LAST_PHASE; ph++) n += plan.parts[i][ph]
+		for (var o = 0; o < 3; o++) {
+			if (s[o] > 0) used[o] += s[o] * n
+			else freed[o] -= s[o] * n
+		}
+		if (rows[i].spec.item.type == "extender") ext.push(i)
+	}
+	for (var e = 0; e < ext.length; e++) {
+		var r = ext[e], es = unitSize(rows[r])
+		for (var ph2 = plan.roll; ph2 <= LAST_PHASE; ph2++) {
+			while (plan.parts[r][ph2] > 0) {
+				var idle = true
+				for (var o2 = 0; o2 < 3; o2++) {
+					if (es[o2] < 0 && used[o2] > size[o2] + freed[o2] + es[o2]) idle = false
+				}
+				if (!idle) break
+				plan.parts[r][ph2]--
+				for (var o3 = 0; o3 < 3; o3++) if (es[o3] < 0) freed[o3] += es[o3]
+				plan.value -= (rows[r].value || 0) / rows[r].amount
+				plan.dropped[rows[r].name] = (plan.dropped[rows[r].name] || 0) + 1
+			}
+		}
+	}
 }
 
 function gearDescription(settings) {
@@ -2652,7 +2816,7 @@ var PHASE_TITLES = {
 	1: "Phase 1 -- now (execute): food, booze and spleen, with the cleaners; then adventure until these are spent",
 	2: "Phase 2 -- then (turngen): other turn generation; then adventure until these are spent",
 	3: "Phase 3 -- end of day (finish): ",
-	4: "Phase 4 -- overdrink one drink, the one worth most (adventures past the cap count for nothing)",
+	4: "Phase 4 -- overdrink one drink, the one worth most that fits under the cap; then take the organ gear off",
 }
 
 function printPlan(plan, settings, finish) {
@@ -2694,25 +2858,43 @@ function printPlan(plan, settings, finish) {
 		pvp += (rows[j].fights || 0) * units / rows[j].amount
 	}
 	for (var dn in plan.dropped) km.print("Leaving out " + plan.dropped[dn] + "x " + dn +
-		": its adventures would pass " + ADVENTURE_CAP + " at rollover.", "gray")
+		": the nightcap is trimmed to fit under " + ADVENTURE_CAP + " at rollover.", "gray")
 	if (!plan.overdrink && settings["overdrink candidates"])
-		km.print("No overdrink: no single drink is worth its price in the adventures that fit under " +
-			ADVENTURE_CAP + ".", "orange")
+		km.print("No overdrink: no single drink worth its price fits under " + ADVENTURE_CAP + " at rollover.", "orange")
 	km.print("Total: " + fmt(totalTurns) + " adventures" + (pvp ? " + " + fmt(pvp) + " PvP fights" : "") +
 		" for " + fmt(cost) + " meat; net value " + fmt(plan.value) + " meat" +
 		(effects ? " (" + fmt(effects) + " of it from effects)" : ""), "green")
 	if (finish) km.print("Everything left is consumed now, so all " + fmt(totalTurns) + " roll over to tomorrow.", "green")
 	else km.print(fmt(phaseTurns[1] + phaseTurns[2]) + " adventures from phases 1-2 to use today; " +
 		fmt(phaseTurns[3] + phaseTurns[4]) + " from phases 3-4 roll over to tomorrow.", "green")
-	var late = Math.round(advFrom(plan.adv, plan.roll))
-	var lateWhat = finish ? "the rest of the diet adds " : "phases 3-4 add "
-	km.print("Rollover adds about " + settings["rollover gain"] + " (best adventure gear)" +
-		(finish ? " to the " + km.myAdventures() + " you hold" : "") + "; " + lateWhat + late +
-		" of the " + Math.max(0, plan.room) + " that fit under " + ADVENTURE_CAP + ".", "gray")
-	if (plan.waste > 0)
-		km.print(plan.waste + " adventures will be lost at rollover (" + ADVENTURE_CAP + " max).", "orange")
+	printStopPoint(plan, settings, finish)
 	if (o[1] > 0) km.print("Booze adventures assume Ode to Booze is active.", "gray")
 	printSweatFlag(settings, finish)
+}
+
+// The rollover budget and the stop point: how many adventures to stop at.
+function printStopPoint(plan, settings, finish) {
+	var late = Math.round(plan.late), over = settings["overdrunk turns"]
+	var top = Math.floor(plan.late + plan.spread + k_epsilon)
+	km.print("Rollover: about " + settings["rollover gain"] + " (best adventure gear) + " + late +
+		(top > late ? " (at most " + top + ")" : "") +
+		(finish ? " from the rest of the diet" : " from phases 3-4") + " + the adventures you hold at finish - " +
+		over + " good_night_adv spends overdrunk; at most " + ADVENTURE_CAP + ".", "gray")
+	var at = finish ? " You hold " + plan.held + "." : ""
+	var sink = settings["overdrunk sink"]
+	if (plan.trimmed && plan.overflow > 0)
+		km.print("Stop point: 0 adventures -- the whole nightcap passes " + ADVENTURE_CAP + " even with none held, " +
+			"so spend them all; about " + plan.overflow + " adventures past it go to " + sink.name + " overdrunk (" +
+			fmt(sink.value) + " meat each; good_night_adv)." + at, "blue")
+	else if (plan.trimmed)
+		km.print("Stop point: 0 adventures -- the whole nightcap passes " + ADVENTURE_CAP + " even with none held, " +
+			"so spend them all and finish with what fits (above)" +
+			(sink ? "; spending more on " + sink.name + " overdrunk (" + fmt(sink.value) + " meat each) isn't worth the rest." :
+				"; nothing to spend more on overdrunk.") + at, "blue")
+	else
+		km.print("Stop point: stop adventuring with " + plan.stopAt + " adventures left, then " +
+			(finish ? "finish" : "run: call diet.js finish") + "; good_night_adv then spends " + over +
+			" of them overdrunk." + at, "blue")
 }
 
 // Flag Sweat Out Some Booze: what finish will cast, or why it isn't counted.
@@ -2744,6 +2926,8 @@ function main(argString) {
 	diet_consumables = buildConsumables(settings["excluded consumables"], {lucky: settings["lucky wanted"], effects: settings["effect rates"]})
 
 	settings["rollover gain"] = rolloverGain(opts)
+	settings["overdrunk turns"] = km.myInebriety() > km.inebrietyLimit() ? 0 : overdrunkTurns(opts)
+	settings["overdrunk sink"] = km.myInebriety() > km.inebrietyLimit() ? null : overdrunkSink(opts)
 	var plan = planDay(settings, !!opts.finish)
 
 	// Historical prices can be stale: re-check live mall prices for everything
@@ -2766,12 +2950,22 @@ function main(argString) {
 	}
 
 	printPlan(plan, settings, !!opts.finish)
-	if (opts.finish && plan.earlyWaste > 0) {
-		km.print("Not finishing: you hold " + km.myAdventures() + " adventures and phases 1-2 still add " +
-			fmt(plan.adv[1] + plan.adv[2]) + ", so finishing now would waste " + plan.earlyWaste +
-			" adventures at rollover (" + ADVENTURE_CAP + " max, rollover adds about " + settings["rollover gain"] +
-			"). Spend some adventures first (call diet.js turngen uses phase 2 today), then run finish again.", "red")
-		return
+	if (opts.finish) {
+		var excess = plan.held - plan.stopAt
+		if (excess > 0) {
+			km.print("Not finishing: you hold " + plan.held + " adventures, " + excess + " more than the stop point (" +
+				plan.stopAt + "), so the nightcap would lose " + excess + " at rollover. Spend " + excess +
+				" more (call diet.js turngen first if phase 2 is left), then run finish again.", "red")
+			return
+		}
+		// what is left after good_night_adv, plus rollover: never past the cap (by construction)
+		var spend = Math.min(settings["overdrunk turns"], plan.held + plan.late)
+		var sunk = settings["overdrunk sink"] ? Infinity : 0  // a sink takes whatever is left over
+		var lost = Math.floor(plan.held + plan.late + plan.spread - spend - sunk + settings["rollover gain"] - ADVENTURE_CAP + k_epsilon)
+		if (lost > 0) {
+			km.print("Not finishing: this plan would lose " + lost + " adventures at rollover.", "red")
+			return
+		}
 	}
 	if (opts.finish) executePlan(plan.result, settings, plan.parts, LAST_PHASE)
 	else if (opts.turngen) executePlan(plan.result, settings, plan.parts, 2)
@@ -3066,12 +3260,6 @@ function executePlan(result, settings, parts, lastPhase) {
 			". Once your adventures are spent, run: " + nextRun, "blue")
 		return
 	}
-	if (finish && late.length && km.myAdventures() > 0 &&
-		!km.userConfirm("You still have " + km.myAdventures() + " adventures. Phases 3-4 (organ gear, " +
-			"overdrinking) end useful adventuring for today. Finish anyway?", 60000, false)) {
-		km.print("Diet not finished.", "blue")
-		return
-	}
 	var what = finish ? "the rest of today's diet" : (lastPhase == 1 ? "phase 1 of the diet" : "phases 1-2 of the diet")
 	var sweatCasts = finish ? settings["sweat casts"] || 0 : 0
 	if (sweatCasts) what = "cast Sweat Out Some Booze " + sweatCasts + "x, then buy and consume " + what
@@ -3082,7 +3270,7 @@ function executePlan(result, settings, parts, lastPhase) {
 	}
 
 	var startMeat = km.myMeat(), startAdv = km.myAdventures()
-	var log = [], error = "", left = [], wore = false
+	var log = [], error = "", left = [], wore = false, lateDone = false
 	var familiar = km.myFamiliar()
 	km.cliExecute("checkpoint")
 	try {
@@ -3091,18 +3279,27 @@ function executePlan(result, settings, parts, lastPhase) {
 		error = run.error
 		left = run.left
 		if (finish && !error) {
+			// Organs are filled to the gear's capacity (never over), then the
+			// overdrink; only then does the gear come off.
 			wearPhase2Gear(settings, log)
 			wore = true
 			run = runSteps(left.concat(late).sort(byOrder), extenders, log, true)
 			error = run.error
 			left = run.left
+			lateDone = !error
 		}
 	} finally {
-		km.cliExecute("outfit checkpoint")
-		if (km.myFamiliar().toString() != familiar.toString()) km.useFamiliar(familiar)
+		// Stopped before the overdrink: taking the gear or Stooper off now
+		// could leave you over your liver limit without the nightcap.
+		var keepGear = wore && !lateDone && km.myInebriety() <= km.inebrietyLimit()
+		if (keepGear) {
+			log.push("warning: stopped before the overdrink: the organ gear and Stooper stay on; " +
+				"fix the problem and run finish again (or overdrink by hand) before taking them off")
+		} else {
+			km.cliExecute("outfit checkpoint")
+			if (km.myFamiliar().toString() != familiar.toString()) km.useFamiliar(familiar)
+		}
 	}
-	if (error && wore && km.myInebriety() > km.inebrietyLimit())
-		log.push("warning: stopped in phase 3-4 and the organ gear is off -- you are over your liver limit")
 
 	for (var l = 0; l < log.length; l++) km.print(log[l], "orange")
 	for (var e = 0; e < extenders.length; e++) {
@@ -3119,6 +3316,10 @@ function executePlan(result, settings, parts, lastPhase) {
 			" Adventure until these are spent, then run: " + nextRun, "green")
 	} else {
 		km.print("Diet done. " + summary, "green")
+		var over = settings["overdrunk turns"] || 0
+		var sinkNote = settings["overdrunk sink"] ? ", then whatever would pass " + ADVENTURE_CAP + " on " + settings["overdrunk sink"].name : ""
+		if (over > 0 || sinkNote) km.print("Now run good_night_adv (" + over + " overdrunk adventures of fights" + sinkNote +
+			"): ash import <smmUnrestricted.ash>; good_night_adv()", "blue")
 	}
 }
 
@@ -3126,6 +3327,7 @@ module.exports.main = main
 module.exports.tehtmi = tehtmi
 module.exports.splitPhases = splitPhases
 module.exports.planDay = planDay
+module.exports._printPlan = printPlan  // for tests
 module.exports.effectRates = effectRates
 module.exports.effectOf = effectOf
 module.exports._setData = function (consumables, srValue) {  // for tests
