@@ -3996,7 +3996,9 @@ void grindRufusAndTheShadowRiftsForFree() {
 	}
 
 	set_property("_smm.kSpikolodonNextCombat", "false");
-	assert(spikolodonSpikesUsed() >= 5, "grindRufusAndTheShadowRiftsForFree: didn't use all the spikolodon spikes");
+	// running out of free combats and free kills before the spikes is normal; leftover spikes are a
+	// missed opportunity, not a reason to abort the rest of the free Rufus/Cincho work and the day
+	cprint(spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them", "orange");
 
 
 	// CINCHO DE MAYO
