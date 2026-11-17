@@ -2565,17 +2565,27 @@ void burnLicenseToChill() {
 
 
 
+boolean mayamSymbolsAvailable(string symbols) {
+    string used = "," + get_property("_mayamSymbolsUsed") + ",";
+    foreach i, symbol in split_string(symbols, ",") {
+        if (used.contains_text("," + symbol + ",")) return false;
+    }
+    return true;
+}
+
 void burnMayamCalendar(boolean genTurns) {
-    if (genTurns && !"_mayamSymbolsUsed".get_property().contains_text("yam1")) {
+    if (item_amount($item[Mayam Calendar]) + equipped_amount($item[Mayam Calendar]) == 0) return;
+
+    if (genTurns && mayamSymbolsAvailable("yam1,lightning,yam3,clock")) {
         cli_execute("mayam resonance yam battery");
         return;
     }
 
 	// This is worth ~5k meat but free rests MIGHT MIGHT MIGHT be worth a lot
-    if (!"_mayamSymbolsUsed".get_property().contains_text("yam2"))
+    if (mayamSymbolsAvailable("vessel,yam2,cheese,explosion"))
         cli_execute("mayam resonance stuffed yam stinkbomb");
 
-    if (!"_mayamSymbolsUsed".get_property().contains_text("yam4")) {
+    if (mayamSymbolsAvailable("fur,meat,wall,yam4")) {
         use_familiar($familiar[Pocket Professor]);
         cli_execute("mayam rings fur meat wall yam");
     }
