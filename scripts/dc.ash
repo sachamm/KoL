@@ -1039,7 +1039,7 @@ void printHelp() {
 	print_html("<h4>Item commands:</h4>");
 	print_html("<br/><strong style=\"color:blue;\">list <i>item</i></strong>: Print more detailed information on the item, especially the top 10 information. Ex: dc list finger cymbals");
 	print_html("<strong style=\"color:blue;\">addall <i>item</i></strong>: Add all items you own without regard for the other top 10 entries. Follows the item saving rules (see below). Ex: dc addall bar skin");
-	print_html("<strong style=\"color:blue;\">top10 <i>item</i></strong>: Add <b>or remove</b> items to make the top 10 -- will save items according to the item saving rules (see below), and will only put smm.dcOvershootAmount (default: 11) more than the next lowest rank if it can't make it to the next higher rank. Removes everything if it can't achieve rank #10.");
+	print_html("<strong style=\"color:blue;\">top10 <i>item</i></strong>: Add items to make the top 10 -- will save items according to the item saving rules (see below), and will only put smm.dcOvershootAmount (default: 11) more than the next lowest rank if it can't make it to the next higher rank. Copies already in the case are kept; with smm.dcAllowRemoval=true (or smm.IR.museum=false) it also removes copies beyond that amount, and everything if it can't achieve rank #10.");
 	print_html("• For example, if #1 is 200 and #2 is at 100 and you have 123 of that item, 'dc top10 myitem' will add enough to bring you to 111. If you instead had 500 of the same item, it would put in enough to bring you to 211 of that item in your display case.");
 	print_html("<strong style=\"color:blue;\">rankup <i>[max-price-per-item]</i> <i>item</i></strong>: buy as many of item as needed to reach the next rank, and put them into the display case. Use --dry-run to get the cost of ranking up. The default max-price-per-item is the current mall cost of the item * 1.05.");
 	print_html("<strong style=\"color:blue;\">iotm [<i>IotM</i>]</strong>: with no IotM lists IotMs in the database; with an IotM, print top 10 info for each item introduced by the IotM (very partially unimplemented)");
@@ -1320,7 +1320,7 @@ int calcHighestGoalAmount(item anItem, int [int, string] top10List) {
 
 // put the given item into the dc, only goes to gkDCOvershootAmount more than next highest on the Top 10 list
 // puts 0 in if you don't have enough to get higher than the next tier
-// will also remove items to enforce the above rules
+// removes items to enforce the above rules only when smm.dcAllowRemoval=true or smm.IR.museum=false
 // follows the item saving rules (see help)
 // returns the delta of items put in/taken out of the case
 int top10Item(item anItem, int [int, string] top10List) {
@@ -1349,6 +1349,12 @@ int top10Item(item anItem, int [int, string] top10List) {
 		print("dc: you have " + displayAmount + " " + anItem + " in the case and we want to get to " + goalAmount + ", adding " + putAmount, "blue");
 		put_display(putAmount, anItem);
 	} else if (putAmount < 0) {
+		// Museum policy: copies already in the case stay there. Deposits aim at #1, so trimming
+		// to the best rank reachable today only undoes them. smm.dcAllowRemoval=true restores trimming.
+		if (get_property("smm.IR.museum") != "false" && get_property("smm.dcAllowRemoval") != "true") {
+			print("dc: you have " + displayAmount + " " + anItem + " in the case; the top10 goal is " + goalAmount + ", keeping the extra " + (-putAmount) + " in the case (set smm.dcAllowRemoval=true to remove)", "blue");
+			return 0;
+		}
 		string logColour = "orange";
 		if (-putAmount == displayAmount) logColour = "red"; // we're taking everything out of the dc (will affect future shelf operations)
 		print("dc: you have " + displayAmount + " " + anItem + " in the case and we want to get to " + goalAmount + ", removing " + (-putAmount), logColour);

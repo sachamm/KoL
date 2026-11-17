@@ -45,6 +45,7 @@ Museum policy is enabled by default. Relevant settings:
 - `smm.IR.museumRankValue`: utility of completing a rank milestone, separate from Meat proceeds.
 - `smm.IR.museumCopyValue.<item ID>`: explicit replacement/opportunity value when market acquisition is unavailable; it is not a claim of resale value.
 - `smm.IR.museumSell.<item ID>=true`: explicit liquidation override for that item's automatic store stocking, to fund other collection goals.
+- `smm.dcAllowRemoval=true`: let `dc top10` (and the store stocking that calls it) take copies out of the case again. By default copies in the case stay there, so the stocker no longer undoes the route's deposits toward #1.
 - `smm.IR.keepItem.<item ID>`: operating copies to retain rather than placing or consuming them; zero can override an equipment/hatchling category reserve.
 
 The existing paid-turn and cumulative collection-loss budgets still apply. Do not invent historical/current Museum quantities when the source is unavailable. Goal completion requires observed case counts and a usable ranking snapshot, and competitive thresholds can change later.
