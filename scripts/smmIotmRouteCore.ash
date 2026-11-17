@@ -658,6 +658,21 @@ void smmIRBatch(string id, int cap) {
     if (smmIRActions[id].goal.starts_with("museum.")) smmIRActions[id].missing=limit;
 }
 
+// Make a planned batch. One request for the whole quantity is tried first;
+// some recipes only make one copy per request (or stop short), so whatever is
+// still missing is then made one copy at a time until a request adds nothing.
+// Returns the number of copies that actually arrived.
+int smmIRCreateBatch(int copies, item it) {
+    int start=item_amount(it);
+    if (copies>1) smmIRCreate(copies,it);
+    while (item_amount(it)-start<copies && !handling_choice() && current_round()==0) {
+        int before=item_amount(it);
+        smmIRCreate(1,it);
+        if (item_amount(it)<=before) break;
+    }
+    return item_amount(it)-start;
+}
+
 float smmIRLocalDigFloor(location zone) {
     float lowest=1000000000.0; boolean found;
     foreach foe, ignored in get_location_monsters(zone) foreach i, drop in item_drops_array(foe) {

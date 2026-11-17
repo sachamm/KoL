@@ -159,8 +159,7 @@ boolean smmIRDispatch(SmmIRWork work) {
         int copies=max(1,work.batch);
         if (free_cooks()<copies) return false;
         foreach it, quantity in get_ingredients(work.product) if (!smmIRMayConsume(it,quantity*copies)) return false;
-        int before=item_amount(work.product);
-        return smmIRCreate(copies,work.product) && item_amount(work.product)>=before+copies;
+        return smmIRCreateBatch(copies,work.product)>=copies;
     }
     if (work.kind=="coin.buy" || work.kind=="bones.buy") {
         coinmaster shop=work.kind=="coin.buy" ? $coinmaster[Spend your Interesting Coins] : $coinmaster[Skeleton of Crimbo Past];

@@ -299,12 +299,13 @@ boolean smmIRMoreDispatch(SmmIRWork work) {
             if (cost<1 || !smmIRMayConsume($item[inflammable leaf],cost)
                 || item_amount($item[inflammable leaf])-max(0,smmIRSetting("leafReserve",0).to_int())<cost) return false;
         }
-        int before=item_amount(work.product);
-        boolean made=smmIRCreate(copies,work.product);
+        // The workshed and leaf pile leave their page open after a request.
+        smmIRWalkAway(work.choice_id);
+        int made=smmIRCreateBatch(copies,work.product);
         smmIRWalkAway(work.choice_id);
         // Count what was actually made, even when it is fewer than planned.
-        if (work.counter!="") smmIRDayBump(work.counter,item_amount(work.product)-before);
-        return made && item_amount(work.product)>=before+copies;
+        if (work.counter!="") smmIRDayBump(work.counter,made);
+        return made>=copies;
     }
     return false;
 }
