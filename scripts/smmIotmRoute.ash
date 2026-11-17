@@ -15,8 +15,11 @@ SmmRPResource [string] smmIRResources() {
         item it=to_item(substring(resource,11));
         int keep=max(0,smmIRSetting("keepItem."+it.to_int(),0).to_int());
         if (smmMuseumEnabled()) keep=max(keep,max(smmMuseumConsumptionReserve(it),smmMuseumKeep(it)));
+        if (it==$item[inflammable leaf]) keep=max(keep,max(0,smmIRSetting("leafReserve",0).to_int()));
         pools[resource]=new SmmRPResource("Owned ingredient: "+it,max(0,item_amount(it)-keep),it!=$item[none],"");
     }
+    pools["route.leafCrafts"]=new SmmRPResource("Leaf conversions left under today's cap",max(0,max(0,smmIRSetting("leafCraftCap",5).to_int())-smmIRDayCount("leafCrafts")),true,"");
+    pools["route.kiwiBuys"]=new SmmRPResource("Kiwi trades left under today's cap",max(0,max(0,smmIRSetting("kiwiBuyCap",5).to_int())-smmIRDayCount("kiwiBuys")),true,"");
     pools["route.gardenChange"]=new SmmRPResource("Single garden change today",smmIRGardenMayChange() ? 1 : 0,true,"");
     pools["route.mushroom"]=new SmmRPResource("Selected garden's mushroom visit",my_garden_type()=="mushroom" && !get_property("_mushroomGardenVisited").to_boolean() ? 1 : 0,true,"");
     for plot from 0 to 2 pools["route.harvest."+plot]=new SmmRPResource("Selected garden harvest",1,true,"");
@@ -153,10 +156,11 @@ boolean smmIRDispatch(SmmIRWork work) {
         return have_skill(work.cast) && smmIRCast(work.cast) && item_amount(work.product)>=before+work.option;
     }
     if (work.kind=="craft") {
-        if (free_cooks()<1) return false;
-        foreach it, quantity in get_ingredients(work.product) if (!smmIRMayConsume(it,quantity)) return false;
+        int copies=max(1,work.batch);
+        if (free_cooks()<copies) return false;
+        foreach it, quantity in get_ingredients(work.product) if (!smmIRMayConsume(it,quantity*copies)) return false;
         int before=item_amount(work.product);
-        return create(1,work.product) && item_amount(work.product)>before;
+        return smmIRCreate(copies,work.product) && item_amount(work.product)>=before+copies;
     }
     if (work.kind=="coin.buy" || work.kind=="bones.buy") {
         coinmaster shop=work.kind=="coin.buy" ? $coinmaster[Spend your Interesting Coins] : $coinmaster[Skeleton of Crimbo Past];
@@ -330,14 +334,26 @@ string smmIRStaleReason(string id) {
     return "";
 }
 
+// Actions that make or buy identical copies and can do the whole planned
+// quantity in one worker call (see smmIRBatch).
+boolean smmIRBatchable(string kind) {
+    return kind=="craft" || kind=="more.create" || kind=="more.buy" || kind=="more.kiwi";
+}
+
 // Decide whether the action just run changed anything the rest of the plan
 // depends on. Returns "" when the remaining plan is still valid, otherwise the
 // reason for replanning. Gains that only make new actions possible (ordinary
 // loot, Meat) are left for the confirming replan at the end of the plan.
-string smmIRMaterialChange(string id, int units, SmmIRResult result, string before, string after) {
+string smmIRMaterialChange(string id, int units, SmmIRResult result, string before, string after, int [string] queued) {
     if (!result.success) return "action failed or was blocked";
     if (before!=after) return "character state changed (gate, modifier, Sword target or garden)";
     if (smmIREnabler(smmIRWorkers[id].kind)) return "action changes prices or creates new capacity";
+    // Each action priced its ingredients as if it were their only user. Under
+    // tiered Museum pricing the next user of the same ingredient may now be
+    // drawing on dearer copies, so reprice it before it runs.
+    if (smmMuseumEnabled()) foreach pool, cost in smmIRActions[id].costs if (pool.starts_with("route.item."))
+        foreach other, quantity in queued if (other!=id && quantity>0 && (smmIRActions[other].costs contains pool))
+            return "ingredient "+to_item(substring(pool,11).to_int())+" is shared with a later action";
     // Only pools some candidate draws on can change the allocation.
     boolean [string] used;
     foreach other, action in smmIRActions foreach pool, cost in action.costs used[pool]=true;
@@ -454,12 +470,13 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
                 int units=1;
                 if (work.kind=="museum.deposit") { units=plan.quantity[next]; work.option=units; }
                 else if (work.kind=="farm") { units=plan.quantity[next]; work.allowed_turns=units; }
-                print("IoTM route: "+smmIRActions[next].description+(units>1 && work.kind=="farm" ? " (up to "+units+" turns)" : ""),"blue");
+                else if (smmIRBatchable(work.kind)) { units=plan.quantity[next]; work.batch=units; }
+                print("IoTM route: "+smmIRActions[next].description+(units>1 && work.kind=="farm" ? " (up to "+units+" turns)" : units>1 && smmIRBatchable(work.kind) ? " x"+units+" in one batch" : ""),"blue");
                 print("    why: "+smmIRWhy[next],"gray"); print("    expected result: "+smmIRExpect[next],"gray");
                 if (smmIRThen[next]!="") print("    then: "+smmIRThen[next],"gray");
                 log.append("ATTEMPT\t"+next+"\n"); log.buffer_to_file("smm-iotm-route-last.txt");
                 SmmRPContext valuation=new SmmRPContext(smmIROwner,smmIRTurnValue(),true,0,20000);
-                smmIRSelectedLoss=max(0.0,-smmRPEconomicValue(smmIRActions[next],valuation))*(work.kind=="farm" ? units : 1);
+                smmIRSelectedLoss=max(0.0,-smmRPEconomicValue(smmIRActions[next],valuation))*(work.kind=="farm" || smmIRBatchable(work.kind) ? units : 1);
                 string before=smmIRStateSignature();
                 SmmIRResult result=smmIRExecute(work); steps+=1;
                 log.append(next+"\t"+result.success+"\tpaid="+result.turns+"\tMeat="+result.meat_delta+"\tadventures gained="+result.adventures_gained+"\tdisplay="+result.displayed+"\t"+result.reason+"\n");
@@ -468,7 +485,7 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
                 if (handling_choice() || current_round()>0 || have_effect($effect[Beaten Up])>0) break;
                 // Real properties/inventory are read after every worker. When they
                 // match what the plan expected, the rest of the plan still stands.
-                replan=smmIRMaterialChange(next,units,result,before,smmIRStateSignature());
+                replan=smmIRMaterialChange(next,units,result,before,smmIRStateSignature(),plan.quantity);
                 if (replan=="") {
                     plan.quantity[next]-=units;
                     if (plan.quantity[next]<1) remove plan.quantity[next];

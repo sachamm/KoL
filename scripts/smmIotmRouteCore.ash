@@ -23,6 +23,8 @@ record SmmIRWork {
     int expected_adventures;
     string why;
     string expect;
+    // Copies to make or buy in one worker call; 0 means a single copy.
+    int batch;
 };
 
 record SmmIRGear {
@@ -110,6 +112,7 @@ boolean smmIRAdventure(location zone) {
     return adv1(zone,-1,"");
 }
 void smmIRSetAutoAttack(int attack) { set_auto_attack(attack); }
+boolean smmIRCreate(int copies, item it) { return create(copies,it); }
 
 // buy_price() reports 0 for coinmasters defined by shop rows (Interesting Coin,
 // knucklebones, embers). Fall back to the row's single currency cost.
@@ -453,7 +456,7 @@ float smmIRCombatValue(monster foe, SmmIRWork gear) {
 SmmIRWork smmIRCopyWork(SmmIRWork source) {
     return new SmmIRWork(source.kind,source.product,source.ingredient1,source.ingredient2,source.ingredient3,
         source.cast,source.companion,source.companion_equipment,source.zone,source.foe,source.parameters,
-        source.counter,source.choice_id,source.option,source.allowed_turns,source.expected_adventures,source.why,source.expect);
+        source.counter,source.choice_id,source.option,source.allowed_turns,source.expected_adventures,source.why,source.expect,source.batch);
 }
 
 float smmIRMonsterProgress(monster foe) {
@@ -544,7 +547,7 @@ string smmIRAutoWhy(SmmIRWork work, float benefits, float costs, string resource
 string smmIRAutoExpect(SmmIRWork work) {
     if (work.kind=="pasta.summon") return "Inventory of "+work.product+" should rise by "+work.option+" (verified after the action).";
     if (work.product!=$item[none] && (work.kind=="bones.buy" || work.kind=="coin.buy" || work.kind=="craft"))
-        return "Inventory of "+work.product+" should rise by 1 (verified after the action).";
+        return "Inventory of "+work.product+" should rise by 1 per copy (verified after the action).";
     return "The action's state change is verified after it runs; the route stops on a mismatch.";
 }
 
@@ -597,6 +600,62 @@ void smmIRUtility(string id) {
     // A one-point preference for a free, non-Meat bonus. No negative-EV utility
     // action can pass the default zero collection-loss budget.
     smmIRActions[id].goal="free.utility"; smmIRActions[id].missing=1; smmIRActions[id].collection_value=1;
+}
+
+// Batching. The solver values every unit of an action alike, so one action may
+// only cover copies that really are worth the same. Museum pricing is tiered:
+// copies still needed for a rank are worth their replacement price and the rest
+// their sale price, and ingredients are cheap while surplus and dear once they
+// eat into Museum stock. A batch therefore stops at the first tier boundary;
+// the copies beyond it are planned at their own value by the next planning pass.
+boolean smmIRSame(float a, float b) {
+    return max(a-b,b-a)<=0.01+0.000001*max(b,-b);
+}
+
+boolean smmIRGainUniform(item it, int copies) {
+    return smmIRSame(smmIRRewardValue(it,copies),copies*smmIRRewardValue(it,1))
+        && smmIRSame(smmMuseumProgress(it,copies),copies*smmMuseumProgress(it,1));
+}
+
+// Largest number of copies, up to cap, each worth as much as the first.
+// Gains are concave, so the equal-value copies form a prefix.
+int smmIRGainRun(item it, int cap) {
+    if (cap<2 || it==$item[none]) return max(0,cap);
+    int low=1; int high=cap;
+    while (low<high) {
+        int mid=(low+high+1)/2;
+        if (smmIRGainUniform(it,mid)) low=mid; else high=mid-1;
+    }
+    return low;
+}
+
+boolean smmIRInputUniform(item it, int each, int uses) {
+    return smmIRMayConsume(it,each*uses) && smmIRSame(smmIRInputValue(it,each*uses),uses*smmIRInputValue(it,each));
+}
+
+// Largest number of uses, up to cap, that may each consume `each` of an
+// ingredient at the cost of the first use.
+int smmIRInputRun(item it, int each, int cap) {
+    if (cap<2 || each<1 || it==$item[none]) return max(0,cap);
+    int low=1; int high=cap;
+    while (low<high) {
+        int mid=(low+high+1)/2;
+        if (smmIRInputUniform(it,each,mid)) low=mid; else high=mid-1;
+    }
+    return low;
+}
+
+// Let one planned action stand for up to `cap` identical copies, made by a
+// single worker call. The caller supplies the physical cap (free crafts, daily
+// limits, stock); shared pools still bound the total across actions.
+void smmIRBatch(string id, int cap) {
+    if (!(smmIRActions contains id) || cap<2) return;
+    int limit=smmIRGainRun(smmIRWorkers[id].product,cap);
+    foreach pool, cost in smmIRActions[id].costs if (pool.starts_with("route.item."))
+        limit=min(limit,smmIRInputRun(to_item(substring(pool,11).to_int()),cost,limit));
+    if (limit<2) return;
+    smmIRActions[id].limit=limit;
+    if (smmIRActions[id].goal.starts_with("museum.")) smmIRActions[id].missing=limit;
 }
 
 float smmIRLocalDigFloor(location zone) {
@@ -704,6 +763,7 @@ void smmIRGeneratePasta() {
         if (!owned) continue;
         SmmIRWork work; work.kind="craft"; work.product=it;
         smmIRAdd("2026-05.craft."+it.to_int(),"Cook profitable legendary pasta: "+it,work,smmIRRewardValue(it),input,"pasta.crafts",1);
+        smmIRBatch("2026-05.craft."+it.to_int(),free_cooks());
     }
 }
 
