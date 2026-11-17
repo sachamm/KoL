@@ -3663,15 +3663,18 @@ void burnCombatLoversLocket() {
 // can be used overdrunk if we're able to get into a combat while overdrunk (such as with drum machines)
 void burnInstaKill() {
 	print("burnInstaKill", "green");
-	assert(instaKillsAvailable() > 0, "no instaKill available!");
 	assert(my_adventures() > 0, "we have insta-kills but we can't insta-kill without any turns!");
 
+	// a drum machine fight without a free kill costs a turn and the drum machine, so make sure we
+	// actually have a free-kill skill before using one
 	PrioritySkillRecord instaKillSkill = chooseInstaKillSkill();
+	assert(instaKillSkill.theSkill != $skill[none], "burnInstaKill: no free-kill skill available, not using a drum machine");
 
 	automate_dressup($location[none], "item", "item", "-equip \"i voted!\" sticker, -equip Kramco Sausage-o-Matic&trade;, -equip Everfull Dart Holster, -equip mafia thumb ring");
 	if (instaKillSkill.theItem != $item[none]) {
 		fullAcquire(instaKillSkill.theItem);
 		dressup("equip " + instaKillSkill.theItem);
+		assert(equipped_amount(instaKillSkill.theItem) > 0, "burnInstaKill: couldn't equip " + instaKillSkill.theItem + " for " + instaKillSkill.theSkill + ", not using a drum machine");
 	}
 
 	fullAcquire($item[drum machine]);
