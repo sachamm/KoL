@@ -2,6 +2,7 @@ import "smmUtils.ash";
 import "smmAutomation.ash";
 import "VotingBooth.ash";
 import <smmIotmRoute.ash>
+import <smmSpend.ash>
 string __unrestricted_version = "0.9";
 
 /*
@@ -702,6 +703,84 @@ void incomeCalculator(int bonusItemDrop, int bonusMeatDrop) {
 // currently in effect
 void incomeCalculator() {
 	incomeCalculator(0, 0);
+}
+
+
+
+// -------------------------------------
+// DAILY GRIND CONTROLS -- see docs/daily-spending.md
+// -------------------------------------
+
+// A yes/no decision in the daily run. Set smm.dailyGrind.<name> to true or false to
+// answer it ahead of time (no pause); leave it unset to be asked as before.
+boolean dailyGrindConfirm(string name, string prompt, boolean defaultAnswer) {
+	string preset = get_property("smm.dailyGrind." + name);
+	if (preset == "true" || preset == "false") {
+		print(prompt + " -- " + preset + " (smm.dailyGrind." + name + ")", "blue");
+		return preset.to_boolean();
+	}
+	return user_confirm(prompt, 60000, defaultAnswer);
+}
+
+// Copies the Display Case is still short of first place, over a set of items.
+// Unranked items count as 0: an unknown gap can't be compared.
+int museumShortfall(boolean [item] theItems) {
+	int total = 0;
+	foreach it in theItems {
+		SmmMuseumGoal goal = smmMuseumGoal(it);
+		if (goal.known)
+			total += smmMuseumMissing(it, goal);
+	}
+	return total;
+}
+
+// The paid-turn grinds that run after the IoTM route share one optional daily
+// turn budget (smm.dailyGrind.maxPaidTurns, unset = no limit) and can each be
+// switched off (smm.dailyGrind.<name>=false). Each one's turns and Meat are
+// logged for the day so that its return per turn can be compared with kTurnValue.
+string kGrindTurnsTotalKey = "_smm.grind.turnsTotal";
+int gGrindTurnMark;
+int gGrindMeatMark;
+
+boolean dailyGrindMayRun(string name) {
+	if (get_property("smm.dailyGrind." + name) == "false") {
+		print("dailyGrind: skipping " + name + " (smm.dailyGrind." + name + "=false)", "blue");
+		return false;
+	}
+	string limit = get_property("smm.dailyGrind.maxPaidTurns");
+	if (limit != "" && get_property(kGrindTurnsTotalKey).to_int() >= limit.to_int()) {
+		print("dailyGrind: skipping " + name + ", the day's paid-turn budget of " + limit + " is used up", "blue");
+		return false;
+	}
+	return true;
+}
+
+void dailyGrindBegin() {
+	gGrindTurnMark = total_turns_played();
+	gGrindMeatMark = my_meat();
+}
+
+void dailyGrindEnd(string name) {
+	int turns = total_turns_played() - gGrindTurnMark;
+	int meat = my_meat() - gGrindMeatMark;
+	if (turns <= 0 && meat == 0) return;
+	set_property("_smm.grind.turns." + name, get_property("_smm.grind.turns." + name).to_int() + turns);
+	set_property("_smm.grind.meat." + name, get_property("_smm.grind.meat." + name).to_int() + meat);
+	set_property(kGrindTurnsTotalKey, get_property(kGrindTurnsTotalKey).to_int() + turns);
+	print("dailyGrind: " + name + " took " + turns + " turns, Meat " + (meat >= 0 ? "+" : "") + meat, "blue");
+}
+
+// Meat only: items gained are not valued here, so a grind that farms items
+// shows a low or negative figure. Compare with the mall value of what it dropped.
+void printDailyGrindLedger() {
+	print("dailyGrind paid-turn ledger (Meat only, turn value " + kTurnValue + "):", "blue");
+	foreach name in $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread] {
+		int turns = get_property("_smm.grind.turns." + name).to_int();
+		if (turns <= 0) continue;
+		int meat = get_property("_smm.grind.meat." + name).to_int();
+		print(name + ": " + turns + " turns, Meat " + meat + " (" + (meat / turns) + " per turn)");
+	}
+	print("total paid turns: " + get_property(kGrindTurnsTotalKey).to_int());
 }
 
 
@@ -2860,8 +2939,8 @@ void secondBreakfast(int [location] endGameTurnsSpent) {
 	if (!have_item($item[maple magnet]))
 		fullAcquire($item[maple magnet]);
 
-	if (total_meat() > 100000000)
-		buyMallSpecials();
+	// Buying is now the budgeted step at the end of the day (smmSpendRun), which
+	// reads the same buy map. See docs/daily-spending.md.
 
 	set_property(gkSecondBreakfastDoneKey, "true");
 
@@ -3179,9 +3258,12 @@ void dailyDeedsAdv() {
 	grindJellyWithEnemyReplacement(true, true, $item[cold jelly], true); // 0 adv
 
 	grindTotCostume($item[li'l pirate costume]);
-	assert(available_amount($item[li'l pirate costume]) > 0, "didn't get li'l pirate costume");
+	// warn instead of stopping: one missing costume shouldn't strand the rest of the day's resources
+	if (available_amount($item[li'l pirate costume]) <= 0)
+		print("didn't get li'l pirate costume, continuing", "red");
 	// grindTotCostume($item[li'l ninja costume]); should be done by jelly grinding
-	assert(available_amount($item[li'l ninja costume]) > 0, "didn't get li'l ninja costume");
+	if (available_amount($item[li'l ninja costume]) <= 0)
+		print("didn't get li'l ninja costume, continuing", "red");
 
 	if (!to_boolean(get_property("_loveTunnelUsed"))) {
 		LOVadv($item[LOV Earrings], $effect[Wandering Eye Surgery], $item[LOV Echinacea Bouquet]);
@@ -3847,13 +3929,17 @@ void grindDolphinItem() {
 	print("grindDolphinItem: " + dolphinItem, "green");
 
 	int meatValue = dolphinItem.current_price();
-	if (meatValue < kTurnValue) {
-		print("... skipping, meat value too low @ " + meatValue, "green");
+	// a copy the Display Case is known to still need is worth the turn whatever its price
+	boolean [item] dolphinItems;
+	dolphinItems[dolphinItem] = true;
+	boolean museumNeedsIt = museumShortfall(dolphinItems) > 0;
+	if (meatValue < kTurnValue && !museumNeedsIt) {
+		print("... skipping, meat value too low @ " + meatValue + " and the Museum doesn't need it", "green");
 		return;
 	}
 
 	if (!get_property("_smm.ShouldUseDolphinWhistleQueryDone").to_boolean()
-		&& user_confirm("Use dolphin whistle for dolphinItem: " + dolphinItem + ", price: " + meatValue, 60000, true)) {
+		&& dailyGrindConfirm("dolphin", "Use dolphin whistle for dolphinItem: " + dolphinItem + ", price: " + meatValue + (museumNeedsIt ? " (Museum needs it)" : ""), true)) {
 		getDolphinItemWithDressup();
 	}
 	set_property("_smm.ShouldUseDolphinWhistleQueryDone", "true");
@@ -4762,9 +4848,17 @@ void grindSpacegate(string gateString) {
 
 	set_property("choiceAdventure1243", "1"); // Interstellar Trade: buy anything
 
-	// prefer plant life sample kit for no reason TODO use the one we need the most
+	// When both kits are usable, take the one whose samples the Display Case is further short of (plant on a tie).
+	boolean plantKitUsable = (plantLife.contains_text("primitive") || plantLife.contains_text("advanced") || plantLife.contains_text("anomalous")) && !plantLife.contains_text("hostile");
+	boolean animalKitUsable = (animalLife.contains_text("primitive") || animalLife.contains_text("advanced") || animalLife.contains_text("anomalous")) && !animalLife.contains_text("hostile");
+	boolean preferAnimalKit = plantKitUsable && animalKitUsable
+		&& museumShortfall($items[alien zoological sample, complex alien zoological sample, fascinating alien zoological sample])
+			> museumShortfall($items[alien plant sample, complex alien plant sample, fascinating alien plant sample]);
+	if (preferAnimalKit)
+		print("grindSpacegate: the Museum is further short of zoological samples, using the zoological sample kit", "green");
+
 	if (plantLife.contains_text("primitive") || plantLife.contains_text("advanced") || plantLife.contains_text("anomalous")) {
-		if (!plantLife.contains_text("hostile") && offhandString == "") {
+		if (!plantLife.contains_text("hostile") && offhandString == "" && !preferAnimalKit) {
 			fullAcquire($item[botanical sample kit]);
 			offhandString = "equip botanical sample kit";
 			set_property("choiceAdventure1237", "3"); // A Simple Plant: alien plant sample
@@ -4779,7 +4873,7 @@ void grindSpacegate(string gateString) {
 	}
 
 	if (animalLife.contains_text("primitive") || animalLife.contains_text("advanced") || animalLife.contains_text("anomalous")) {
-		if (!animalLife.contains_text("hostile") && offhandString == "") {
+		if (!animalLife.contains_text("hostile") && offhandString == "") { // the plant block above leaves this free when preferAnimalKit
 			fullAcquire($item[zoological sample kit]);
 			offhandString = "equip zoological sample kit";
 			set_property("choiceAdventure1240", "3"); // The Animals, The Animals: alien zoological sample
@@ -6338,7 +6432,7 @@ void grindDolphinOrphans(location seaLoc, monster sideCritter, int kills) {
 void doBounty() {
 	if (!to_boolean(get_property("_smm.BountyCheckDone"))) {
 		cli_execute("bounty");
-		if (user_confirm("stop for bounty?", 60000, false))
+		if (dailyGrindConfirm("stopForBounty", "stop for bounty?", false))
 			abort("bounty");
 		else
 			set_property("_smm.BountyCheckDone", "true");
@@ -6348,6 +6442,7 @@ void doBounty() {
 
 
 void dailyNoAdventureGrind() {
+	smmSpendDayStart();
 	secondBreakfast();
 	smmIRDailyRoute(true,true);
 	burnMP(-500);
@@ -6390,7 +6485,7 @@ void dailyFishingGrind(int [location] endGameTurnsSpent, int maxPerTurnCost) {
 					grindLoc = $location[The Dive Bar];
 			}
 
-			if ((!property_exists("_smm.DoSeaQuest") && user_confirm("Grind sea location: " + grindLoc + "?", 60000, true)) || "_smm.DoSeaQuest".get_property().to_boolean()) {
+			if ((!property_exists("_smm.DoSeaQuest") && dailyGrindConfirm("sea", "Grind sea location: " + grindLoc + "?", true)) || "_smm.DoSeaQuest".get_property().to_boolean()) {
 				set_property("_smm.DoSeaQuest", "true");
 				switch (grindLoc) {
 					case $location[The Marinara Trench]:
@@ -6434,6 +6529,7 @@ void dailyGrind() {
 	if (have_effect($effect[Fishy]) >= 8)
 		set_property(gDailyFishingGrindKey, "true");
 
+	smmSpendDayStart(); // opening Meat for the day's spending budget, before anything is earned or bought
 	stockStore(gkStoreHeartbeat);
 	int [location] endGameTurnsSpent = endGameTurnsSpent();
 
@@ -6452,7 +6548,7 @@ void dailyGrind() {
 
 	// stuff that needs BANISHERS
 	doBounty(); // 20 adv, 5 banishers?
-	if (!to_boolean(get_property("_smm.UseBanishersConfirmDone")) && !user_confirm("We're about to use up the banishers. Continue?", 60000, true))
+	if (!to_boolean(get_property("_smm.UseBanishersConfirmDone")) && !dailyGrindConfirm("useBanishers", "We're about to use up the banishers. Continue?", true))
 		abort("user aborted");
 	set_property("_smm.UseBanishersConfirmDone", "true");
 
@@ -6460,10 +6556,10 @@ void dailyGrind() {
 	endGameTurnsSpent = endGameTurnsSpent(); // refresh: the clan may have killed more Dread monsters since the start of the run
 	if (!get_property("_smm.HighItemConfirmDone").to_boolean()
 	    && (get_property("garbageChampagneCharge").to_int() > 0 || !get_property("_garbageItemChanged").to_boolean())
-	    && !user_confirm("Continue to high item drop section? Dread woods: "
+	    && !dailyGrindConfirm("highItem", "Continue to high item drop section? Dread woods: "
 	                     + endGameTurnsSpent[$location[Dreadsylvanian Woods]] + ", village: "
 	                     + endGameTurnsSpent[$location[Dreadsylvanian Village]] + ", castle: "
-	                     + endGameTurnsSpent[$location[Dreadsylvanian Castle]], 60000, true))
+	                     + endGameTurnsSpent[$location[Dreadsylvanian Castle]], true))
 		abort("user aborted before the high item drop section");
 	set_property("_smm.HighItemConfirmDone", "true");
 
@@ -6487,13 +6583,20 @@ void dailyGrind() {
 				print("couldn't seek out all " + birdsToSeek + " birds, continuing", "orange");
 		}
 		maximizeForItemDrop(1, $location[none]);
-		currentIncome();
-		incomeCalculator();
+		// print-only reports that cost a turn of Asdon fuel and two outfit changes: opt in
+		if (get_property("smm.dailyGrind.incomeReport") == "true") {
+			currentIncome();
+			incomeCalculator();
+		}
 		set_property("_smm.LandPreGrindDone", "true");
 	}
 
-	int kSaveBanishes = 12; // for grindBeerLens and grindGhostCostume below
-	if (banishesAvailable(maxPerTurnCost) > kSaveBanishes && my_adventures() > 10 && !to_boolean(get_property("_smm.GrindDone"))) {
+	// keep banishes back only for the banisher grinds still to do today
+	boolean beerLensPending = get_property("_beerLensDrops").to_int() < 3 && dailyGrindMayRun("beerLens");
+	boolean ghostCostumePending = !to_boolean(get_property("_smm.GotGhostCostume")) && my_session_items($item[li'l ghost costume]) < 1 && dailyGrindMayRun("ghostCostume");
+	int kSaveBanishes = (beerLensPending ? 4 : 0) + (ghostCostumePending ? 8 : 0); // for grindBeerLens and grindGhostCostume below
+	if (banishesAvailable(maxPerTurnCost) > kSaveBanishes && my_adventures() > 10 && !to_boolean(get_property("_smm.GrindDone")) && dailyGrindMayRun("oasis")) {
+		dailyGrindBegin();
 		int perAdventureCost = perAdventureCost($location[The Oasis]);
 		int beatleValue = scarabBeatleValue(perAdventureCost);
 		int blurValue = monsterCurrentTotalMeatValue($monster[blur], false) - perAdventureCost;
@@ -6504,42 +6607,73 @@ void dailyGrind() {
 		else if (blurValue > kTurnValue)
 			grindDrumMachine(maxPerTurnCost, true, kSaveBanishes); // maxPerTurnCost, getBeatlesOnYellowRay, banishesToSave
 
+		dailyGrindEnd("oasis");
 	}
 	// Set even when no farming happened: this phase saves banishers and may skip
 	// farming (or have no banishes available) or leave yellow rays unused.
 	set_property("_smm.GrindDone", "true");
 
 	// stuff that needs BANISHERS total 13 right now
-	grindBeerLens(maxPerTurnCost); // 3-5 adv, 4 banishers
-	grindGhostCostume(); // 5-11 adv, 9 banishers
+	if (beerLensPending) {
+		dailyGrindBegin();
+		grindBeerLens(maxPerTurnCost); // 3-5 adv, 4 banishers
+		dailyGrindEnd("beerLens");
+	}
+	if (ghostCostumePending) {
+		dailyGrindBegin();
+		grindGhostCostume(); // 5-11 adv, 9 banishers
+		dailyGrindEnd("ghostCostume");
+	}
 
 	// stuff that doesn't need item drop or banishes
-	try {
-		saveAndSetProperty("choiceAdventure1251", "6");
-		grindSpacegate(gkSpacegateCoordinates);
-	} finally {
-		restoreSavedProperty("choiceAdventure1251");
+	if (dailyGrindMayRun("spacegate")) {
+		dailyGrindBegin();
+		try {
+			saveAndSetProperty("choiceAdventure1251", "6");
+			grindSpacegate(gkSpacegateCoordinates);
+		} finally {
+			restoreSavedProperty("choiceAdventure1251");
+		}
+		dailyGrindEnd("spacegate");
 	}
 
 	// FANTASYREALM: fr.ash picks the reward closest to Museum #1 (smm.frTarget names one instead)
 	boolean frAlreadyDone = "_fantasyRealmDone".get_property().to_boolean();
-	if (!frAlreadyDone)
-		cli_execute("fr best");
-	item frTargetItem = get_property("_smm.frTarget").to_item();
-	assert(frTargetItem != $item[none] || frAlreadyDone, "fr best didn't record its target in _smm.frTarget");
-	if (frTargetItem != $item[none]) {
-		assert(my_session_items(frTargetItem) > 0 || "_fantasyRealmDone".get_property().to_boolean(), "didn't get " + frTargetItem);
-		unused = cli_execute("dc top10 " + frTargetItem);
+	if (frAlreadyDone || dailyGrindMayRun("fantasyRealm")) {
+		dailyGrindBegin();
+		if (!frAlreadyDone)
+			cli_execute("fr best");
+		item frTargetItem = get_property("_smm.frTarget").to_item();
+		// warn instead of stopping: the grinds below still have daily resources to use
+		if (frTargetItem == $item[none] && !frAlreadyDone)
+			print("fr best didn't record its target in _smm.frTarget, continuing", "red");
+		if (frTargetItem != $item[none]) {
+			if (my_session_items(frTargetItem) <= 0 && !"_fantasyRealmDone".get_property().to_boolean())
+				print("didn't get " + frTargetItem + ", continuing", "red");
+			unused = cli_execute("dc top10 " + frTargetItem);
+		}
+		set_property("_fantasyRealmDone", "true");
+		dailyGrindEnd("fantasyRealm");
 	}
-	set_property("_fantasyRealmDone", "true");
 
 	// PIRATE REALM
 	item prGoalItem = $item[Red Roger's reliquary];
-	if (my_session_items(prGoalItem) <= 0 && !"_smm.PirateRealmDone".get_property().to_boolean())
-    	cli_execute("pr short"); // grind PirateRealm
+	if (my_session_items(prGoalItem) <= 0 && !"_smm.PirateRealmDone".get_property().to_boolean() && dailyGrindMayRun("pirateRealm")) {
+		dailyGrindBegin();
+		cli_execute("pr short"); // grind PirateRealm
+		dailyGrindEnd("pirateRealm");
+	}
 
-	grindDailyDungeon();
-	grindDrip(); // TODO: don't run on the day of breaking the prism
+	if (dailyGrindMayRun("dailyDungeon")) {
+		dailyGrindBegin();
+		grindDailyDungeon();
+		dailyGrindEnd("dailyDungeon");
+	}
+	if (dailyGrindMayRun("drip")) {
+		dailyGrindBegin();
+		grindDrip(); // TODO: don't run on the day of breaking the prism
+		dailyGrindEnd("drip");
+	}
 
 	if (get_property("dolphinItem") != "") {
 		grindDolphinItem();
@@ -6549,7 +6683,8 @@ void dailyGrind() {
 		if (!have_item($item[model train set])) {
 			print("Asdon Martin is in the workshed but we have no model train set to swap to, leaving the Asdon in place", "orange");
 		} else {
-			int goalDuration = 600;
+			// Driving Observantly outlasts the day; smm.dailyGrind.asdonTurns sets how much fuel to commit before the swap
+			int goalDuration = get_property("smm.dailyGrind.asdonTurns") == "" ? 600 : max(1, get_property("smm.dailyGrind.asdonTurns").to_int());
 			unused = fueled_asdonmartin("observantly", goalDuration); // the assert below reports a failure more clearly
 			assert(have_effect($effect[Driving Observantly]) >= goalDuration, "didn't get " + goalDuration + " turns of Driving Observantly");
 			assert(use(1, $item[model train set]), "couldn't swap the workshed to the model train set");
@@ -6566,14 +6701,21 @@ void dailyGrind() {
     } else if (winSprinkles && gbcTurns < 20) {
         print("Gingerbread City is part done (" + gbcTurns + " turns) and the sprinkles leaderboard looked winnable, finish it manually", "orange");
         printTop10List(leaderboard);
-    } else if (!winSprinkles && gbcTurns < 20) {
-        if (gbcTurns > 0 || user_confirm("We can't win the Gingerbread City sprinkles leaderboard, should we grind items?", 60000, true)) {
+    } else if (!winSprinkles && gbcTurns < 20 && dailyGrindMayRun("gingerbread")) {
+        if (gbcTurns > 0 || dailyGrindConfirm("gingerbreadItems", "We can't win the Gingerbread City sprinkles leaderboard, should we grind items?", true)) {
+            dailyGrindBegin();
             if (!cli_execute("gbc items")) // last grind of the day, report instead of stopping
                 print("'gbc items' failed, finish Gingerbread City manually", "red");
+            dailyGrindEnd("gingerbread");
         }
     }
 
     printEndGameTurnsSpent();
+    printDailyGrindLedger();
+
+    // spend up to half of what the day has netted so far: positive-return buys, then Display Case items on sale
+    stockStore(gkStoreHeartbeat);
+    smmSpendRun();
 
 	timeToRollover();
 }
@@ -6594,6 +6736,7 @@ void good_night() {
 	assert(get_property("_bastilleGames").to_int() > 0, "didn't play Bastille Battalion but should have!");
 
 	stockStore(gkStoreHeartbeat);
+	smmSpendRun(); // tops up the day's budgeted buying with whatever was netted since dailyGrind
 
 	useNashCrosbyStill();
 	burnBuffs();
