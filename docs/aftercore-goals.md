@@ -19,10 +19,15 @@ These are the overarching goals that everything in this repository serves. The o
   1. How many resources to spend getting items that can't be bought (they must be collected or crafted by the character). See the [target register](target-register.md).
   2. How to spend the rest to earn the most Meat, to buy everything that can be bought. See the [collection objective](collection-objective.md), the [IoTM route](iotm-route.md) and the [resource planner](resource-planner.md).
 
-## Open questions
+## Spending rules
 
-Details not yet decided; record the answers here as they are settled.
+Sacha's answers, in their own words:
 
-- Which items or display cases come first when the budget can't cover everything.
-- How much Meat may be spent per day or per item, and how much risk is acceptable (for example, buying at inflated mall prices).
-- What counts as a "cheap" resource: is there a Meat-per-adventure or price ceiling above which a resource is no longer worth spending?
+> 1: always try to be as efficient as possible, so meat goes to resources with a positive return first, then to resources that are on sale with the biggest discount; 2: the most we should spend per day is 1/2 the amount we net per day by expending our resources. Don't go above mall price at all; 3: you know it's cheap when it's being sold at least 20% under the market price, and there will often be limits on the number you can buy.
+
+As rules for the scripts:
+
+1. **Priority order for Meat.** Be as efficient as possible. Spend first on resources with a positive return, then on resources that are on sale, biggest discount first.
+2. **Daily spending cap.** Spend at most half of the Meat netted that day by expending resources.
+3. **Price ceiling.** Never pay above the mall price.
+4. **What counts as cheap.** A resource is cheap when it sells for at least 20% under its market price. Such offers often limit how many can be bought.
