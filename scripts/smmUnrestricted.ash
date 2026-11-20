@@ -4817,8 +4817,15 @@ void grindSpacegate(string gateString) {
 	while (turnsLeft > 0 && my_adventures() > 0) {
 		healAndRemoveDebuffsWithMPRestore();
 		restore_mp(3 * mp_cost($skill[Weapon of the Pastalord]));
-		if (!redirectAdventure($location[Through the Spacegate], 1))
+		if (!redirectAdventure($location[Through the Spacegate], 1)) {
+			// KoLmafia zeroes _spacegateTurnsLeft on "The spacegate is out of energy": our count was high, not a failure
+			if (get_property("_spacegateTurnsLeft").to_int() == 0 || spacegateEnergy() == 0) {
+				print("grindSpacegate: the Spacegate ran out of energy before the expected " + turnsLeft + " turns", "orange");
+				turnsLeft = 0;
+				break;
+			}
 			abort("grindSpacegate: failed adventuring through the Spacegate");
+		}
 
 		turnsLeft--;
 		set_property("_spacegateTurnsLeft", turnsLeft);
