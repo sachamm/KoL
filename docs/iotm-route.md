@@ -40,7 +40,7 @@ The monetary component is **expected net Meat equivalent**: realizable sale proc
 
 Sale estimates use autosell as a floor. Listings above the market minimum are discounted to 80%; a minimum-price listing alone is valued at autosell. Conditional/unknown drops are excluded, and Sword candidates require simple known drop tables. Mall quotes are cached within the run, with a 150-quote limit; subsequent unknown prices fall back to autosell. This can miss profitable opportunities, especially in a very large locket collection.
 
-The route's default cumulative limit is **20 actually spent paid adventures per day/ascension**, across repeated runs; it stops at 200 workers per invocation. It may spend fewer or none when prices and available encounters do not support a profitable action. An unexpectedly costly nominally free action records its actual cost and stops. Underwater/flooded paid adventures require Fishy; the route does not automate flooding.
+The route has **no default cap** on paid adventures or on the number of workers per invocation: it runs until no profitable action is left or adventures run out. Because it runs before the older daily grinds, a profitable zone can take the adventures those grinds would have used. Set `smm.IR.maxPaidTurns` to limit actually spent paid adventures per day/ascension (cumulative across repeated runs), and `smm.IR.maxActions` to limit workers per invocation. It may spend fewer or none when prices and available encounters do not support a profitable action. An unexpectedly costly nominally free action records its actual cost and stops. Underwater/flooded paid adventures require Fishy; the route does not automate flooding.
 
 Locket reminiscences supply encounters, not free fights. Ordinary locket fights, Sword seeding and Maiden blessings through the locket each reserve one paid adventure and include its turn value plus the combat-cost allowance. They are excluded from `free` and `plan-free`, and when the paid-turn budget is exhausted. The route records actual turns spent, including zero if a monster or combat effect makes the encounter free.
 
@@ -48,7 +48,8 @@ Examples of settings in Mafia's CLI:
 
 ```text
 set smm.IR.enabled = false
-set smm.IR.maxPaidTurns = 20
+set smm.IR.maxPaidTurns = 20   # unset = no cap
+set smm.IR.maxActions = 200    # unset = no cap
 set smm.IR.locations = The Oasis|The Skeleton Store
 set smm.IR.saleDiscount = 0.8
 set smm.IR.combatCost = 50

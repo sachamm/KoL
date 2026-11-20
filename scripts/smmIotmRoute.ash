@@ -461,7 +461,9 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
         // material changed (see smmIRMaterialChange), and once more when the
         // queue empties, to pick up actions the day's results made possible.
         int steps; int plans=1; boolean stale;
-        while (steps<200 && epoch==smmRPEpoch() && plan.valid) {
+        // No cap on actions unless smm.IR.maxActions is set.
+        int max_steps=get_property("smm.IR.maxActions")=="" ? 0 : max(1,get_property("smm.IR.maxActions").to_int());
+        while ((max_steps==0 || steps<max_steps) && epoch==smmRPEpoch() && plan.valid) {
             string next=smmIRNext(plan.quantity);
             string replan;
             if (next=="") {
@@ -503,7 +505,7 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
         }
         print("IoTM route: "+steps+" actions attempted with "+plans+" planning passes.","blue");
         log.append("SUMMARY\tactions="+steps+"\tplans="+plans+"\n");
-        if (steps==200) print("IoTM route step limit reached; inspect the receipt before continuing.","orange");
+        if (max_steps>0 && steps>=max_steps) print("IoTM route step limit reached; inspect the receipt before continuing.","orange");
     } finally {
         log.buffer_to_file("smm-iotm-route-last.txt");
         smmIRRestoreSettings();
