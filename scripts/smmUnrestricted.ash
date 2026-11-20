@@ -3224,33 +3224,10 @@ int sausagesToEat() {
 
 
 
-// Pending Turns Record
-record PendingTurnsRecord {
-	int turns;
-	string desc;
-};
-
-// potential number of turns that could be spent while drunk
+// adventures good_night_adv will spend while overdrunk (smmUtils' goodNightAdvTurns,
+// which is kept in step with good_night_adv below)
 int drunkTurnsPending(boolean shouldPrint) {
-	PendingTurnsRecord [int] pts;
-	int idx = 0;
-// 	pts[idx++] = new PendingTurnsRecord(3 - to_int(get_property("_genieWishesUsed")), "genie bottle");
-	pts[idx++] = new PendingTurnsRecord(0, "genie bottle");
-	pts[idx++] = new PendingTurnsRecord(to_boolean(get_property("_photocopyUsed")) ? 0 : 1, "fax");
-	pts[idx++] = new PendingTurnsRecord(max((10 - to_int(get_property("_timeSpinnerMinutesUsed"))) % 3, 0), "timespinner fights"); // guesstimate of the number of turns that will be used tricking people TODO better guesstimate
-	pts[idx++] = new PendingTurnsRecord(to_int(get_property("_daycareGymScavenges")) > 2 ? 0 : to_int(get_property("_daycareGymScavenges")) > 1 ? 2 : 3, "boxing daycare scavenging");
-	pts[idx++] = new PendingTurnsRecord(3 - cllNumMonstersFought(), "combat lover's locket reminiscences");
-
-	int totalPendingTurns;
-	string outputString;
-	foreach idx, pt in pts {
-		outputString += pt.turns + " turns for " + pt.desc + ", ";
-		totalPendingTurns += pt.turns;
-	}
-
-	if (shouldPrint)
-		print(outputString + " TOTAL PENDING TURNS: " + totalPendingTurns);
-	return totalPendingTurns;
+	return goodNightAdvTurns(shouldPrint);
 }
 
 int drunkTurnsPending() {
@@ -4043,17 +4020,62 @@ void beforeOverdrunkGoodNight() {
 }
 
 
-// stuff that spends actual adventures -- can be and should generally be done when overdrunk, but not required
+// Adventures that would still pass the rollover cap go to the best way of spending them while
+// overdrunk (smmUtils' overdrunkSinks: trick-or-treating on Hallowe'en, garbo with Drunkula's
+// wineglass, the Beach Comb). Rollover is counted with the best adventure gear, as diet.js does.
+void burnOverdrunkExcess() {
+	if (my_inebriety() <= inebriety_limit()) return; // only after the nightcap
+	int excess = my_adventures() + adventureGainAtRollover(true) - 200;
+	print("burnOverdrunkExcess: " + max(0, excess) + " adventures would pass 200 at rollover", "green");
+	foreach i, sink in overdrunkSinks() {
+		if (excess <= 0) break;
+		if (sink.value <= 0) continue;
+		int amount = sink.name == "trick-or-treating" ? excess / 5 : excess; // ~5 adventures a block
+		if (amount <= 0) continue;
+		// combo counts combs, including the remaining free daily walks.
+		if (sink.name == "Beach Comb") amount += max(0, 11 - get_property("_freeBeachWalksUsed").to_int());
+		int before = my_adventures();
+		print("spending " + excess + " overdrunk adventures on " + sink.name + " (" + sink.value + " meat each)", "blue");
+		if (!cli_execute(sink.how.replace_string("%d", amount.to_string())))
+			print(sink.name + " failed, trying the next way", "orange");
+		excess -= before - my_adventures();
+	}
+	cprint(excess > 0, excess + " adventures will still pass 200 at rollover: no way left to spend them overdrunk", "red");
+}
+
+
+// Every turn-costing fight that can be started while overdrunk (from an item or skill, not
+// a zone), plus Boxing Daycare scavenging, then any adventures that would still pass the
+// rollover cap. Run it after the nightcap: the adventures it needs are held back for it
+// (diet.js plans the stop point with goodNightAdvTurns in smmUtils, which must count exactly
+// what the fixed part spends). Each part is skipped when already used today, so it is safe
+// to run again.
 void good_night_adv() {
+	int planned = goodNightAdvTurns(true);
+	cprint(my_adventures() < planned, "good_night_adv: only " + my_adventures() + " adventures for " + planned + " planned", "orange");
+
+	// the IoTM route's overdrunk pass: the locket fights it held back, valued for the Museum
+	if (my_adventures() > 0 && smmIREnabled() && !inRonin() && my_path() == $path[none])
+		smmIRDailyRoute(true, true);
+
 	automate_dressup($location[none], "item", "item", "-equip \"i voted!\" sticker, -equip Kramco Sausage-o-Matic&trade;");
 
-	burn_timespinner();
+	// fax: whatever is in the fax machine (or already in inventory); leaves a fresh fax for tomorrow
+	if (my_adventures() > 0 && !get_property("_photocopyUsed").to_boolean()
+		&& (item_amount($item[photocopied monster]) > 0 || (get_clan_lounge() contains $item[deluxe fax machine])))
+		burnFax(false);
+
+	if (my_adventures() > 0)
+		burn_timespinner();
 
 	healAndRemoveDebuffsWithMPRestore();
 	//burnGenieWishes($item[bag of foreign bribes], "ice concierge"); // get ponies for now if we don't otherwise use it
-	burnCombatLoversLocket();
+	if (my_adventures() > 0)
+		burnCombatLoversLocket(); // reminiscences the route left
 
-	burnScavengeDaycare(3);
+	burnScavengeDaycare(min(3, my_adventures()));
+
+	burnOverdrunkExcess();
 }
 
 
@@ -4386,11 +4408,6 @@ void tquillaOverdrink(boolean refillSpleen) {
 			abort("user aborted");
 	}
 
-	if (cllNumMonstersFought() < 3) {
-		if (!user_confirm("good_night_adv not done, continue to overdrink?", 60000, true))
-			abort("user aborted");
-	}
-
 	restore_mp(mp_cost($skill[The Ode to Booze]));
 	if (!useOdeToBoozeIfNeeded(gkOverdrinkDrinkItem.inebriety + gkStooperDrink.inebriety))
 		abort("didn't get enough ode to booze");
@@ -4426,8 +4443,9 @@ void tquillaOverdrink(boolean refillSpleen) {
 		restoreOutfit();
 	}
 
-	if (cllNumMonstersFought() < 3)
-        good_night_adv();
+	// the turn-costing fights that work overdrunk come after the nightcap, then whatever
+	// would still pass the rollover cap
+	good_night_adv();
 }
 
 

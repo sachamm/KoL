@@ -412,7 +412,12 @@ void smmIRRestoreSettings() {
 
 void smmIRDailyRoute(boolean free_only, boolean execute) {
     if (!smmIREnabled()) { if (execute) smmIRGardenBreakfast(false); return; }
-    if (inRonin() || my_path()!=$path[none] || my_inebriety()>inebriety_limit()) { print("IoTM route requires unrestricted sober aftercore.","gray"); return; }
+    if (inRonin() || my_path()!=$path[none]) { print("IoTM route requires unrestricted aftercore.","gray"); return; }
+    // Overdrunk (good_night_adv, after the nightcap): a free-only pass. Zone generators
+    // already skip when overdrunk; what is left is work started from an item or skill,
+    // chiefly the locket fights held back for this pass (smmIRGenerateLocket).
+    boolean overdrunk=my_inebriety()>inebriety_limit();
+    if (overdrunk) { free_only=true; print("IoTM route: overdrunk pass (no zones; locket fights and other item/skill work).","blue"); }
     string active=get_property("smm.IR.activeEpoch");
     if (active!="" && active!=smmRPEpoch() && !handling_choice() && current_round()==0) {
         // A lock from an earlier day or ascension cannot belong to a running
@@ -431,7 +436,7 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
     clear(smmIROwnedFamiliars);
     smmIRDiscover(); smmIRMoreDiscover();
     if (handling_choice() || current_round()>0) abort("Route discovery reached an unexpected encounter. Resolve it before continuing.");
-    smmIRGardenEvaluate(execute);
+    smmIRGardenEvaluate(execute && !overdrunk); // garden encounters can't be fought overdrunk
     SmmRPPlan plan=smmIRGenerate(); smmIRReport(plan);
     if (!execute || !plan.valid) return;
     string [string] saved;

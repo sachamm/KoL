@@ -92,7 +92,8 @@ float smmIRTurnValue() { return max(0,kTurnValue.to_float()); }
 
 int smmIRPaidRemaining() {
     int used=get_property("smm.IR.epoch")==smmRPEpoch() ? get_property("smm.IR.paidTurns").to_int() : 0;
-    return smmIRNoPaidTurns ? 0 : max(0,min(200,smmIRSetting("maxPaidTurns",20).to_int())-used);
+    // The overdrunk pass allows item-started locket fights within the daily budget.
+    return (smmIRNoPaidTurns && my_inebriety()<=inebriety_limit()) ? 0 : max(0,min(200,smmIRSetting("maxPaidTurns",20).to_int())-used);
 }
 
 void smmIRAccountTurns(int turns) {
@@ -558,6 +559,7 @@ void smmIRAdd(string id, string description, SmmIRWork work, float benefits, flo
     // seeds and Maiden carriers. Record actual usage after execution, even
     // if the monster or a combat effect happens to make the fight free.
     boolean locket=work.kind=="locket" || work.kind=="sword.seed" || (work.kind=="extra.maiden" && work.choice_id==1463);
+    if (my_inebriety()>inebriety_limit() && work.allowed_turns>0 && !locket) return;
     if (locket) {
         if (smmIRPaidRemaining()<1 || my_adventures()<1) return;
         work=smmIRCopyWork(work);
@@ -927,9 +929,18 @@ monster [int] smmIRLocketRanked() {
     return ranked;
 }
 
+// Locket fights cost an adventure but need no zone, so they work overdrunk. By default they
+// wait for the overdrunk pass after the nightcap (good_night_adv): adventures spent there
+// are ones that would otherwise roll over past the cap. smm.IR.locketWhenSober=true fights
+// them in the sober runs instead. (Sword seeds and Maiden carriers still use the locket
+// while sober: they pay off in the fights that follow.)
 void smmIRGenerateLocket() {
-    if (available_amount($item[combat lover's locket])<1 || my_adventures()<1 || my_inebriety()>inebriety_limit()
+    if (available_amount($item[combat lover's locket])<1 || my_adventures()<1
         || count(cllMonstersFought(false))>=3 || my_hp()<my_maxhp()/3 || my_mp()<30) return;
+    if (my_inebriety()<=inebriety_limit() && !get_property("smm.IR.locketWhenSober").to_boolean()) {
+        smmIRNote("Locket fights wait for the overdrunk pass after the nightcap (smm.IR.locketWhenSober=true to fight them now).");
+        return;
+    }
     // Locket is an older dependency: these paid carriers feed newer abilities.
     monster [int] shortlist=smmIRLocketRanked();
     int inspected;
