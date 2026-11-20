@@ -6,12 +6,17 @@ The previous lethe.xyz optimizer block has been removed from current
 - `scripts/smmDietOptimizer.js`: a bounded resource-allocation solver.
 - `scripts/smmDietPlanner.js`: conversion from this project's consumable records
   into the solver's inputs and back into the existing plan-row interface.
+- `scripts/smmDietMechanics.js`: independently expressed numerical consumption
+  rules and chocolate counter definitions.
 - `scripts/diet.js`: the retained KoLmafia integration, price/reservation logic,
   phase execution, gear handling and rollover selection.
 
 This is a replacement design, not a translation or line-by-line rewrite of the
 third-party implementation. The earlier code was inspected during the license
 audit, so this is not a claim of a formally separated clean-room process.
+Small synthetic evaluations of the previous routine were also used to check
+functional expectations. Its implementation and downloaded consumable catalog
+are not included in the replacement or its tests.
 
 ## Objective and constraints
 
@@ -22,7 +27,10 @@ an option. It does not force uneconomic consumption just to fill every organ.
 Each group represents one item, with alternative ways to consume it. A group's
 limit applies across all alternatives. Its resource vector accounts for three
 organs and shared daily allowances such as speakeasy drinks, Lucky effects and
-the mime shotglass. Bounded cleaning items can supply space in multiple organs.
+the mime shotglass, the daily spork and finite helper inventory. Bounded cleaning
+items can supply space in multiple organs. Spleen-cleaning food and drink are
+bounded by the combined available stomach/liver space and the mime allowance.
+An unsupported unbounded cleaning cycle causes an error.
 The search uses sparse dynamic-programming frontiers keyed by resource use and
 keeps the best value at each state. An item is discarded as dominated only when
 an unlimited alternative uses no more resources and yields strictly more value.
@@ -59,13 +67,45 @@ and
 which identifies the item adventure field as the base range. The new solver and
 adapter do not incorporate those Java implementations.
 
-The copied optimizer's consumable-helper and diminishing-return chocolate
-tables have not been transplanted. Purchases of those optional boosts are not
-modeled by this replacement, and every plan prints that limitation. Existing
-explicit simple-item records are still used. More models can be added once
-their mechanics, interactions, limits and acquisition costs have independent
-evidence and tests. This is a material difference from the prior optimizer;
-the new implementation does not claim feature-for-feature or economic parity.
+Optional variants cover salad forks, the daily fudge spork, munchies pills,
+Special Seasoning, taco sauce, frosty mugs, BGE shotglasses, Mayoflex and
+Mayodiol. Mutually exclusive utensils/mayo stay exclusive; helper prices and
+finite stock are included in every alternative. Mayodiol transfers one unit
+of stomach use to liver use. A variant with the same resource use and lower
+net value is discarded before the main search.
+
+Gar-ish on eligible days and Refined Palate are compared in up to four
+activation scenarios. Each scenario reserves its source item and charges one
+activation only when boosted regular consumption is selected. Salty Mouth
+charges one wish per boosted beer; an already active Salty Mouth supplies one
+free serving. Existing active persistent effects do not incur an activation
+charge. Overdrink candidates conservatively include a separate activation
+cost when the effect was not active at planning time.
+
+Chocolate options use their daily counters: the shared fancy/class-chocolate
+pool, plus separate capsule, cigar and sculpture pools. Marginal returns are
+5/3/1 for ordinary chocolates, 3/2/1 for the matching class chocolate and 2/1/0
+for other class chocolates. The executor consumes selected tiers in counter
+order across item names. It also prioritizes the mime serving before other
+drinks, budgets per-serving wishes and stops if a queued helper fails.
+
+The sources for counter tracking and helper execution include KoLmafia's
+[UseItemRequest](https://github.com/kolmafia/kolmafia/blob/main/src/main/java/net/sourceforge/kolmafia/request/UseItemRequest.java),
+[EatItemRequest](https://github.com/kolmafia/kolmafia/blob/main/src/main/java/net/sourceforge/kolmafia/request/EatItemRequest.java)
+and
+[DrinkItemRequest](https://github.com/kolmafia/kolmafia/blob/main/src/main/java/net/sourceforge/kolmafia/request/DrinkItemRequest.java).
+The developers' [chocolate tracking discussion](https://kolmafia.us/threads/track-chocolate-consumption.5328/)
+records the shared counter and class-dependent returns. These are references
+for mechanics, not incorporated implementations.
+
+Remaining differences are explicit: Straight-Edgy from temporary X tattoos
+is not modeled and triggers a warning when that item is available. Tiny
+plastic sword recipes are not priced by the live-data builder. Persistent
+effect predictions assume a contiguous batch of consumption; adventuring
+between phases can expire an effect and require another activation. Replan
+at each phase. Unmodeled path-specific bonuses, random outcomes and changing
+prices can also affect actual results. This is not a claim of universal
+feature-for-feature or economic parity with the previous calculator.
 
 The four-phase integration remains: ordinary consumption, zero-organ turn
 generation, late capacity/rollover consumption, and one overdrink. Shared
@@ -87,6 +127,11 @@ search exhaustion, caller-data immutability, scoring, exclusions, passive
 bonuses, phase integration and overdrink quotas. Another 120 small allocation
 problems are independently enumerated by a brute-force reference. A 501-item
 dominated catalog checks that the pruning rule retains the actual best item.
+Helper/chocolate tests cover shared inventory, fixed activation costs, rounding,
+exclusivity, daily limits and chocolate pools. A mixed 134-record catalog with
+cleaners and all helper families completes within the default search budget.
+An in-memory game verifies chocolate execution order, mime priority, wish
+budgets and stopping on a failed helper; it cannot validate the real server.
 
 The license audit's original exact-line comparison is an investigation aid,
 not a legal safe harbor or proof of independent authorship. Historical copies

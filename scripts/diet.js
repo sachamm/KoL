@@ -438,7 +438,11 @@ function buildConsumables(excluded, bonus) {
 		var hi = km.Item.get(HELPERS[h])
 		if (excluded[hi.name]) continue
 		var hp = priceOf(hi)
-		if (hp && !hp.owned) cons.push({"name": hi.name, "advmin": 0, "advmax": 0, "price": hp.price})
+		if (hp) {
+			var helper = {"name": hi.name, "advmin": 0, "advmax": 0, "price": hp.price}
+			if (hp.limit !== undefined) helper.limit = hp.limit
+			cons.push(helper)
+		}
 	}
 	var sausage = sausageEntry()
 	if (sausage && !excluded[sausage.name]) cons.push(sausage)
@@ -643,6 +647,10 @@ function buildSettings(opts) {
 		"spaghetti breakfast available": km.haveSkill(km.Skill.get("Spaghetti Breakfast")) && !excluded["spaghetti breakfast"],
 		"grab a cold one available": km.haveSkill(km.Skill.get("Grab a Cold One")) && !prefBool("_coldOne"),
 		"use potion of the field gar": isGarishDay() ? "yes" : "no",
+		"Gar-ish active": km.haveEffect(km.Effect.get("Gar-ish")) > 0,
+		"Refined Palate active": km.haveEffect(km.Effect.get("Refined Palate")) > 0,
+		"Salty Mouth active": km.haveEffect(km.Effect.get("Salty Mouth")) > 0,
+		"fudge spork uses left": prefBool("_fudgeSporkUsed") ? 0 : 1,
 		"tuxedo shirt available": haveUsable("tuxedo shirt"),
 		"tiny plastic sword available": false,  // TPS drink recipes aren't priced here
 		"mafia pinky ring available": haveUsable("mafia pinky ring"),
@@ -683,6 +691,8 @@ function planItemNames(result) {
 		var extra = row.desc.extra
 		for (var j = 0; j < extra.length; j++) {
 			if (extra[j].type == "item" && extra[j].exclude) names[extra[j].item.name] = true
+			if (extra[j].type == "effect" && extra[j].effect == "Gar-ish") names["potion of the field gar"] = true
+			if (extra[j].type == "effect" && (extra[j].effect == "Refined Palate" || extra[j].effect == "Salty Mouth")) names["pocket wish"] = true
 		}
 	}
 	return names
@@ -1122,11 +1132,12 @@ function phaseOf(row) {
 	if (type == "extender") return -1                     // used on demand
 	if (opts.wish_refined_palate || opts.wish_salty_mouth) return -1  // wished on demand
 	if (row.name == "potion of the field gar") return -1  // used on demand
+	if (opts.chocolate_tier !== undefined) return 1 + opts.chocolate_tier / 10
 	if (type == "simple" || CHOCOLATE_NAMES[row.name] || row.name == "Ancestral Recall") return 1
 	if (row.name == "spaghetti breakfast") return 2
 	if (type == "food" && !spec.after_nightcap) return 3
 	if (type == "spleen") return 4
-	if (type == "booze" && !row.is_nightcap) return 5
+	if (type == "booze" && !row.is_nightcap) return row.using_mime_shotglass ? 4.5 : 5
 	if (row.name == "temporary X tattoos") return 6
 	if (row.is_nightcap) return 7
 	if (type == "food") return 8                          // eaten after the nightcap
@@ -1189,7 +1200,7 @@ function consumeUnit(step, log) {
 			}
 		} else if (n.type == "item" && n.exclude) {
 			if (!acquire(n.item.name, 1)) return "cannot get " + n.item.name
-			if (USE_BEFORE[n.item.name]) km.use(1, km.Item.get(n.item.name))
+			if (USE_BEFORE[n.item.name] && !km.use(1, km.Item.get(n.item.name))) return "helper failed: " + n.item.name
 		}
 	}
 
@@ -1282,7 +1293,7 @@ function runSteps(steps, extenders, log, strict) {
 			}
 			if (step.row.is_nightcap && km.myInebriety() < km.inebrietyLimit())
 				log.push("note: overdrinking at " + km.myInebriety() + " of " + km.inebrietyLimit() + " drunkenness (liver not full)")
-			if (step.phase >= 5 && !odeDone) { castOde(steps); odeDone = true }
+			if (step.row.spec.item.type == "booze" && !odeDone) { castOde(steps); odeDone = true }
 			var organ = blockingOrgan(step)
 			while (organ >= 0 && useExtenderFor(organ, extenders, allowWaste)) organ = blockingOrgan(step)
 			if (organ >= 0) { next.push(step); continue }
@@ -1337,6 +1348,7 @@ function executePlan(result, settings, parts, lastPhase) {
 		var wopts = row.spec.opts || {}
 		if (wopts.wish_salty_mouth) wish_budget["Salty Mouth"] = (wish_budget["Salty Mouth"] || 0) + n
 		if (wopts.wish_refined_palate) wish_budget["Refined Palate"] = (wish_budget["Refined Palate"] || 0) + n
+		for (var effect in (row.spec.wishes || {})) wish_budget[effect] = (wish_budget[effect] || 0) + row.spec.wishes[effect] * n
 		var order = phaseOf(row)
 		if (order < 0) {
 			if (row.spec.item.type == "extender") extenders.push({row: row, left: n})

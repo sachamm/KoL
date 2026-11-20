@@ -3,6 +3,10 @@ const assert = require("node:assert/strict");
 const { solve } = require("../scripts/smmDietOptimizer.js");
 const { plan } = require("../scripts/smmDietPlanner.js");
 const integration = require("../scripts/diet.js");
+const mechanics = require("../scripts/smmDietMechanics.js");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const { createRequire } = require("node:module");
 
 function option(use, value) {
   return { use, value };
@@ -292,4 +296,445 @@ test("large dominated catalogs stay bounded and do not mutate inputs", () => {
   assert.equal(count(p, "best"), 25);
   assert.ok(p.transitions < 1000);
   assert.equal(JSON.stringify(data), original);
+});
+
+function usesHelper(row, name) {
+  return row.desc.extra.some((n) => n.item && n.item.name === name);
+}
+test("utensils are exclusive, the spork is daily, and unprofitable boosts are skipped", () => {
+  const p = plan(
+    [
+      item("large salad", [1, 0, 0], 10, 0, {
+        limit: 1,
+        "item class": "salad",
+      }),
+      item("small meal", [1, 0, 0], 1, 0, { limit: 2 }),
+      { name: "Ol' Scratch's salad fork", price: 0 },
+      { name: "fudge spork", price: 0, limit: 3 },
+    ],
+    settings([3, 0, 0]),
+  );
+  assert.equal(p.value, 21);
+  assert.equal(
+    p.diet_items
+      .filter((r) => usesHelper(r, "fudge spork"))
+      .reduce((n, r) => n + r.amount, 0),
+    1,
+  );
+  assert.ok(
+    p.diet_items.every(
+      (r) =>
+        !(
+          usesHelper(r, "fudge spork") &&
+          usesHelper(r, "Ol' Scratch's salad fork")
+        ),
+    ),
+  );
+  const none = plan(
+    [item("meal", [1, 0, 0], 2, 0), { name: "fudge spork", price: 5 }],
+    settings([1, 0, 0]),
+  );
+  assert.equal(none.value, 2);
+  assert.ok(!usesHelper(none.diet_items[0], "fudge spork"));
+});
+
+test("finite helper stock is shared by different item groups", () => {
+  const data = [
+    item("a", [1, 0, 0], 2, 0, { limit: 1 }),
+    item("b", [1, 0, 0], 2, 0, { limit: 1 }),
+    { name: "Special Seasoning", price: 0, limit: 1 },
+  ];
+  const original = JSON.stringify(data);
+  const p = plan(data, settings([2, 0, 0]));
+  assert.equal(p.value, 5);
+  assert.equal(
+    p.diet_items
+      .filter((r) => usesHelper(r, "Special Seasoning"))
+      .reduce((n, r) => n + r.amount, 0),
+    1,
+  );
+  assert.equal(JSON.stringify(data), original);
+});
+
+test("integer-roll helper rounding and additive bonuses have explicit expectations", () => {
+  assert.equal(
+    mechanics.adventures(
+      item("salad", [2, 0, 0], 10, 0, { "item class": "salad" }),
+      {},
+      { fork: true, seasoning: true, munchies: true },
+    ),
+    18,
+  );
+  assert.equal(
+    mechanics.adventures(
+      item("taco", [2, 0, 0], 10, 0, { "item class": "taco" }),
+      {},
+      { fork: true, taco: true },
+    ),
+    14,
+  );
+  assert.equal(
+    mechanics.adventures(
+      item("beer", [0, 2, 0], 10, 0, { "item class": "beer" }),
+      {},
+      { mug: true, salty: true },
+    ),
+    22,
+  );
+  assert.equal(
+    mechanics.adventures(
+      item("wine", [0, 2, 0], 10, 0, { "item class": "wine" }),
+      { "mafia pinky ring available": true },
+      { mug: true, palate: true },
+    ),
+    19,
+  );
+  assert.equal(
+    mechanics.adventures(
+      item("small", [1, 0, 0], 0, 0),
+      {},
+      { fork: true, munchies: true, mayoflex: true },
+    ),
+    0,
+  );
+  assert.equal(
+    mechanics.adventures(
+      item("range", [1, 0, 0], 4, 0, { advmax: 7 }),
+      {},
+      { munchies: true },
+    ),
+    7.25,
+  );
+});
+
+test("Gar-ish is a single activation cost and never a stand-alone purchase", () => {
+  const data = [
+    item("lasagna", [2, 0, 0], 10, 1, { "item class": "lasagna" }),
+    { name: "potion of the field gar", price: 5 },
+  ];
+  const p = plan(
+    data,
+    settings([4, 0, 0], { "use potion of the field gar": "yes" }),
+  );
+  assert.equal(p.value, 23);
+  assert.equal(count(p, "potion of the field gar"), 1);
+  assert.equal(p.diet_items.find((r) => r.name === "lasagna").turns, 30);
+  assert.equal(
+    plan(data, settings([1, 0, 0], { "use potion of the field gar": "yes" }))
+      .value,
+    0,
+  );
+  assert.equal(
+    plan(
+      data,
+      settings([4, 0, 0], {
+        "use potion of the field gar": "no",
+        "Gar-ish active": true,
+      }),
+    ).value,
+    18,
+  );
+});
+
+test("Refined Palate shares one wish across wines and competes with salty wishes for stock", () => {
+  const data = [
+    item("wine", [0, 1, 0], 10, 0, { "item class": "wine" }),
+    { name: "pocket wish", price: 3, limit: 1 },
+  ];
+  const p = plan(
+    data,
+    settings([0, 2, 0], { "mafia pinky ring available": true }),
+  );
+  assert.equal(p.value, 25);
+  assert.equal(count(p, "pocket wish"), 1);
+  const mixed = plan(
+    data.concat([
+      item("beer", [0, 1, 0], 1, 0, { "item class": "beer", limit: 1 }),
+    ]),
+    settings([0, 3, 0]),
+  );
+  const spent = mixed.diet_items.reduce(
+    (n, r) => n + (r.resources["stock:pocket wish"] || 0) * r.amount,
+    0,
+  );
+  assert.ok(spent <= 1);
+});
+
+test("an existing Salty Mouth boosts only the next beer", () => {
+  const p = plan(
+    [item("beer", [0, 1, 0], 2, 0, { "item class": "beer" })],
+    settings([0, 2, 0], { "Salty Mouth active": true }),
+  );
+  assert.equal(p.value, 9);
+  assert.equal(
+    p.diet_items.reduce(
+      (n, r) => n + (r.resources["salty active"] || 0) * r.amount,
+      0,
+    ),
+    1,
+  );
+});
+
+test("Mayodiol trades stomach for liver and cannot combine with Mayoflex", () => {
+  const data = [
+    item("meal", [2, 0, 0], 10, 0),
+    { name: "Mayodiol", price: 1 },
+    { name: "Mayoflex", price: 1 },
+  ];
+  const p = plan(data, settings([1, 1, 0], { workshed: "mayo" }));
+  assert.equal(p.value, 9);
+  assert.deepEqual(p.diet_items[0].spec.size, [1, 1, 0]);
+  assert.ok(usesHelper(p.diet_items[0], "Mayodiol"));
+  assert.ok(!usesHelper(p.diet_items[0], "Mayoflex"));
+  assert.equal(plan(data, settings([1, 1, 0])).value, 0);
+});
+
+test("chocolate tiers share counters, respect stock and preserve separate pools", () => {
+  const p = plan(
+    [
+      { name: "fancy chocolate", price: 0, limit: 1 },
+      { name: "chocolate seal-clubbing club", price: 0 },
+      { name: "chocolate cigar", price: 0 },
+      { name: "vitachoconutriment capsule", price: 0 },
+      { name: "fancy chocolate sculpture", price: 0 },
+    ],
+    settings([0, 0, 0], {
+      classid: 1,
+      "chocolates used": { fancy: 0, cigar: 1, vitachoc: 2, sculpture: 3 },
+    }),
+  );
+  assert.equal(p.value, 13); // fancy 5+2+1, cigar 3+1, vitachoc 1.
+  assert.equal(count(p, "fancy chocolate"), 1);
+  assert.equal(count(p, "chocolate seal-clubbing club"), 2);
+  assert.equal(count(p, "chocolate cigar"), 2);
+  assert.equal(count(p, "fancy chocolate sculpture"), 0);
+  assert.equal(
+    plan(
+      [{ name: "chocolate turtle totem", price: 0 }],
+      settings([0, 0, 0], { classid: 1 }),
+    ).value,
+    3,
+  );
+});
+
+test("unlimited spleen-cleaning food has a finite stomach/liver bound", () => {
+  const p = plan(
+    [item("cleaning food", [2, 0, -2], 4, 0), item("spleen", [0, 0, 1], 3, 0)],
+    settings([2, 0, 1]),
+  );
+  assert.equal(p.value, 13);
+  assert.equal(count(p, "cleaning food"), 1);
+  assert.equal(count(p, "spleen"), 3);
+});
+
+test("a mixed catalog with all helper types completes within the default budget", () => {
+  const data = [];
+  for (let i = 0; i < 60; i++) {
+    data.push(
+      item(
+        "food " + i,
+        [1 + (i % 5), 0, i % 11 === 0 ? -3 : 0],
+        2 + (i % 19),
+        100 + i * 37,
+        {
+          advmax: 5 + (i % 19),
+          "item class": ["salad", "lasagna", "pizza", "taco", "saucy food"][
+            i % 5
+          ],
+        },
+      ),
+    );
+    data.push(
+      item(
+        "drink " + i,
+        [0, 1 + (i % 5), i % 11 === 0 ? -3 : 0],
+        2 + (i % 19),
+        100 + i * 37,
+        { advmax: 5 + (i % 19), "item class": i % 2 ? "wine" : "beer" },
+      ),
+    );
+  }
+  for (const name of [
+    "Ol' Scratch's salad fork",
+    "fudge spork",
+    "munchies pill",
+    "Frosty's frosty mug",
+    "BGE shotglass",
+    "potion of the field gar",
+    "pocket wish",
+    "Taco Dan's Super Taco-Riffic Taco Sauce!",
+    "Special Seasoning",
+    "Mayoflex",
+    "Mayodiol",
+    "fancy chocolate",
+    "chocolate cigar",
+  ])
+    data.push({ name, price: 500 });
+  data.push(item("spleen", [0, 0, 1], 2, 100, { advmax: 3 }));
+  const p = plan(
+    data,
+    settings([20, 20, 15], {
+      "adventure value": 5000,
+      workshed: "mayo",
+      "use potion of the field gar": "yes",
+      "mime army shotglass available": true,
+    }),
+  );
+  assert.equal(p.complete, true);
+  assert.ok(p.value > 0);
+  const summed = p.diet_items.reduce((sum, r) => sum + r.value, 0);
+  assert.equal(p.value, summed);
+});
+
+// Execute the retained integration against a tiny in-memory game. No runtime
+// import, account, network connection or game action is involved.
+function offlineGame(data, organs, options = {}) {
+  const calls = [],
+    messages = [],
+    current = [0, 0, 0],
+    effects = {};
+  let adventures = 0,
+    chocolateUsed = 0,
+    mimeUsed = false;
+  const get = (name) => ({
+    name,
+    toString() {
+      return name;
+    },
+  });
+  function consume(name) {
+    const record = data.find((x) => x.name === name) || {};
+    const size = (record.size || [0, 0, 0]).slice();
+    if (options.mime && !mimeUsed && record.type === "booze" && size[1] === 1) {
+      size[1] = 0;
+      mimeUsed = true;
+    }
+    if (current.some((n, i) => n + size[i] > organs[i])) return false;
+    size.forEach((n, i) => {
+      current[i] += n;
+    });
+    const chocolate = mechanics.chocolate(name, 1);
+    if (chocolate) adventures += chocolate.turns[chocolateUsed++] || 0;
+    if (record.type === "booze") effects["Salty Mouth"] = 0;
+    calls.push(name);
+    return true;
+  }
+  const km = {
+    Item: { get },
+    Effect: { get },
+    Skill: { get },
+    availableAmount: () => 100,
+    isDisplayable: () => false,
+    retrieveItem: () => true,
+    myAdventures: () => adventures,
+    myMeat: () => 100000,
+    myFullness: () => current[0],
+    myInebriety: () => current[1],
+    mySpleenUse: () => current[2],
+    fullnessLimit: () => organs[0],
+    inebrietyLimit: () => organs[1],
+    spleenLimit: () => organs[2],
+    myFamiliar: () => get("none"),
+    haveSkill: () => false,
+    haveEffect: (e) => effects[e.name] || 0,
+    userConfirm: () => true,
+    print: (s) => messages.push(s),
+    cliExecute: (s) => {
+      if (s.startsWith("genie effect ")) {
+        effects[s.slice(13)] = 1;
+        calls.push(s);
+      }
+      return true;
+    },
+    use: (n, it) => (it.name === options.failHelper ? false : consume(it.name)),
+    eatsilent: (n, it) => consume(it.name),
+    drinksilent: (n, it) => consume(it.name),
+    chew: (n, it) => consume(it.name),
+  };
+  const filename = require.resolve("../scripts/diet.js");
+  const localRequire = createRequire(filename);
+  const context = vm.createContext({
+    module: { exports: {} },
+    require: (name) => (name === "kolmafia" ? km : localRequire(name)),
+  });
+  vm.runInContext(
+    fs.readFileSync(filename, "utf8") +
+      "\nmodule.exports.offlineExecute = executePlan;",
+    context,
+    { filename },
+  );
+  return {
+    calls,
+    messages,
+    current,
+    get adventures() {
+      return adventures;
+    },
+    execute(result, s, phase) {
+      context.module.exports._setData(data, 0);
+      context.module.exports.offlineExecute(
+        result,
+        s,
+        integration.splitPhases(result, s),
+        phase,
+      );
+    },
+  };
+}
+
+test("execution consumes chocolate tiers in counter order across item names", () => {
+  const data = [
+    { name: "fancy chocolate", price: 0, limit: 1 },
+    { name: "chocolate seal-clubbing club", price: 0 },
+  ];
+  const s = settings([0, 0, 0], { classid: 1 });
+  const p = plan(data, s),
+    game = offlineGame(data, s["organ sizes"]);
+  game.execute(p, s, 2);
+  assert.deepEqual(game.calls, [
+    "fancy chocolate",
+    "chocolate seal-clubbing club",
+    "chocolate seal-clubbing club",
+  ]);
+  assert.equal(
+    game.adventures,
+    p.diet_items.reduce((n, r) => n + r.turns, 0),
+  );
+});
+
+test("execution uses the mime serving before other drinks and budgets each salty wish", () => {
+  const data = [
+    item("a large drink", [0, 2, 0], 10, 0),
+    item("z small drink", [0, 1, 0], 2, 0),
+  ];
+  const s = settings([0, 2, 0], { "mime army shotglass available": true });
+  const game = offlineGame(data, s["organ sizes"], { mime: true });
+  game.execute(plan(data, s), s, 1);
+  assert.deepEqual(game.calls, ["z small drink", "a large drink"]);
+  assert.equal(game.current[1], 2);
+  const beer = [
+    item("beer", [0, 1, 0], 1, 0, { "item class": "beer" }),
+    { name: "pocket wish", price: 0 },
+  ];
+  const wishes = offlineGame(beer, s["organ sizes"]);
+  const plain = settings([0, 2, 0]);
+  wishes.execute(plan(beer, plain), plain, 1);
+  assert.equal(
+    wishes.calls.filter((c) => c === "genie effect Salty Mouth").length,
+    2,
+  );
+});
+
+test("a failed consumption helper stops before eating the boosted food", () => {
+  const data = [
+    item("meal", [1, 0, 0], 2, 0),
+    { name: "fudge spork", price: 0 },
+  ];
+  const s = settings([1, 0, 0]),
+    game = offlineGame(data, s["organ sizes"], { failHelper: "fudge spork" });
+  game.execute(plan(data, s), s, 1);
+  assert.equal(game.calls.length, 0);
+  assert.ok(
+    game.messages.some((m) => m.includes("helper failed: fudge spork")),
+  );
 });

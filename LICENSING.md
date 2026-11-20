@@ -34,14 +34,17 @@ Their current metadata and notices do not by themselves establish which
 historical code was used. In particular, the latter's package metadata and root
 license name different licenses; that inconsistency needs source tracing.
 
-## Separately installed dependencies
+## Independent diet replacement
 
 The previous diet optimizer block is replaced in current source by newly
-authored `scripts/smmDietOptimizer.js` and `scripts/smmDietPlanner.js`, under the
+authored `scripts/smmDietOptimizer.js`, `scripts/smmDietPlanner.js` and
+`scripts/smmDietMechanics.js`, under the
 repository's existing CC BY 4.0 default. The retained KoLmafia integration calls
 that replacement. See [the model and validation record](docs/diet-optimizer.md).
 The historical diet-file entry above still applies to earlier commits and
 public distributions; replacing current code does not retroactively clear them.
+
+## Separately installed dependencies
 
 - [Voting-Booth](https://github.com/Ezandora/Voting-Booth) and
   [Bastille](https://github.com/Ezandora/Bastille) are installed separately through

@@ -33,8 +33,8 @@ and outstanding permission questions. This clarification does not revoke or
 replace existing license grants.
 
 The diet command now uses an [independent optimizer](docs/diet-optimizer.md).
-That document explains its supported predictions, optional-helper/chocolate
-limitations, and offline tests.
+That document explains its supported predictions, remaining limitations, and
+offline tests.
 
 ## Local development
 
