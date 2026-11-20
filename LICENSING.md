@@ -21,11 +21,11 @@ copyrights or resolve conflicting historical grants.
 
 ## External sources requiring further clearance
 
-| File                        | Existing source credit                                                                                   | Status                                                                                                                                    |
-| --------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/diet.js`           | tehtmi's [lethe.xyz calculator](https://www.lethe.xyz/kol/diets.php), which also credits Eleron/houeland | Public adaptation and redistribution permission has not been established. The repository's default license cannot supply that permission. |
-| `scripts/smmHallo.ash`      | `tricktreat.ash` by guyy                                                                                 | Applicable source version and reuse terms still need confirmation.                                                                        |
-| `scripts/endGameSummary.js` | The two starter repositories linked in its header                                                        | Identify actual borrowed expression and the license at the revision used before assigning definitive terms.                               |
+| File                         | Existing source credit                                                                                   | Status                                                                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Historical `scripts/diet.js` | tehtmi's [lethe.xyz calculator](https://www.lethe.xyz/kol/diets.php), which also credits Eleron/houeland | Public adaptation and redistribution permission has not been established. The repository's default license cannot supply that permission. |
+| `scripts/smmHallo.ash`       | `tricktreat.ash` by guyy                                                                                 | Applicable source version and reuse terms still need confirmation.                                                                        |
+| `scripts/endGameSummary.js`  | The two starter repositories linked in its header                                                        | Identify actual borrowed expression and the license at the revision used before assigning definitive terms.                               |
 
 The old starter URLs now resolve to
 [loathers/kolmafia-scripts](https://github.com/loathers/kolmafia-scripts) and
@@ -35,6 +35,13 @@ historical code was used. In particular, the latter's package metadata and root
 license name different licenses; that inconsistency needs source tracing.
 
 ## Separately installed dependencies
+
+The previous diet optimizer block is replaced in current source by newly
+authored `scripts/smmDietOptimizer.js` and `scripts/smmDietPlanner.js`, under the
+repository's existing CC BY 4.0 default. The retained KoLmafia integration calls
+that replacement. See [the model and validation record](docs/diet-optimizer.md).
+The historical diet-file entry above still applies to earlier commits and
+public distributions; replacing current code does not retroactively clear them.
 
 - [Voting-Booth](https://github.com/Ezandora/Voting-Booth) and
   [Bastille](https://github.com/Ezandora/Bastille) are installed separately through

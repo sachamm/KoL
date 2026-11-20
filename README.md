@@ -32,6 +32,10 @@ See [Licensing and attribution](LICENSING.md) for the scope, source credits,
 and outstanding permission questions. This clarification does not revoke or
 replace existing license grants.
 
+The diet command now uses an [independent optimizer](docs/diet-optimizer.md).
+That document explains its supported predictions, optional-helper/chocolate
+limitations, and offline tests.
+
 ## Local development
 
 Edit scripts in this repository. On the development Mac, individual files in
