@@ -4032,6 +4032,8 @@ void burnOverdrunkExcess() {
 		if (sink.value <= 0) continue;
 		int amount = sink.name == "trick-or-treating" ? excess / 5 : excess; // ~5 adventures a block
 		if (amount <= 0) continue;
+		// combo counts combs, including the remaining free daily walks.
+		if (sink.name == "Beach Comb") amount += max(0, 11 - get_property("_freeBeachWalksUsed").to_int());
 		int before = my_adventures();
 		print("spending " + excess + " overdrunk adventures on " + sink.name + " (" + sink.value + " meat each)", "blue");
 		if (!cli_execute(sink.how.replace_string("%d", amount.to_string())))

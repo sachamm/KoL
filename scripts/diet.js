@@ -260,9 +260,10 @@ function tehtmi(diet_settings) {
 		}
 	}
 	
-	function calculate_adventures(item, opts) {
+	function calculate_adventures(item, opts, maximum) {
 		var sum = 0.0
 		var count = 0.0
+		var highest = 0
 		if(item["advmax"] == 0) return 0
 		for(var base_adv = item["advmin"]; base_adv <= item["advmax"]; ++base_adv) {
 			var adv = base_adv
@@ -348,10 +349,12 @@ function tehtmi(diet_settings) {
 			// smm: KoLmafia's data already lists spaghetti breakfast and Cold One
 			// at 6 adventures, so the page's +5 bonus for them is not added here.
 			
+			highest = Math.max(highest, adv + (opts["dieting pill"] ? base_adv : 0))
 			sum += adv
 			count += 1.0
 		}
 		
+		if (maximum) return highest
 		var result = sum / count
 		
 		if(opts["dieting pill"]) {
@@ -433,7 +436,7 @@ function tehtmi(diet_settings) {
 		}
 		if(item["bonusvalue"]) value += item["bonusvalue"]
 		if(item["effectvalue"]) value += item["effectvalue"]  // smm: the effect it gives (see effectOf)
-		var spec = {"item": item, "opts": opts, "value": value, "size": item["size"], "adv": adv, "pvp": pvp, "price": price, "limit": item["limit"]}
+		var spec = {"item": item, "opts": opts, "value": value, "size": item["size"], "adv": adv, "advmax": calculate_adventures(item, opts, true) + (item.bonusadv || 0), "pvp": pvp, "price": price, "limit": item["limit"]}
 		
 		if(opts["fortune"]) {
 			spec.fortune_value = fvalue
@@ -707,7 +710,7 @@ function tehtmi(diet_settings) {
 				var adv = (item["advmin"] + item["advmax"]) / 2
 				var pvp = item["pvpfights"]
 				var value = adv * adv_value + pvp * fight_value - item["price"]
-				var spec = {"item": item, "value": value, "adv": adv, "pvp": pvp, "price": item["price"], "limit": item["limit"]}
+				var spec = {"item": item, "value": value, "adv": adv, "advmax": item.advmax, "pvp": pvp, "price": item["price"], "limit": item["limit"]}
 				simple.push(spec)
 			}
 			if(item["name"] == "potion of the field gar") {
@@ -2669,6 +2672,8 @@ function latePlan(result, settings, finish, room) {
 
 // How far one unit's adventures can roll above the plan's (average) figure.
 function halfRange(row) {
+	// Use the same helper, skill and equipment transformations as the average.
+	if (row.spec.advmax !== undefined) return Math.max(0, row.spec.advmax - row.spec.adv)
 	var it = row.spec.item
 	return it.advmax > it.advmin ? (it.advmax - it.advmin) / 2 : 0
 }
