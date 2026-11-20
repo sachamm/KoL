@@ -29,5 +29,5 @@ As rules for the scripts:
 
 1. **Priority order for Meat.** Be as efficient as possible. Spend first on resources with a positive return, then on resources that are on sale, biggest discount first.
 2. **Daily spending cap.** Spend at most half of the Meat netted that day by expending resources.
-3. **Price ceiling.** Never pay above the mall price.
+3. **Price ceiling.** Never pay above the mall price, measured as the item's recent average sale price.
 4. **What counts as cheap.** A resource is cheap when it sells for at least 20% under its market price, where the market price is the item's recent average sale price (Sacha: "average sale price"), not the current lowest listing. Such offers often limit how many can be bought.
