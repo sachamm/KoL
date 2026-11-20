@@ -1,0 +1,12 @@
+# Notes for AI coding sessions
+
+This is Sacha's personal Kingdom of Loathing code: KoLmafia scripts (ASH and JavaScript) run in aftercore. See the [README](README.md) for installation and the local development setup.
+
+**Read [docs/aftercore-goals.md](docs/aftercore-goals.md) first.** Every script serves that goal: spend free, cheap, daily and expiring resources to gain items and Meat, and use them to reach #1 (top ten accepted) in the Museum for every Display Case item. Weigh any change against it.
+
+Further documents in `docs/`:
+
+- [collection-objective.md](docs/collection-objective.md): Museum ranking policy, protected copies and item values.
+- [target-register.md](docs/target-register.md): unbuyable Display Case items and where they come from.
+- [iotm-route.md](docs/iotm-route.md): the daily IoTM route.
+- [resource-planner.md](docs/resource-planner.md): the shared resource planner.
