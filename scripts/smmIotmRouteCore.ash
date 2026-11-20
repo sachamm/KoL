@@ -93,7 +93,11 @@ float smmIRTurnValue() { return max(0,kTurnValue.to_float()); }
 int smmIRPaidRemaining() {
     int used=get_property("smm.IR.epoch")==smmRPEpoch() ? get_property("smm.IR.paidTurns").to_int() : 0;
     // The overdrunk pass allows item-started locket fights within the daily budget.
-    return (smmIRNoPaidTurns && my_inebriety()<=inebriety_limit()) ? 0 : max(0,min(200,smmIRSetting("maxPaidTurns",20).to_int())-used);
+    if (smmIRNoPaidTurns && my_inebriety()<=inebriety_limit()) return 0;
+    // No cap unless smm.IR.maxPaidTurns is set: the adventures left are the only limit.
+    string cap=get_property("smm.IR.maxPaidTurns");
+    if (cap=="") return max(0,my_adventures());
+    return max(0,cap.to_int()-used);
 }
 
 void smmIRAccountTurns(int turns) {

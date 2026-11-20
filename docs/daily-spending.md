@@ -34,7 +34,7 @@ This replaces the old trigger in `secondBreakfast()` that ran `buyMallSpecials()
 The paid-turn grinds that follow the IoTM route are `oasis`, `beerLens`, `ghostCostume`, `spacegate`, `fantasyRealm`, `pirateRealm`, `dailyDungeon`, `drip` and `gingerbread`.
 
 - `smm.dailyGrind.<name> = false` skips that grind.
-- `smm.dailyGrind.maxPaidTurns` is an optional daily turn budget shared by all of them. Once it is used up, the rest are skipped. Unset means no limit. It is separate from the route's own `smm.IR.maxPaidTurns`.
+- `smm.dailyGrind.maxPaidTurns` is an optional daily turn budget shared by all of them. Once it is used up, the rest are skipped. Unset means no limit. It is separate from the route's own `smm.IR.maxPaidTurns`, which is also uncapped unless set.
 - Each grind's turns and Meat change are logged for the day and printed at the end of the run, with Meat per turn. Items are not valued in that figure.
 
 Not done yet: these grinds are still not compared with the value of a turn before they run. The log is there to supply the numbers for that test.
