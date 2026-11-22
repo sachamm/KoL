@@ -13,12 +13,14 @@ import <smmUtils.ash>
 import <smmMuseumPolicy.ash>
 
 string kSmmSpendStartKey = "_smm.spend.startMeat";   // cleared at rollover
+string kSmmSpendCloseKey = "smm.spend.lastClose";    // kept across days: Meat held when the spending step last finished
 string kSmmSpendSpentKey = "_smm.spend.spent";       // cleared at rollover
 string kSmmSpendBuyMapFile = "unrestricted_buy_map.txt";
 
 record SmmSpendOffer {
 	item it;
 	int quantity;    // copies wanted
+	int average;     // average sale price of one copy, 0 when unknown
 	int price;       // current mall price of one copy
 	int limit;       // the most to pay for one copy
 	float score;     // higher is bought first
@@ -42,6 +44,13 @@ float smmSpendMinDiscount() {
 	return min(0.95, max(0.2, explicit.to_float())); // rule 4 is a floor: never under 20%
 }
 
+// Pass 2 trusts an average sale price only when at least this many copies sold
+// in Pricegun's history (about two weeks).
+int smmSpendMinSales() {
+	string explicit = get_property("smm.spend.minSales");
+	return explicit == "" ? 5 : max(1, explicit.to_int());
+}
+
 int smmSpendMaxLookups() {
 	string explicit = get_property("smm.spend.maxLookups");
 	return explicit == "" ? 60 : max(0, explicit.to_int());
@@ -55,10 +64,19 @@ int smmSpendLiquidMeat() {
 }
 
 // Record the day's opening Meat. Safe to call any number of times: only the
-// first call of the day (the property is cleared at rollover) takes the snapshot.
+// first call of the day (the property is cleared at rollover) sets it.
+// The day opens at the Meat held when the spending step last finished, so that
+// shop sales made since then (overnight, while logged out) count as net. With
+// no earlier close on record it opens at the Meat held now.
 void smmSpendDayStart() {
-	if (get_property(kSmmSpendStartKey) == "")
-		set_property(kSmmSpendStartKey, smmSpendLiquidMeat());
+	if (get_property(kSmmSpendStartKey) != "") return;
+	string lastClose = get_property(kSmmSpendCloseKey);
+	set_property(kSmmSpendStartKey, lastClose != "" ? lastClose.to_int() : smmSpendLiquidMeat());
+}
+
+// Record the Meat held now as the point the next day opens from.
+void smmSpendDayClose() {
+	set_property(kSmmSpendCloseKey, smmSpendLiquidMeat());
 }
 
 boolean smmSpendStarted() { return get_property(kSmmSpendStartKey) != ""; }
@@ -91,7 +109,19 @@ void smmSpendReport() {
 // Market price: the recent average sale price.
 
 float [item] smmSpendAverages;
+int [item] smmSpendVolumes;
 int smmSpendLookups;
+
+// Copies sold over Pricegun's history. 0 when there is none.
+int smmSpendParseVolume(string response) {
+	int units = 0;
+	matcher history = create_matcher("(?s)\"history\"\\s*:\\s*\\[(.*?)\\]", response);
+	if (!find(history)) return 0;
+	matcher volumes = create_matcher("\"volume\"\\s*:\\s*([0-9]+)", group(history, 1));
+	while (find(volumes))
+		units += to_int(group(volumes, 1));
+	return units;
+}
 
 // Pricegun's value is a time-weighted completed-sale estimate. Require both a
 // sale and a history entry; anything missing or malformed is "unknown" (0).
@@ -112,8 +142,15 @@ float smmSpendAveragePrice(item it) {
 		smmSpendLookups += 1;
 		string response = visit_url("https://pricegun.loathers.net/api/" + to_int(it), false, false);
 		smmSpendAverages[it] = smmSpendParseAverage(it, response);
+		smmSpendVolumes[it] = smmSpendAverages[it] > 0 ? smmSpendParseVolume(response) : 0;
 	}
 	return smmSpendAverages[it];
+}
+
+// Copies sold recently, from the same request as the average.
+int smmSpendSalesVolume(item it) {
+	smmSpendAveragePrice(it);
+	return smmSpendVolumes[it];
 }
 
 // ---------------------------------------------------------------------------
@@ -123,8 +160,10 @@ float smmSpendAveragePrice(item it) {
 // remaining budget. Returns the Meat actually spent, measured, not estimated.
 int smmSpendBuy(SmmSpendOffer offer, string reason) {
 	int budget = smmSpendBudget();
-	if (offer.price <= 0 || offer.limit < offer.price) return 0;
-	int quantity = min(offer.quantity, budget / offer.price);
+	if (offer.limit <= 0) return 0;
+	// buy() may pay up to the limit for each copy, so the limit sizes the purchase:
+	// the budget can't be exceeded whatever the listings turn out to cost
+	int quantity = min(offer.quantity, budget / offer.limit);
 	if (quantity < 1) return 0;
 	if (smmSpendDryRun()) {
 		print("Spending (dry run): would buy " + quantity + " " + offer.it + " at up to " + offer.limit + " each (" + reason + ")", "blue");
@@ -172,16 +211,15 @@ void smmSpendPositiveReturn() {
 		offer.it = it;
 		offer.quantity = wanted;
 		offer.price = price;
+		offer.average = floor(average);
 		offer.limit = limit;
 		offer.score = (worth - price) / to_float(price);
 		offers[count(offers)] = offer;
 	}
 
 	sort offers by -value.score;
-	foreach i, offer in offers {
-		if (smmSpendBudget() < offer.price) continue;
+	foreach i, offer in offers
 		smmSpendBuy(offer, "worth " + round(offer.score * 100) + "% more than its price");
-	}
 }
 
 // Candidates in id order, starting after the item examined last time, so that
@@ -195,10 +233,29 @@ int [int] smmSpendRotate(int [int] ids, string cursorKey) {
 	return ordered;
 }
 
+// Copies of an item still to acquire to reach the Museum top ten.
+int smmSpendTenGap(item it) {
+	SmmMuseumGoal goal = smmMuseumGoal(it);
+	if (!goal.known) return 0;
+	return max(0, goal.tenth - smmMuseumDisplay(it) - smmMuseumStock(it));
+}
+
+void smmSpendDeposit(item it) {
+	int deposit = smmMuseumDepositAmount(it);
+	if (deposit > 0 && !smmMuseumDeposit(it, deposit))
+		print("Spending: could not add " + it + " to the Display Case, the copies stay in inventory", "orange");
+}
+
 // Pass 2: Display Case items on sale. Only items with a stored Museum ranking
 // are considered (no Museum requests are made here), top-ten gaps before
-// first-place gaps. An item qualifies when its mall price is 20% or more under
-// its average sale price. Biggest discount first.
+// first-place gaps.
+//
+// A sale is often only a few cheap listings, which mall_price() (the fifth
+// cheapest) does not show. So each candidate is probed with a real purchase of
+// one copy at no more than 80% of its average sale price: the mall fills it
+// from the cheapest listing, and what was paid is the true sale price. Items
+// with a probe that filled are then bought biggest discount first, to the top
+// ten for every item before any is bought toward first place.
 void smmSpendMuseumSales() {
 	if (!smmMuseumEnabled() || !have_display()) return;
 
@@ -223,34 +280,51 @@ void smmSpendMuseumSales() {
 	SmmSpendOffer [int] offers;
 	int lookups = 0;
 	foreach i, id in candidates {
-		if (lookups >= smmSpendMaxLookups()) break;
+		if (lookups >= smmSpendMaxLookups() || smmSpendBudget() < 1) break;
 		item it = to_item(id);
 		lookups += 1;
 		set_property(i < tenCount ? "smm.spend.cursorTen" : "smm.spend.cursorFirst", id);
 
 		float average = smmSpendAveragePrice(it);
 		if (average <= 0) continue; // no sales on record: the discount is unknown
-		int price = mall_price(it);
-		if (price <= 0) continue;
-		float discount = 1.0 - price / average;
-		if (discount < smmSpendMinDiscount()) continue;
+		if (smmSpendSalesVolume(it) < smmSpendMinSales()) continue; // too few sales to trust the average
 
 		SmmSpendOffer offer;
 		offer.it = it;
-		offer.quantity = smmMuseumMissing(it, smmMuseumGoal(it));
-		offer.price = price;
+		offer.average = floor(average);
 		offer.limit = floor(average * (1.0 - smmSpendMinDiscount())); // only listings that are themselves 20% under
-		offer.score = discount;
+		if (offer.limit < 1) continue;
+
+		int paid;
+		if (smmSpendDryRun()) {
+			// nothing is bought in a dry run, so the fifth-cheapest listing stands in for the probe
+			paid = mall_price(it);
+			if (paid <= 0 || paid > offer.limit) continue;
+		} else {
+			offer.quantity = 1;
+			paid = smmSpendBuy(offer, "probe at 20% or more under its average sale price");
+			if (paid < 1) continue; // nothing listed that cheaply
+			smmSpendDeposit(it);
+		}
+		offer.price = paid;
+		offer.score = 1.0 - paid / average;
 		offers[count(offers)] = offer;
 	}
 
 	sort offers by -value.score;
+	// round 1: to the top ten
 	foreach i, offer in offers {
-		if (smmSpendBudget() < offer.price) continue;
-		if (smmSpendBuy(offer, round(offer.score * 100) + "% under its average sale price") < 1) continue;
-		int deposit = smmMuseumDepositAmount(offer.it);
-		if (deposit > 0 && !smmMuseumDeposit(offer.it, deposit))
-			print("Spending: could not add " + offer.it + " to the Display Case, the copies stay in inventory", "orange");
+		offer.quantity = smmSpendTenGap(offer.it);
+		if (offer.quantity < 1) continue;
+		if (smmSpendBuy(offer, "to the top ten, first copy was " + round(offer.score * 100) + "% under its average sale price") > 0)
+			smmSpendDeposit(offer.it);
+	}
+	// round 2: toward first place
+	foreach i, offer in offers {
+		offer.quantity = smmMuseumMissing(offer.it, smmMuseumGoal(offer.it));
+		if (offer.quantity < 1) continue;
+		if (smmSpendBuy(offer, "toward first place, first copy was " + round(offer.score * 100) + "% under its average sale price") > 0)
+			smmSpendDeposit(offer.it);
 	}
 }
 
@@ -265,10 +339,13 @@ void smmSpendRun() {
 		print("Spending: the mall is not available.", "orange");
 		return;
 	}
+	smmSpendDayStart();
 	smmSpendReport();
-	if (smmSpendBudget() < 1) return;
-	smmSpendPositiveReturn();
-	if (smmSpendBudget() > 0)
-		smmSpendMuseumSales();
-	smmSpendReport();
+	if (smmSpendBudget() > 0) {
+		smmSpendPositiveReturn();
+		if (smmSpendBudget() > 0)
+			smmSpendMuseumSales();
+		smmSpendReport();
+	}
+	smmSpendDayClose(); // the next day opens from here, so later sales count as its net
 }

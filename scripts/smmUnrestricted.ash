@@ -736,14 +736,38 @@ int museumShortfall(boolean [item] theItems) {
 
 // The paid-turn grinds that run after the IoTM route share one optional daily
 // turn budget (smm.dailyGrind.maxPaidTurns, unset = no limit) and can each be
-// switched off (smm.dailyGrind.<name>=false). Each one's turns and Meat are
-// logged for the day so that its return per turn can be compared with kTurnValue.
+// switched off (smm.dailyGrind.<name>=false) or forced on (=true).
+//
+// Each one's turns, Meat and items gained are logged. Once a grind has
+// smm.dailyGrind.minDays (default 5) logged days, it is skipped while its
+// return per turn stays under kTurnValue. A grind that recently brought in an
+// untradeable item the Display Case still needs is never skipped for that:
+// such an item has no price, and unbuyable Museum items come first.
 string kGrindTurnsTotalKey = "_smm.grind.turnsTotal";
 int gGrindTurnMark;
 int gGrindMeatMark;
+int [item] gGrindInventoryMark;
+
+int dailyGrindMinDays() {
+	string explicit = get_property("smm.dailyGrind.minDays");
+	return explicit == "" ? 5 : max(1, explicit.to_int());
+}
+
+// Logged return per turn over the grind's history, -1 when there is none.
+int dailyGrindReturnPerTurn(string name) {
+	int turns = get_property("smm.grind.histTurns." + name).to_int();
+	if (turns <= 0) return -1;
+	return get_property("smm.grind.histValue." + name).to_int() / turns;
+}
+
+boolean dailyGrindMuseumRecent(string name) {
+	string at = get_property("smm.grind.histMuseumAt." + name);
+	return at != "" && get_property("smm.grind.histRuns." + name).to_int() - at.to_int() < dailyGrindMinDays();
+}
 
 boolean dailyGrindMayRun(string name) {
-	if (get_property("smm.dailyGrind." + name) == "false") {
+	string preset = get_property("smm.dailyGrind." + name);
+	if (preset == "false") {
 		print("dailyGrind: skipping " + name + " (smm.dailyGrind." + name + "=false)", "blue");
 		return false;
 	}
@@ -752,33 +776,97 @@ boolean dailyGrindMayRun(string name) {
 		print("dailyGrind: skipping " + name + ", the day's paid-turn budget of " + limit + " is used up", "blue");
 		return false;
 	}
+	if (preset != "true" && get_property("smm.grind.histRuns." + name).to_int() >= dailyGrindMinDays() && !dailyGrindMuseumRecent(name)) {
+		int perTurn = dailyGrindReturnPerTurn(name);
+		if (perTurn >= 0 && perTurn < kTurnValue) {
+			print("dailyGrind: skipping " + name + ", it has returned " + perTurn + " Meat per turn against a turn value of " + kTurnValue
+				+ " (smm.dailyGrind." + name + "=true runs it anyway)", "orange");
+			return false;
+		}
+	}
 	return true;
+}
+
+// Copies held in inventory, closet and Display Case together. The grinds move
+// what they farm between the three (the Spacegate closets its samples, dc top10
+// fills the case), so gains are measured over all of them.
+int [item] dailyGrindHoldings() {
+	int [item] held;
+	foreach it, amount in get_inventory() held[it] += amount;
+	foreach it, amount in get_closet() held[it] += amount;
+	foreach it, amount in get_display() held[it] += amount;
+	return held;
 }
 
 void dailyGrindBegin() {
 	gGrindTurnMark = total_turns_played();
 	gGrindMeatMark = my_meat();
+	gGrindInventoryMark = dailyGrindHoldings();
+}
+
+// What one gained copy is worth for the log: the stored mall price (no request), else autosell.
+int dailyGrindItemValue(item it) {
+	int price = it.tradeable ? historical_price(it) : 0;
+	return price > 0 ? price : autosell_price(it);
 }
 
 void dailyGrindEnd(string name) {
 	int turns = total_turns_played() - gGrindTurnMark;
 	int meat = my_meat() - gGrindMeatMark;
-	if (turns <= 0 && meat == 0) return;
+	int itemValue = 0;
+	boolean museumGain = false;
+	// Only gains count: copies used up or sold along the way are not losses here.
+	foreach it, amount in dailyGrindHoldings() {
+		int gained = amount - gGrindInventoryMark[it];
+		if (gained <= 0) continue;
+		itemValue += gained * dailyGrindItemValue(it);
+		if (!it.tradeable && is_displayable(it)) {
+			SmmMuseumGoal goal = smmMuseumGoal(it);
+			if (goal.known && smmMuseumMissing(it, goal) > 0)
+				museumGain = true;
+		}
+	}
+	if (turns <= 0 && meat == 0 && itemValue == 0) return;
+
 	set_property("_smm.grind.turns." + name, get_property("_smm.grind.turns." + name).to_int() + turns);
 	set_property("_smm.grind.meat." + name, get_property("_smm.grind.meat." + name).to_int() + meat);
+	set_property("_smm.grind.items." + name, get_property("_smm.grind.items." + name).to_int() + itemValue);
 	set_property(kGrindTurnsTotalKey, get_property(kGrindTurnsTotalKey).to_int() + turns);
-	print("dailyGrind: " + name + " took " + turns + " turns, Meat " + (meat >= 0 ? "+" : "") + meat, "blue");
+
+	// history across days: about the last 14 logged days, older days fading out
+	int histTurns = get_property("smm.grind.histTurns." + name).to_int();
+	int histValue = get_property("smm.grind.histValue." + name).to_int();
+	int histRuns = get_property("smm.grind.histRuns." + name).to_int();
+	if (!get_property("_smm.grind.counted." + name).to_boolean()) {
+		if (histRuns >= 14) {
+			histTurns = histTurns * 13 / 14;
+			histValue = histValue * 13 / 14;
+		}
+		histRuns += 1;
+		set_property("smm.grind.histRuns." + name, histRuns);
+		set_property("_smm.grind.counted." + name, "true");
+	}
+	set_property("smm.grind.histTurns." + name, histTurns + turns);
+	set_property("smm.grind.histValue." + name, histValue + meat + itemValue);
+	if (museumGain)
+		set_property("smm.grind.histMuseumAt." + name, histRuns);
+
+	print("dailyGrind: " + name + " took " + turns + " turns, Meat " + (meat >= 0 ? "+" : "") + meat + ", items worth " + itemValue
+		+ (museumGain ? ", including an untradeable item the Museum needs" : ""), "blue");
 }
 
-// Meat only: items gained are not valued here, so a grind that farms items
-// shows a low or negative figure. Compare with the mall value of what it dropped.
 void printDailyGrindLedger() {
-	print("dailyGrind paid-turn ledger (Meat only, turn value " + kTurnValue + "):", "blue");
+	print("dailyGrind paid-turn ledger (turn value " + kTurnValue + "):", "blue");
 	foreach name in $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread] {
 		int turns = get_property("_smm.grind.turns." + name).to_int();
-		if (turns <= 0) continue;
+		int perTurn = dailyGrindReturnPerTurn(name);
+		if (turns <= 0 && perTurn < 0) continue;
 		int meat = get_property("_smm.grind.meat." + name).to_int();
-		print(name + ": " + turns + " turns, Meat " + meat + " (" + (meat / turns) + " per turn)");
+		int items = get_property("_smm.grind.items." + name).to_int();
+		print(name + ": today " + turns + " turns, Meat " + meat + ", items " + items
+			+ (turns > 0 ? " (" + ((meat + items) / turns) + " per turn)" : "")
+			+ "; over " + get_property("smm.grind.histRuns." + name).to_int() + " logged days " + perTurn + " per turn"
+			+ (dailyGrindMuseumRecent(name) ? ", Museum item gained recently" : ""));
 	}
 	print("total paid turns: " + get_property(kGrindTurnsTotalKey).to_int());
 }
