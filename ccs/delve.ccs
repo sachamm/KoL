@@ -1,0 +1,17 @@
+[ default ]
+item gas balloon
+while !pastround 5
+    if hascombatitem divine noise
+        item divine noisemaker,divine noisemaker
+    endif
+    if hascombatitem divine can
+        item divine can of silly string,divine can of silly string
+    endif
+    if hascombatitem divine blow
+        item divine blowout,divine blowout
+    endif
+endwhile
+
+[ ghost of fernswarthy's ]
+skill saucegeyser
+
