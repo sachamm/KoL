@@ -198,7 +198,7 @@ These rules hold in every phase:
 - `moodExecute` warns instead of aborting.
 - Buffs are extended only for the turns actually left.
 
-### Phase 2: Museum and free work (no paid turns)
+### Phase 2: Museum and free work (paid turns only for seeds and Lucky!)
 
 **What it does:**
 
@@ -212,7 +212,7 @@ These rules hold in every phase:
 
 **Done-test:** the route's receipt (`data/smm-iotm-route-last.txt`) selects no free action, `_cloversPurchased=3`, and no Lucky! is active.
 
-**Invariant:** no paid turn is spent. Copies without a register target are left for garbo.
+**Invariant:** the only paid turns are the Sword seed and the Lucky! adventures, one turn each. The route already treats a locket or Sword seed as a one-turn action (`scripts/smmIotmRouteCore.ash:562-576`) and gives Heartstone Lucky! `allowed_turns=1` (`:849-855`), so `iotmroute free` alone would skip them. Phase 2 therefore gets an explicit budget of at most 1 + the Lucky! count turns (about 5), taken from `smm.daily.museumTurns` before phase 3 starts, and each use must beat the turn value. Copies without a register target are left for garbo.
 
 ### Phase 3: Rate-limited paid work, capped
 
@@ -301,13 +301,13 @@ garbo eats the daytime diet, runs its free fights and copy chain, spends the rem
 |---|---|---|
 | Paid turns (about 430: 169 after breakfast plus about 250 from diet and turn generation) | Phase 3 up to `museumTurns`, then phase 4 | A turn goes to phase 3 only if it passes the value test. Everything else goes to Barf |
 | Organs, mojo filters | Phase 4 (garbo's diet) | Special Seasoning fenced. The Drip reserves organ space only when it needs to. `diet.js` (called with `yes`) only on days without garbo. Cooler Yeti next-drink boosts are ordered before the diet if the Yeti is owned (unverified) |
-| Sword of S Words | Seeded in phase 2, spent in phase 4 | Charge the displaced familiar and native loot. If garbo doesn't run, the Sword is the familiar for the first 100 fights. The audit checks for 100 kills |
+| Sword of S Words | Seeded in phase 2 (one paid turn from the Museum turn budget), spent in phase 4 | Charge the displaced familiar and native loot. If garbo doesn't run, the Sword is the familiar for the first 100 fights. The audit checks for 100 kills |
 | Copies (about 40) | Phase 2 with a register target, otherwise phase 4 | Never on scarab beatles for stock. Copies are not free fights: each needs a host fight |
 | Free kills (7+) | Phase 4 | Only on paid fights. Subtract the loot destroyed by kills that destroy it. No night-time drum-machine fights (`smmUnrestricted.ash:6835`) |
 | Free fights (about 45) | Route free workers in phase 2, then garbo | Snojo and CyberRealm after their unlocks, counting only fights that turn out to be free |
 | Banishes | Per source | Track uses, active slots, duration, scope, turn cost and drop handling for each source. Short banishes go to short grinds. Rollover banishes go to all-day zones once the short grinds release them. Restraining orders may pass the 100-Meat-per-turn cap. No Batter Up! |
 | MP | Phase 1, then floor R | Free sources first, then mall magical mystery juice (about 1 Meat per MP). No libram summons |
-| Lucky! | Phase 2 | Museum target, then the Embezzler, then sell the clovers |
+| Lucky! | Phase 2, one paid turn each from the Museum turn budget | Museum target, then the Embezzler, then sell the clovers |
 | Drum machines, leaves, Special Seasoning | Fenced | Museum stock. No sandworms. Leaves are crafted only within `leafCraftCap` once their rank is known |
 | Workshed | Phase 2 (route) | Pick by daily value. An anchor bomb needs 1 rum, 3 anchors, 1 mast and 1 gold, so the 1,826 anchors are limited by gold and worth about 0 at the margin. Never `garbo workshed=` |
 | Garden | Phase 2 (route) | After a rose visit, garbo replants the starting garden (`resources/garden.ts:105-115`). Check whether that resets the mushroom plot |
