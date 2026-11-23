@@ -1,0 +1,538 @@
+[ 8-bit realm ]
+sub 8-bit_realm
+    call setup_aborts
+    call init
+    if monstername "*blooper*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call 8-bit_realm
+
+[ accordion thief ]
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    #"abort (!mppercentbelow 100)"
+    "abort missed 6"
+    "abort pastround 9"
+    "abort hppercentbelow 50"
+endsub
+sub doClassStun
+    if hasskill steal accordion
+        skill steal accordion
+    endif
+endsub
+sub hit
+    attack with weapon
+endsub
+
+[ barrrney's ]
+sub barrrneys
+    call setup_aborts
+    call init
+    item The Big Book of Pirate Insults
+    call main
+    "repeat"
+endsub
+call barrrneys
+
+[ battlefield (frat uniform) ]
+sub battlefield_frat
+    call setup_aborts
+    call init
+    if monstername "*green ops soldier*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call battlefield_frat
+#------ GLOBAL PREFIX ------
+
+[ battlefield (hippy uniform) ]
+sub battlefield_hippy
+    call setup_aborts
+    call init
+    if monstername "*sorority operator*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call battlefield_hippy
+
+[ belowdecks ]
+sub belowdecks
+    call setup_aborts
+    call init
+    if monstername "*gaudy*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call belowdecks
+
+[ cobb's knob harem ]
+sub cobbs_knob_harem
+    call setup_aborts
+    call init
+    if monstername "*harem girl*"
+        call olfactory
+    endif
+    if monstername "*harem guard*"
+        call banish
+    endif
+    call main
+    "repeat"
+endsub
+call cobbs_knob_harem
+
+[ convention hall lobby ]
+sub clmain
+    call heal
+    item bottle of Gü-Gone
+endsub
+sub convention_lobby
+    call setup_aborts
+    call clmain
+    "repeat"
+endsub
+call convention_lobby
+#------ PATH -------
+
+[ default ]
+sub default
+    call setup_aborts
+    call init
+    call main
+    "repeat"
+endsub
+call default
+#------ DAILY -------
+
+[ defiled niche ]
+sub defiled_niche
+    call setup_aborts
+    call init
+    if monstername "*dirty old lihc*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call defiled_niche
+
+[ disco bandit ]
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    #"abort (!mppercentbelow 100)"
+    "abort missed 6"
+    "abort pastround 9"
+    "abort hppercentbelow 50"
+endsub
+sub doClassStun
+    if hasskill disco dance of doom
+        call heal
+        skill disco dance of doom
+        skill disco dance ii: electric boogaloo
+    endif
+endsub
+sub hit
+    attack with weapon
+endsub
+
+[ f'c'le ]
+sub fcle
+    call setup_aborts
+    if monstername "*clingy*" && hascombatitem napkin
+        item cocktail napkin
+    endif
+    call init
+    call main
+    "repeat"
+endsub
+call fcle
+
+[ feeding chamber ]
+sub feeding_chamber
+    call setup_aborts
+    call init
+    "skill hugs and kisses"
+    call main
+    "repeat"
+endsub
+call feeding_chamber
+
+[ fungal nethers ]
+sub fungal_nethers
+    call setup_aborts
+    call init
+    if monstername "*angry*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call fungal_nethers
+
+[ global prefix ]
+scrollwhendone
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    #"abort (!mppercentbelow 100)"
+    "abort missed 6"
+    "abort pastround 9"
+    "abort hppercentbelow 50"
+endsub
+sub doClassStun
+endsub
+sub hit
+    attack with weapon
+endsub
+sub doPickpocket
+    if !monstername "beefy bodyguard bat"
+        if !monstername "sabre-toothed lime" && !monstername "dairy ooze"
+            if !monstername "minion" && !monstername "May Jones" && !monstername "Mr. Huge" && !monstername "Number Five"
+                try to steal an item
+                try to steal an item
+            endif
+        endif
+    endif
+endsub
+sub doItems
+endsub
+sub init
+    call doPickpocket
+    call doItems
+    call doClassStun
+    skill sing along
+endsub
+# default main, uses different hits based on class
+sub main
+    call heal
+    call hit
+endsub
+# heals with saucy salve up to 2 times
+sub heal
+    if hascombatitem anti-anti-antidote
+        if haseffect Hardly Poisoned at All || haseffect A Little Bit Poisoned || haseffect Somewhat Poisoned || haseffect Really Quite Poisoned || haseffect Majorly Poisoned
+            item anti-anti-antidote
+        endif
+    endif
+endsub
+sub olfactory
+    call heal
+endsub
+sub banish
+    skill kgb tranquilizer dart
+endsub
+
+[ goatlet ]
+sub goatlet
+    call setup_aborts
+    call init
+    if monstername "*dairy*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call goatlet
+
+[ guards' chamber ]
+sub guard_chamber
+    call setup_aborts
+    call init
+    "skill hugs and kisses"
+    call main
+    "repeat"
+endsub
+call guard_chamber
+
+[ hatching chamber ]
+sub hatching_chamber
+    call setup_aborts
+    call init
+    "skill hugs and kisses"
+    call main
+    "repeat"
+endsub
+call hatching_chamber
+
+[ haunted boiler room ]
+sub haunted_boiler_room
+    call setup_aborts
+    call init
+    if monstername "*boiler*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call haunted_boiler_room
+
+[ haunted laundry room ]
+sub laundry_room
+    call setup_aborts
+    call init
+    if monstername "*cabinet*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call laundry_room
+
+[ haunted library ]
+sub haunted_library
+    call setup_aborts
+    call init
+    if monstername "*writing desk*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call haunted_library
+
+[ hidden apartment ]
+sub hidden_apartment
+    call setup_aborts
+    call init
+    if monstername "*shaman*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call hidden_apartment
+
+[ hidden bowling alley ]
+sub bowling_alley
+    call setup_aborts
+    call init
+    if monstername "*bowler*"
+        call olfactory
+    endif
+    if monstername "*orderlies*"
+        call banish
+    endif
+    call main
+    "repeat"
+endsub
+call bowling_alley
+
+[ hidden hospital ]
+sub hidden_hospital
+    call setup_aborts
+    call init
+    if monstername "*surgeon*"
+        call olfactory
+    endif
+    if monstername "*orderlies*"
+        call banish
+    endif
+    call main
+    "repeat"
+endsub
+call hidden_hospital
+
+[ hidden temple ]
+sub hidden_temple
+    call setup_aborts
+    call init
+    if monstername "*sheep*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call hidden_temple
+
+[ lov enforcer ]
+call setup_aborts
+attack with weapon
+"repeat"
+
+[ lov engineer ]
+call setup_aborts
+skill saucegeyser
+"repeat"
+#------ GUILD -------
+
+[ mcmillicancuddy's barn ]
+sub barn
+    call setup_aborts
+    call init
+    if hascombatitem chaos butterfly
+        item chaos butterfly
+    endif
+    call main
+    "repeat"
+endsub
+call barn
+
+[ middle chamber ]
+sub middle_chamber
+    call setup_aborts
+    call init
+    if monstername "*tomb rat*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call middle_chamber
+
+[ palindome ]
+sub palindome
+    call setup_aborts
+    call init
+    if monstername "*Racecar*"
+        call olfactory
+        if hascombatitem disposable instant camera
+            item disposable instant camera
+        endif
+    endif
+    call main
+    "repeat"
+endsub
+call palindome
+
+[ pastamancer ]
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    #"abort (!mppercentbelow 100)"
+    "abort mpbelow 15"
+    "abort missed 6"
+    "abort pastround 9"
+    "abort hppercentbelow 50"
+endsub
+sub doClassStun
+    if hasskill entangling noodles
+        call heal
+        skill entangling noodles
+    endif
+endsub
+sub hit
+    skill saucestorm
+endsub
+
+[ penultimate ]
+sub penultimate
+    call setup_aborts
+    call init
+    if monstername "*healer*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call penultimate
+
+[ sauceror ]
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    #"abort (!mppercentbelow 100)"
+    "abort mpbelow 15"
+    "abort missed 6"
+    "abort pastround 9"
+    "abort hppercentbelow 50"
+endsub
+sub doClassStun
+    if sauceror
+        call heal
+        skill soul bubble
+        skill curse of weaksauce
+    endif
+endsub
+sub hit
+    if sauceror
+        skill saucegeyser
+    endif
+endsub
+
+[ seal clubber ]
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    #"abort (!mppercentbelow 100)"
+    "abort missed 6"
+    "abort pastround 9"
+    "abort hppercentbelow 50"
+endsub
+sub doClassStun
+endsub
+sub hit
+    attack with weapon
+endsub
+
+[ super villain's lair ]
+sub svl_main
+    call heal
+    skill toss
+endsub
+sub default
+    "abort missed 10"
+    "abort pastround 25"
+    "abort hppercentbelow 25"
+    call init
+    call main
+    "repeat"
+endsub
+call default
+#------ ASCENSION -------
+
+[ themthar hills ]
+sub th_init
+    call doItems
+    call doClassStun
+    skill extract jelly
+endsub
+sub themthar_hills
+    call setup_aborts
+    call th_init
+    call main
+    "repeat"
+endsub
+call themthar_hills
+
+[ turtle tamer ]
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    #"abort (!mppercentbelow 100)"
+    "abort missed 10"
+    "abort pastround 16"
+    "abort hppercentbelow 10"
+endsub
+sub doClassStun
+endsub
+sub hit
+    attack with weapon
+endsub
+
+[ twin peak ]
+sub twin_peak
+    call setup_aborts
+    call init
+    if monstername "*topiary*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call twin_peak
+
+[ wine cellar ]
+sub wine_cellar
+    call setup_aborts
+    call init
+    if monstername "possessed wine rack"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call wine_cellar
+

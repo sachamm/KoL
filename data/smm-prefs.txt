@@ -1,0 +1,83 @@
+# Shared KoLmafia preferences for Tquilla, applied by smmPrefs.ash.
+# One "name<TAB>value" per line. Blank lines and lines starting with # are ignored.
+# A name with nothing after the tab sets that preference to empty.
+# Only put settings here that should match on every machine: never passwords,
+# logins, paths, daily counters or script state.
+
+# Global (all characters on this machine)
+commandLineNamespace	smmUnrestricted,smmEcon
+
+# Character
+valueOfAdventure	4500
+valueOfInventory	1.8
+autoBuyPriceLimit	20000
+autoCraft	true
+autoSteal	true
+autoAbortThreshold	-0.05
+autoSatisfyWithCloset	false
+autoSatisfyWithCoinmasters	true
+autoSatisfyWithMall	true
+autoSatisfyWithNPCs	true
+autoSatisfyWithShop	false
+autoSatisfyWithStash	false
+autoSatisfyWithStorage	true
+hpAutoRecovery	-0.05
+hpAutoRecoveryTarget	0.0
+hpAutoRecoveryItems	cannelloni cocoon;tongue of the walrus;lasagna bandages
+mpAutoRecovery	-0.05
+mpAutoRecoveryTarget	0.0
+mpAutoRecoveryItems	visit the nuns;carbonated water lily;magical mystery juice
+manaBurningThreshold	0.65
+manaBurningTrigger	0.0
+manaBurnSummonThreshold	10
+lastChanceBurn	cast # Sauce Contemplation
+currentMood	current extends unrestricted, turtletamer
+battleAction	custom combat script
+customCombatScript	unrestricted
+betweenBattleScript	smmPreAdventure.ash
+afterAdventureScript	
+choiceAdventureScript	
+counterScript	
+recoveryScript	
+kingLiberatedScript	
+chatbotScript	
+plantingScript	
+spadingScript	
+dontStopForCounters	true
+requireBoxServants	false
+autoRepairBoxServants	false
+breakfastAlways	Summon Annoyance,Communism!
+breakfastHardcore	Advanced Cocktailcrafting,Advanced Saucecrafting,Canticle of Carboloading,Pastamastery,Summon Crimbo Candy,Lunch Break,Spaghetti Breakfast,Grab a Cold One,Summon Holiday Fun!,Summon Carrot,Summon Kokomo Resort Pass,Perfect Freeze,Acquire Rhinestones,Prevent Scurvy and Sobriety,Bowl Full of Jelly,Eye and a Twist,Chubby and Plump
+breakfastSoftcore	Advanced Cocktailcrafting,Advanced Saucecrafting,Canticle of Carboloading,Pastamastery,Summon Crimbo Candy,Lunch Break,Spaghetti Breakfast,Grab a Cold One,Summon Holiday Fun!,Summon Carrot,Summon Kokomo Resort Pass,Perfect Freeze,Acquire Rhinestones,Prevent Scurvy and Sobriety,Bowl Full of Jelly,Eye and a Twist,Chubby and Plump
+grimoireSkillsHardcore	none
+grimoireSkillsSoftcore	all
+libramSkillsHardcore	none
+libramSkillsSoftcore	none
+harvestGardenHardcore	none
+harvestGardenSoftcore	none
+autoPlantHardcore	false
+autoPlantSoftcore	false
+maximizerAlwaysCurrent	true
+maximizerCombinationLimit	100000
+maximizerCreateOnHand	true
+maximizerCurrentMallPrices	false
+maximizerEquipmentLevel	1
+maximizerEquipmentScope	2
+maximizerFoldables	true
+maximizerIncludeAll	true
+maximizerMaxPrice	1000
+maximizerNoAdventures	true
+maximizerPriceLevel	2
+maximizerUseScope	true
+maximizerList	mainstat | mus | mys | mox | familiar weight | HP | MP | ML | DA | DR | +combat -tie | -combat -tie | initiative | exp | meat drop | item drop | 2.0 meat, 1.0 item | item, sea | weapon dmg | ranged dmg | elemental dmg | spell dmg | adv | pvp fights | hot res | cold res | spooky res | stench res | sleaze res | all res | mp regen | ML, 0.001 slime res | 4 clownosity, -tie | 7 raveosity, -tie | surgeonosity | +four songs
+errorOnAmbiguousFold	true
+shadowLabyrinthGoal	browser
+garbo_vipClan	14909
+garbo_skipPillCheck	true
+freecandy_treatOutfit	Ceramic Suit
+chit.gear.favorites	Kremlin's Greatest Briefcase|mafia middle finger ring|latte lovers member's mug|Kramco Sausage-o-Matic&trade;|Lil' Doctor&trade; bag|Fourth of May Cosplay Saber|backup camera|oversized sparkler|cursed magnifying glass|combat lover's locket|June cleaver|designer sweatpants|Cincho de Mayo|candy cane sword cane|spring shoes|Everfull Dart Holster
+stationaryButton1	36
+stationaryButton2	30
+stationaryButton3	4012
+stationaryButton4	32
+stationaryButton5	4034

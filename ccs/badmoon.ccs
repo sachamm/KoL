@@ -1,0 +1,225 @@
+[ barrrney's ]
+sub barrrneys
+    call setup_aborts
+    call init
+    item The Big Book of Pirate Insults
+    call main
+    "repeat"
+endsub
+call barrrneys
+
+[ convention hall lobby ]
+sub clmain
+    call heal
+    item bottle of Gü-Gone
+endsub
+sub convention_lobby
+    "abort pastround 19"
+    "abort hppercentbelow 50"
+    call init
+    skill curse of vichyssoise
+    call clmain
+    "repeat"
+endsub
+call convention_lobby
+
+[ default ]
+sub default
+    call setup_aborts
+    call init
+    call main
+    "repeat"
+endsub
+call default
+#------ DAILY -------
+
+[ f'c'le ]
+sub fcle
+    call setup_aborts
+    if monstername "*clingy*" && !haseffect on the trail
+        item cocktail napkin
+    endif
+    call init
+    call main
+    "repeat"
+endsub
+call fcle
+
+[ gingerbread ]
+sub gingerbread_main
+    call heal
+    skill saucestorm
+endsub
+sub gingerbread
+    call setup_aborts
+    call init
+    call gingerbread_main
+    "repeat"
+endsub
+call gingerbread
+
+[ global prefix ]
+scrollwhendone
+sub setup_aborts
+    "abort (monstername 'Krakrox the Barbarian')"
+    "abort (!mppercentbelow 100)"
+    #if !turtletamer
+    "abort missed 6"
+    "abort pastround 9"
+    "abort hppercentbelow 40"
+    #endif
+    #if turtletamer
+    #  "abort missed 10"
+    #  "abort pastround 16"
+    #  "abort hppercentbelow 20"
+    #endif
+    #if sauceror || pastamancer
+    #  "abort mpbelow 15"
+    #endif
+endsub
+sub doPickpocket
+    if !monstername "beefy bodyguard bat"
+        if !monstername "sabre-toothed lime" && !monstername "dairy ooze"
+            if !monstername "minion" && !monstername "May Jones" && !monstername "Mr. Huge" && !monstername "Number Five"
+                try to steal an item
+                try to steal an item
+            endif
+        endif
+    endif
+endsub
+sub init
+    #call doPickpocket
+    if hascombatitem beehive
+        item beehive
+    endif
+    if sealclubber
+        if hasskill club foot
+            skill club foot
+        endif
+        call heal
+    endif
+    #if sauceror
+    #  call heal
+    #  skill soul bubble
+    #  skill curse of weaksauce
+    #endif
+    #if pastamancer && hasskill entangling noodles
+    #  call heal
+    #  skill Entangling Noodles
+    #endif
+    #if discobandit && hasskill disco dance of doom
+    #  call heal
+    #  skill disco dance of doom
+    #  skill disco dance ii
+    #endif
+    #if accordionthief
+    #  if hasskill Accordion Bash
+    #    skill Accordion Bash
+    #  endif
+    #  call heal
+    #  if hasskill steal accordion
+    #    skill steal accordion
+    #  endif
+    #endif
+endsub
+sub main
+    call heal
+    call hit
+endsub
+sub heal
+    if hppercentbelow 80 && hasskill saucy salve
+        if !times 2
+            skill saucy salve
+            call heal
+        endif
+    endif
+    if hascombatitem anti-anti-antidote
+        if haseffect Hardly Poisoned at All || haseffect A Little Bit Poisoned || haseffect Somewhat Poisoned || haseffect Really Quite Poisoned || haseffect Majorly Poisoned
+            item anti-anti-antidote
+        endif
+    endif
+endsub
+sub hit
+    attack with weapon
+endsub
+
+[ haunted bathroom ]
+sub haunted_bathroom
+    call setup_aborts
+    if monstername "*Guy Made Of Bees*"
+        item antique hand mirror
+    endif
+    call init
+    call main
+    "repeat"
+endsub
+call haunted_bathroom
+#------ ASCENSION -------
+
+[ mcmillicancuddy's barn ]
+sub barn
+    call setup_aborts
+    call init
+    if hascombatitem chaos butterfly
+        item chaos butterfly
+    endif
+    call main
+    "repeat"
+endsub
+call barn
+#------ GLOBAL PREFIX ------
+
+[ outside the club ]
+sub checkGothy
+    if (match "You watch him go, and soon realize he isn't actually running anywhere" && !hasskill "run like the wind") || (match "The raver's movements suddenly become spastic and jerky" && !hasskill "pop and lock it") || (match "The raver drops to the ground and starts spinning his legs wildly" && !hasskill "break it on down")
+        skill gothy handwave
+        attack with weapon
+        "repeat"
+    endif
+endsub
+sub otcMain
+    item Time-Spinner
+    call checkGothy
+endsub
+sub outside_the_club
+    call setup_aborts
+    if !gotjump
+        call checkGothy
+    endif
+    call init
+    call otcMain
+    "repeat"
+endsub
+call outside_the_club
+#------ GRINDING -------
+
+[ palindome ]
+sub palindome
+    call setup_aborts
+    call init
+    if monstername "*Racecar*"
+        if hascombatitem disposable instant camera
+            item disposable instant camera
+        endif
+    endif
+    call main
+    "repeat"
+endsub
+call palindome
+
+[ through the spacegate ]
+sub sg_main
+    call heal
+    skill saucestorm
+endsub
+sub through_the_spacegate
+    "abort hppercentbelow 25"
+    "abort pastround 25"
+    "abort mpbelow 25"
+    call init
+    call sg_main
+    "repeat"
+endsub
+call through_the_spacegate
+#------ GUILD -------
+

@@ -1,0 +1,223 @@
+[ convention hall lobby ]
+sub clmain
+    call heal
+    item bottle of Gü-Gone
+endsub
+sub convention_lobby
+    call setup_aborts
+    call clmain
+    "repeat"
+endsub
+call convention_lobby
+#------ ASCENSION -------
+
+[ default ]
+consult smmConsult.ash
+
+[ f'c'le ]
+sub fcle
+    call setup_aborts
+    if monstername "*clingy*" && hascombatitem napkin
+        item cocktail napkin
+    endif
+    call init
+    call main
+    "repeat"
+endsub
+call fcle
+
+[ global prefix ]
+scrollwhendone
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort (!mppercentbelow 100)"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    if hasskill Accordion Bash
+        skill accordion bash
+    endif
+    if hasskill steal accordion
+        skill steal accordion
+    endif
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+sub doItems
+    if sauceror
+        skill curse of weaksauce
+    endif
+    #use beehive
+    item rock band flyers,beehive
+endsub
+sub init
+    call doPickpocket
+    call doItems
+    call doClassStun
+    skill sing along
+endsub
+# default main, uses different hits based on class
+sub main
+    call hit
+endsub
+sub big_main
+    call big_hit
+endsub
+# heals with saucy salve up to 2 times
+sub heal
+    if hppercentbelow 80 && !muscleclass && hasskill saucy salve
+        if !times 2
+            skill saucy salve
+            call heal
+        endif
+    endif
+    if hascombatitem anti-anti-antidote
+        if haseffect Hardly Poisoned at All || haseffect A Little Bit Poisoned || haseffect Somewhat Poisoned || haseffect Really Quite Poisoned || haseffect Majorly Poisoned
+            item anti-anti-antidote
+        endif
+    endif
+endsub
+#------ DEFAULT -------
+
+[ mcmillicancuddy's barn ]
+sub barn
+    call setup_aborts
+    call init
+    if hascombatitem chaos butterfly
+        item chaos butterfly
+    endif
+    call main
+    "repeat"
+endsub
+call barn
+#------ GLOBAL PREFIX ------
+
+[ this is to make sure this section doesn't get matched by anything ]
+#seal clubber
+sub setup_aborts
+    "abort haseffect beaten up"
+    #"abort (!mppercentbelow 100)"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    skill club foot
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill lunging thrust-smack
+endsub
+#turtle tamer
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort missed 7"
+    "abort pastround 16"
+    "abort hppercentbelow 10"
+endsub
+sub doClassStun
+    skill shell up
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill lunging thrust-smack
+endsub
+#pastamancer
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort mpbelow 15"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    skill entangling noodles
+endsub
+sub hit
+    skill saucestorm
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+#sauceror
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort mpbelow 15"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    call heal
+    #skill soul bubble
+endsub
+sub hit
+    skill saucegeyser
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+#disco bandit
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort (!mppercentbelow 100)"
+    "abort haseffect teleportitis"
+    "abort missed 2"
+    "abort pastround 25"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    call heal
+    skill disco dance of doom
+    skill disco dance ii: electric boogaloo
+    note unknown/ambiguous skill disco dance iii
+    if (hasskill pop and lock it && hasskill break it on down && hasskill run like the wind)
+        combo Rave Steal
+        combo Rave Concentration
+        combo Rave Nirvana
+        note unknown combo Rave Stats
+    endif
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+#accordion thief
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort (!mppercentbelow 100)"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    if hasskill Accordion Bash
+        skill accordion bash
+    endif
+    if hasskill steal accordion
+        skill steal accordion
+    endif
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+

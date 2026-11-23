@@ -1,0 +1,451 @@
+[ 8-bit realm ]
+sub 8-bit_realm
+    call setup_aborts
+    call init
+    if monstername "*blooper*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call 8-bit_realm
+
+[ barroom brawl ]
+sub barroom_brawl
+    call setup_aborts
+    call init
+    if monstername "*unemployed*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call barroom_brawl
+
+[ barrrney's ]
+sub barrrneys
+    call setup_aborts
+    call init
+    item The Big Book of Pirate Insults
+    call main
+    "repeat"
+endsub
+call barrrneys
+
+[ battlefield (hippy uniform) ]
+sub battlefield_hippy
+    call setup_aborts
+    call init
+    if monstername "*sorority operator*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call battlefield_hippy
+#------ GLOBAL PREFIX ------
+
+[ belowdecks ]
+sub belowdecks
+    call setup_aborts
+    call init
+    if monstername "*gaudy*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call belowdecks
+
+[ convention hall lobby ]
+sub clmain
+    call heal
+    item bottle of Gü-Gone
+endsub
+sub convention_lobby
+    call setup_aborts
+    call clmain
+    "repeat"
+endsub
+call convention_lobby
+
+[ default ]
+sub default
+    call setup_aborts
+    call init
+    call main
+    "repeat"
+endsub
+call default
+#------ DAILY -------
+
+[ defiled niche ]
+sub defiled_niche
+    call setup_aborts
+    call init
+    if monstername "*dirty old lihc*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call defiled_niche
+
+[ f'c'le ]
+sub fcle
+    call setup_aborts
+    if monstername "*clingy*"
+        item cocktail napkin
+    endif
+    call init
+    call main
+    "repeat"
+endsub
+call fcle
+
+[ fungal nethers ]
+sub fungal_nethers
+    call setup_aborts
+    call init
+    if monstername "*angry*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call fungal_nethers
+
+[ global prefix ]
+scrollwhendone
+"icon club"
+sub setup_aborts
+    if !turtletamer
+        "abort missed 6"
+        "abort pastround 9"
+        "abort hppercentbelow 50"
+    endif
+    if turtletamer
+        "abort missed 10"
+        "abort pastround 16"
+        "abort hppercentbelow 10"
+    endif
+    if sauceror
+        "abort mpbelow 15"
+    endif
+endsub
+sub doPickpocket
+    if !monstername "beefy bodyguard bat" & !monstername "daft punk"
+        if !monstername "sabre-toothed lime" && !monstername "dairy ooze"
+            if !monstername "minion" && !monstername "May Jones" && !monstername "Mr. Huge" && !monstername "Number Five"
+                try to steal an item
+                if hasskill pickpocket
+                    try to steal an item
+                endif
+                if match "You fish around in your opponent's pocket, but you don't find anything" && hasskill "run like the wind" && hasskill "pop and lock it" && hasskill "break it on down"
+                    combo Rave Steal
+                endif
+            endif
+        endif
+    endif
+endsub
+# called once at the beginning of all sequences
+sub init
+    call doPickpocket
+    item Time-Spinner
+    if hasskill extract jelly
+        call heal
+        skill extract jelly
+    endif
+    if sauceror
+        call heal
+        skill curse of weaksauce
+    endif
+    if discobandit
+        call heal
+        skill disco dance of doom
+        skill disco dance ii: electric boogaloo
+    endif
+endsub
+sub olfactory
+    call heal
+    skill transcendent olfaction
+endsub
+sub banish
+    skill kgb tranquilizer dart
+endsub
+# default main, uses different hits based on class
+sub main
+    call heal
+    call hit
+endsub
+sub attack_main
+    call heal
+    attack with weapon
+endsub
+sub spell_main
+    call heal
+    skill saucestorm
+endsub
+sub bigspell_main
+    call heal
+    skill saucegeyser
+endsub
+# heals with saucy salve up to 2 times
+sub heal
+    if hppercentbelow 90 && !turtletamer && hasskill saucy salve
+        if !times 2
+            skill saucy salve
+            call heal
+        endif
+    endif
+    if hascombatitem anti-anti-antidote
+        if haseffect Hardly Poisoned at All || haseffect A Little Bit Poisoned || haseffect Somewhat Poisoned || haseffect Really Quite Poisoned || haseffect Majorly Poisoned
+            item anti-anti-antidote
+        endif
+    endif
+endsub
+sub hit
+    if sauceror
+        skill saucestorm
+    endif
+    if turtletamer || discobandit
+        attack with weapon
+    endif
+endsub
+
+[ goatlet ]
+sub goatlet
+    call setup_aborts
+    call init
+    if monstername "*dairy*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call goatlet
+
+[ haunted bathroom ]
+sub haunted_bathroom
+    call setup_aborts
+    if monstername "*Guy Made Of Bees*"
+        item antique hand mirror
+    endif
+    call init
+    call main
+    "repeat"
+endsub
+call haunted_bathroom
+
+[ haunted boiler room ]
+sub boiler_room
+    call setup_aborts
+    call init
+    if monstername "*boiler*"
+        call olfactory
+    endif
+    skill saucegeyser
+    "repeat"
+endsub
+call boiler_room
+
+[ haunted laundry room ]
+sub laundry_room
+    call setup_aborts
+    call init
+    if monstername "*cabinet*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call laundry_room
+
+[ haunted library ]
+sub haunted_library
+    call setup_aborts
+    call init
+    if monstername "*writing desk*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call haunted_library
+
+[ hidden bowling alley ]
+sub bowling_alley
+    call setup_aborts
+    call init
+    if monstername "*bowler*"
+        call olfactory
+    endif
+    if monstername "*orderlies*"
+        #call banish
+    endif
+    call main
+    "repeat"
+endsub
+call bowling_alley
+
+[ hidden temple ]
+sub hidden_temple
+    call setup_aborts
+    call init
+    if monstername "*sheep*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call hidden_temple
+
+[ mcmillicancuddy's back 40 ]
+# don't heal after each hit
+sub main_back_40
+    skill saucegeyser
+endsub
+sub back_40
+    call setup_aborts
+    call init
+    call heal
+    call main_back_40
+    "repeat"
+endsub
+call back_40
+
+[ mcmillicancuddy's barn ]
+sub barn
+    call setup_aborts
+    call init
+    if hascombatitem chaos butterfly
+        item chaos butterfly
+    endif
+    call main
+    "repeat"
+endsub
+call barn
+
+[ middle chamber ]
+sub middle_chamber
+    call setup_aborts
+    call init
+    if monstername "*tomb rat*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call middle_chamber
+
+[ outside the club ]
+sub checkGothy
+    if (match "You watch him go, and soon realize he isn't actually running anywhere" && !hasskill "run like the wind") || (match "The raver's movements suddenly become spastic and jerky" && !hasskill "pop and lock it") || (match "The raver drops to the ground and starts spinning his legs wildly" && !hasskill "break it on down")
+        skill gothy handwave
+        attack with weapon
+        "repeat"
+    endif
+endsub
+sub otcMain
+    item Time-Spinner
+    call checkGothy
+endsub
+sub outside_the_club
+    call setup_aborts
+    if !gotjump
+        call checkGothy
+    endif
+    call init
+    call otcMain
+    "repeat"
+endsub
+call outside_the_club
+#------ GRINDING -------
+
+[ palindome ]
+sub palindome
+    call setup_aborts
+    call init
+    if monstername "*Racecar*"
+        call olfactory
+        if hascombatitem disposable instant camera
+            item disposable instant camera
+        endif
+    endif
+    call main
+    "repeat"
+endsub
+call palindome
+
+[ penultimate ]
+sub penultimate
+    call setup_aborts
+    call init
+    if monstername "*healer*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call penultimate
+
+[ through the spacegate ]
+sub through_the_spacegate
+    "abort hppercentbelow 25"
+    "abort pastround 25"
+    "abort mpbelow 25"
+    call init
+    call spell_main
+    "repeat"
+endsub
+call through_the_spacegate
+#------ GUILD -------
+
+[ thugnderdome ]
+sub thugnderdome
+    call setup_aborts
+    call init
+    if monstername "*gnarly*" || monstername "*gnasty*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call thugnderdome
+#------ ASCENSION -------
+
+[ twin peak ]
+sub twin_peak
+    call setup_aborts
+    call init
+    if monstername "*topiary*"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call twin_peak
+
+[ upscale retail district ]
+sub upscale_retail_district
+    "abort hppercentbelow 10"
+    "abort pastround 25"
+    call init
+    skill curse of weaksauce
+    call main
+    "repeat"
+endsub
+call upscale_retail_district
+
+[ wine cellar ]
+sub wine_cellar
+    call setup_aborts
+    call init
+    if monstername "possessed wine rack"
+        call olfactory
+    endif
+    call main
+    "repeat"
+endsub
+call wine_cellar
+
