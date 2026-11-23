@@ -1,0 +1,4 @@
+chamois	clan_slimetube.php?action=chamois&pwd
+dreadoff	set afterAdventureScript=
+dreadon	set afterAdventureScript=dreadstopper.ash
+recompile	set commandLineNamespace = ''; using unrestricted.ash;
