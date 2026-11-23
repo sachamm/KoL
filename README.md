@@ -42,3 +42,9 @@ Do not install this same repository through KoLmafia Git or SVN on that Mac:
 the updater can replace the development links. Other scripts can still update
 normally. Commit and push here to publish changes; other installations can
 install this repository with the Git command above.
+
+## Shared settings
+
+Chosen preferences, the combat script and moods are kept here so every
+machine matches. Run `smmPrefs check` or `smmPrefs apply` in the gCLI. See
+[Shared settings](docs/shared-settings.md).

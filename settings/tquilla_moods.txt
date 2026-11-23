@@ -1,0 +1,140 @@
+[ +combat ]
+unconditional => uneffect The Sonata of Sneakiness
+lose_effect attracting snakes => cast 1 attract snakes
+lose_effect carlweather's cantata of confrontation => cast 1 carlweather's cantata of confrontation
+lose_effect musk of the moose => cast 1 musk of the moose
+
+[ -combat ]
+unconditional => uneffect Carlweather's Cantata of Confrontation
+lose_effect hiding from seekers => cast 1 hide from seekers
+lose_effect smooth movements => cast 1 smooth movement
+lose_effect the sonata of sneakiness => cast 1 the sonata of sneakiness
+
+[ accordionthief ]
+lose_effect flimsy shield of the pastalord => cast 1 shield of the pastalord
+lose_effect nearly silent hunting => cast 1 silent hunter
+
+[ apathetic ]
+
+[ current extends unrestricted, turtletamer ]
+
+[ default ]
+lose_effect fat leon's phat loot lyric => cast 1 fat leon's phat loot lyric
+lose_effect feeling lost => cast 1 feel lost
+lose_effect singer's faithful ocelot => cast 1 singer's faithful ocelot
+lose_effect the spirit of taking => cast 1 the spirit of taking
+
+[ discobandit ]
+lose_effect flimsy shield of the pastalord => cast 1 shield of the pastalord
+lose_effect nearly silent hunting => cast 1 silent hunter
+
+[ init ]
+lose_effect cletus's canticle of celerity => cast 1 cletus's canticle of celerity
+lose_effect suspicious gaze => cast 1 suspicious gaze
+
+[ lowstat ]
+unconditional => uneffect Feeling Excited
+
+[ meat ]
+lose_effect disco leer => cast 1 disco leer
+lose_effect polka of plenty => cast 1 the polka of plenty
+
+[ ml ]
+lose_effect drescher's annoying noise => cast 1 drescher's annoying noise
+lose_effect pride of the puffin => cast 1 pride of the puffin
+lose_effect ur-kel's aria of annoyance => cast 1 ur-kel's aria of annoyance
+
+[ mox ]
+lose_effect quiet desperation => cast 1 quiet desperation
+lose_effect the moxious madrigal => cast 1 the moxious madrigal
+
+[ moxgains ]
+lose_effect knowing smile => cast 1 knowing smile
+
+[ mus ]
+lose_effect power ballad of the arrowsmith => cast 1 the power ballad of the arrowsmith
+lose_effect quiet determination => cast 1 quiet determination
+
+[ musgains ]
+lose_effect patient smile => cast 1 patient smile
+
+[ mys ]
+lose_effect quiet judgement => cast 1 quiet judgement
+lose_effect the magical mojomuscular melody => cast 1 the magical mojomuscular melody
+
+[ mysgains ]
+lose_effect inscrutable gaze => cast 1 inscrutable gaze
+
+[ passivedmg ]
+lose_effect jalape&ntilde;o saucesphere => cast 1 jalape&ntilde;o saucesphere
+lose_effect soul funk => cast 1 soul funk
+
+[ pastamancer ]
+lose_effect nearly silent hunting => cast 1 silent hunter
+
+[ pvp ]
+lose_effect burning hands => use 1 sticky lava globs
+lose_effect hot hands => use 1 lotion of hotness
+lose_effect protection from bad stuff => use 1 scroll of protection from bad stuff
+lose_effect red door syndrome => use 1 can of black paint
+lose_effect smooth movements => cast 1 smooth movement
+lose_effect the sonata of sneakiness => cast 1 the sonata of sneakiness
+
+[ sauceror ]
+lose_effect flimsy shield of the pastalord => cast 1 shield of the pastalord
+lose_effect nearly silent hunting => cast 1 silent hunter
+
+[ sealclubber ]
+lose_effect flimsy shield of the pastalord => cast 1 shield of the pastalord
+
+[ spellcrit ]
+lose_effect wizard squint => cast 1 wizard squint
+
+[ turtletamer ]
+lose_effect boon of the storm tortoise => cast 1 spirit boon
+lose_effect eau de tortue => use 1 turtle pheromones
+lose_effect flimsy shield of the pastalord => cast 1 shield of the pastalord
+lose_effect nearly silent hunting => cast 1 silent hunter
+
+[ unrestricted ]
+lose_effect antibiotic saucesphere => cast 1 antibiotic saucesphere
+lose_effect astral shell => cast 1 astral shell
+lose_effect big => cast 1 get big
+lose_effect blood bond => cast 1 blood bond
+lose_effect blood bubble => cast 1 blood bubble
+lose_effect blubbered up => cast 1 blubber up
+lose_effect carol of the bulls => cast 1 carol of the bulls
+lose_effect carol of the hells => cast 1 carol of the hells
+lose_effect carol of the thrills => cast 1 carol of the thrills
+lose_effect curiosity of br'er tarrypin => cast 1 curiosity of br'er tarrypin
+lose_effect disco fever => cast 1 disco fever
+lose_effect disco state of mind => cast 1 disco aerobics
+lose_effect elemental saucesphere => cast 1 elemental saucesphere
+lose_effect empathy => cast 1 empathy of the newt
+lose_effect fat leon's phat loot lyric => cast 1 fat leon's phat loot lyric
+lose_effect ghostly shell => cast 1 ghostly shell
+lose_effect jalape&ntilde;o saucesphere => cast 1 jalape&ntilde;o saucesphere
+lose_effect jingle jangle jingle => cast 1 jingle bells
+lose_effect leash of linguini => cast 1 leash of linguini
+lose_effect mariachi mood => cast 1 moxie of the mariachi
+lose_effect mathematically precise => cast 1 mathematical precision
+lose_effect nearly silent hunting => cast 1 silent hunter
+lose_effect pasta oneness => cast 1 manicotti meditation
+lose_effect patience of the tortoise => cast 1 patience of the tortoise
+lose_effect rage of the reindeer => cast 1 rage of the reindeer
+lose_effect reptilian fortitude => cast 1 reptilian fortitude
+lose_effect resined => use 1 distilled resin
+lose_effect ruthlessly efficient => cast 1 ruthless efficiency
+lose_effect sauce monocle => cast 1 sauce monocle
+lose_effect saucemastery => cast 1 sauce contemplation
+lose_effect scarysauce => cast 1 scarysauce
+lose_effect seal clubbing frenzy => cast 1 seal clubbing frenzy
+lose_effect shield of the pastalord => cast 1 shield of the pastalord
+lose_effect singer's faithful ocelot => cast 1 singer's faithful ocelot
+lose_effect spiky shell => cast 1 spiky shell
+lose_effect springy fusilli => cast 1 springy fusilli
+lose_effect tenacity of the snapper => cast 1 tenacity of the snapper
+lose_effect the spirit of taking => cast 1 the spirit of taking
+lose_effect walberg's dim bulb => cast 1 walberg's dim bulb
+lose_effect your fifteen minutes => cast 1 fifteen minutes of flame
+

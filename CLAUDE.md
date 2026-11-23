@@ -10,3 +10,4 @@ Further documents in `docs/`:
 - [target-register.md](docs/target-register.md): unbuyable Display Case items and where they come from.
 - [iotm-route.md](docs/iotm-route.md): the daily IoTM route.
 - [resource-planner.md](docs/resource-planner.md): the shared resource planner.
+- [shared-settings.md](docs/shared-settings.md): preferences, combat script and moods shared between machines.

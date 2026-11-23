@@ -1,0 +1,782 @@
+[ alert mariachi ]
+sub default
+    call setup_aborts
+    call doClassStun
+    call main
+    "repeat"
+endsub
+call default
+#------ GRINDING -------
+
+[ barrrney's ]
+sub barrrneys
+    call setup_aborts
+    call init
+    if hascombatitem big book of pirate insults
+        item The Big Book of Pirate Insults
+    endif
+    call main
+    "repeat"
+endsub
+call barrrneys
+
+[ bottles of beer on a golem ]
+sub bottles_of_beer_on_a_golem_main
+    skill lunging thrust-smack
+endsub
+sub bottles_of_beer_on_a_golem
+    call setup_aborts
+    call doItems
+    call doClassStun
+    skill curse of weaksauce
+    call bottles_of_beer_on_a_golem_main
+    "repeat"
+endsub
+call bottles_of_beer_on_a_golem
+
+[ clingy pirate ]
+call doPickpocket
+item cocktail napkin
+
+[ convention hall lobby ]
+sub clmain
+    call heal
+    item bottle of Gü-Gone
+endsub
+sub convention_lobby
+    "abort pastround 19"
+    "abort hppercentbelow 50"
+    #  call init
+    #  skill Curse of Marinara
+    call clmain
+    "repeat"
+endsub
+call convention_lobby
+#disco bandit
+
+[ crab island ]
+sub piraterealm_island_main
+    if !muscleclass
+        skill saucestorm
+    endif
+    if muscleclass
+        attack with weapon
+    endif
+endsub
+sub piraterealm_island
+    call setup_aborts
+    call init
+    call piraterealm_island_main
+    "repeat"
+endsub
+call piraterealm_island
+
+[ default ]
+consult smmConsult.ash
+
+[ faerie cyrkle ]
+sub faerie_cyrkle_main
+    attack with weapon
+endsub
+sub faerie_cyrkle
+    call faerie_cyrkle_main
+    "repeat"
+endsub
+call faerie_cyrkle
+
+[ fantasy forest faerie ]
+skill saucestorm
+
+[ fernswarthy's basement ]
+sub fernswarthys_basement_main
+    skill saucegeyser
+endsub
+sub fernswarthys_basement
+    call setup_aborts
+    call doItems
+    call doClassStun
+    call fernswarthys_basement_main
+    "repeat"
+endsub
+call fernswarthys_basement
+
+[ foreboding cave ]
+sub fc_main
+    skill saucestorm
+endsub
+sub foreboding_cave
+    call setup_aborts
+    call init
+    call fc_main
+    "repeat"
+endsub
+call foreboding_cave
+
+[ gingerbread industrial zone ]
+sub gingerbread_industrial_zone_init
+    call doItems
+    call doClassStun
+    #skill sing along
+    skill a new habit
+endsub
+sub gingerbread_industrial_zone_main
+    if mysticalityclass
+        skill saucegeyser
+    endif
+    if muscleclass
+        skill saucestorm
+    endif
+    if moxieclass
+        attack with weapon
+    endif
+endsub
+sub gingerbread_industrial_zone
+    call setup_aborts
+    call gingerbread_industrial_zone_init
+    if monstername "gingerbread mutant"
+        skill licorice rope
+    endif
+    call gingerbread_industrial_zone_main
+    "repeat"
+endsub
+call gingerbread_industrial_zone
+
+[ global prefix ]
+scrollwhendone
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort haseffect teleportitis"
+    "abort missed 2"
+    "abort pastround 25"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+endsub
+sub hit
+    skill saucegeyser
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+sub doPickpocket
+    if !monstername "beefy bodyguard bat"  && !monstername "sabre-toothed lime" && !monstername "dairy ooze"
+        if !monstername "minion" && !monstername "May Jones" && !monstername "Mr. Huge" && !monstername "Number Five"
+            try to steal an item
+            try to steal an item
+        endif
+    endif
+endsub
+sub doItems
+    if sauceror
+        skill curse of weaksauce
+    endif
+    item Time-Spinner
+    "skill micrometeorite"
+    #use rock band flyers, beehive
+endsub
+sub init
+    call doPickpocket
+    call doItems
+    call doClassStun
+    skill sing along
+    skill a new habit
+    skill extract jelly
+endsub
+# default main, uses different hits based on class
+sub main
+    call heal
+    call hit
+endsub
+sub big_main
+    call heal
+    call big_hit
+endsub
+# heals with saucy salve up to 2 times
+sub heal
+    if hppercentbelow 80 && !muscleclass && hasskill saucy salve
+        if !times 2
+            skill saucy salve
+            call heal
+        endif
+    endif
+    if hascombatitem anti-anti-antidote
+        if haseffect Hardly Poisoned at All || haseffect A Little Bit Poisoned || haseffect Somewhat Poisoned || haseffect Really Quite Poisoned || haseffect Majorly Poisoned
+            item anti-anti-antidote
+        endif
+    endif
+endsub
+sub banish
+    if !hasskill KGB tranquilizer dart && hasskill Asdon Martin: Spring-loaded Front Bumper
+        skill asdon martin: spring-loaded front bumper
+    endif
+    if hasskill KGB tranquilizer dart
+        skill kgb tranquilizer dart
+    endif
+endsub
+
+[ guy made of bees ]
+item antique hand mirror
+"abort true"
+
+[ hellseal pup ]
+if hascombatitem seal tooth
+    item seal tooth
+endif
+attack with weapon
+
+[ hermetic seal ]
+section infernal seal
+
+[ infernal seal ]
+sub seal
+    call setup_aborts
+    call init
+    call main
+    "repeat"
+endsub
+call seal
+
+[ jungle island ]
+sub piraterealm_island_main
+    if !muscleclass
+        skill saucestorm
+    endif
+    if muscleclass
+        attack with weapon
+    endif
+endsub
+sub piraterealm_island
+    call setup_aborts
+    call init
+    call piraterealm_island_main
+    "repeat"
+endsub
+call piraterealm_island
+
+[ krakrox the barbarian ]
+skill saucestorm
+
+[ lov enforcer ]
+sub lov_enforcer_attack
+    attack with weapon
+endsub
+sub lov_enforcer
+    "abort missed 6"
+    "abort pastround 25"
+    "abort hppercentbelow 25"
+    call lov_enforcer_attack
+    "repeat"
+endsub
+call lov_enforcer
+
+[ lov engineer ]
+sub lov_engineer_attack
+    skill saucegeyser
+endsub
+sub lov_engineer
+    call setup_aborts
+    call lov_engineer_attack
+    "repeat"
+endsub
+call lov_engineer
+
+[ mcmillicancuddy's barn ]
+sub barn
+    call setup_aborts
+    call init
+    if hascombatitem chaos butterfly
+        item chaos butterfly
+    endif
+    call main
+    "repeat"
+endsub
+call barn
+#------ GLOBAL PREFIX ------
+
+[ mother hellseal ]
+sub mother_hellseal
+    call setup_aborts
+    call init
+    skill lunging thrust-smack
+endsub
+call mother_hellseal
+#turtle tamer
+
+[ near the witch's house ]
+sub near_the_witchs_house
+    call setup_aborts
+    #skill saucegeyser
+    skill saucestorm
+endsub
+call near_the_witchs_house
+
+[ ogre chieftain ]
+sub ogre_chieftain
+    item Arr, M80,Arr, M80
+endsub
+call ogre_chieftain
+
+[ old default no longer used ]
+#sub default
+#  call setup_aborts
+#  call init
+#  call main
+#  "repeat"
+#endsub
+#call default
+#------ DAILY -------
+
+[ old rubee mine ]
+sub old_rubee_mine_main
+    #skill saucegeyser
+    skill saucestorm
+endsub
+sub old_rubee_mine
+    call old_rubee_mine_main
+    "repeat"
+endsub
+call old_rubee_mine
+
+[ outer compound ]
+sub outer_compound
+    if match frenchturtle.gif
+        call setup_aborts
+        call init
+        skill apprivoisez la tortue
+        skill apprivoisez la tortue
+        skill apprivoisez la tortue
+        skill apprivoisez la tortue
+        skill apprivoisez la tortue
+    endif
+    call setup_aborts
+    call init
+    skill lunging thrust-smack
+    "repeat"
+endsub
+call outer_compound
+#sauceror
+
+[ outside the club ]
+sub checkGothy
+    if (match "You watch him go, and soon realize he isn't actually running anywhere" && !hasskill "run like the wind") || (match "The raver's movements suddenly become spastic and jerky" && !hasskill "pop and lock it") || (match "The raver drops to the ground and starts spinning his legs wildly" && !hasskill "break it on down")
+        skill gothy handwave
+        attack with weapon
+    endif
+endsub
+sub otcMain
+    item seal tooth
+    call checkGothy
+endsub
+sub outside_the_club
+    if (hasskill pop and lock it && hasskill break it on down && hasskill run like the wind)
+        combo Rave Steal
+        combo Rave Concentration
+        attack with weapon
+        attack with weapon
+    endif
+    if !gotjump
+        call checkGothy
+    endif
+    call init
+    call otcMain
+    "repeat"
+endsub
+"abort pastround 25"
+if (monstername "*pop-and-lock*" && hasskill "pop and lock it") || (monstername "*breakdancing*" && hasskill "break it on down") || (monstername "*running man*" && hasskill "run like the wind");consult smmConsult.ash;endif
+    call outside_the_club
+    #accordion thief
+
+[ palindome ]
+sub palindome
+    call setup_aborts
+    call init
+    if monstername "*Racecar*"
+        if hascombatitem disposable instant camera
+            item disposable instant camera
+        endif
+    endif
+    call main
+    "repeat"
+endsub
+call palindome
+
+[ putrid swamp ]
+sub putrid_swamp_main
+    #skill saucegeyser
+    skill saucestorm
+endsub
+sub putrid_swamp
+    call setup_aborts
+    call putrid_swamp_main
+    "repeat"
+endsub
+call putrid_swamp
+
+[ sentient atm ]
+skill saucegeyser
+#------ ASCENSION -------
+
+[ servant of grodstank ]
+section infernal seal
+#------ GUILD -------
+#seal clubber
+
+[ shadow cauldron ]
+"abort hppercentbelow 50"
+item shard of double-ice
+skill saucegeyser
+
+[ shadow matrix ]
+"abort hppercentbelow 50"
+item shard of double-ice
+skill saucegeyser
+
+[ shadow orrery ]
+"abort hppercentbelow 50"
+item shard of double-ice
+item gas can,gas can
+item gas can,gas can
+item gas can,gas can
+item gas can,gas can
+item gas can,gas can
+abort
+
+[ shadow scythe ]
+"abort hppercentbelow 50"
+item shard of double-ice
+skill saucegeyser
+abort
+
+[ shadow spire ]
+"abort hppercentbelow 66"
+item shard of double-ice
+skill saucegeyser
+
+[ shadow tongue ]
+"abort hppercentbelow 50"
+item shard of double-ice
+skill saucegeyser
+
+[ signal island old ]
+sub alt_init
+    call doPickpocket
+    call doItems
+    call doClassStun
+    skill a new habit
+    skill extract jelly
+endsub
+sub alt_main
+    skill saucestorm
+endsub
+sub default
+    call setup_aborts
+    call alt_init
+    call alt_main
+    "repeat"
+endsub
+call default
+
+[ sssshhsssblllrrggghsssssggggrrgglsssshhssslblgl ]
+skill saucegeyser
+
+[ strong wind ]
+sub strong_wind_main
+    item spectre scepter,spectre scepter
+endsub
+sub strong_wind
+    "abort haseffect beaten up"
+    call init
+    skill curse of weaksauce
+    skill silent treatment
+    call strong_wind_main
+    "repeat"
+endsub
+call strong_wind
+
+[ surprised mariachi ]
+sub default
+    call setup_aborts
+    call doPickpocket
+    call doClassStun
+    call main
+    "repeat"
+endsub
+call default
+
+[ the barrow mounds ]
+sub barrow_mounds
+    try to run away
+endsub
+call barrow_mounds
+
+[ the cursed village ]
+sub cursed_village_main
+    #use patchouli oil bomb
+    #use seal tooth, seal tooth
+    item spectre scepter,spectre scepter
+endsub
+sub cursed_village
+    call setup_aborts
+    call cursed_village_main
+    "repeat"
+endsub
+call cursed_village
+
+[ the cursed village thieves' guild ]
+sub sprawling_cemetery
+    call setup_aborts
+    if !discobandit
+        call doClassStun
+        call hit
+        call hit
+        call hit
+    endif
+    if discobandit
+        skill saucestorm
+        skill saucestorm
+        skill saucestorm
+    endif
+endsub
+call sprawling_cemetery
+
+[ the druidic campsite ]
+sub druidic_campsite
+    call setup_aborts
+    skill saucestorm
+endsub
+call druidic_campsite
+
+[ the evil cathedral ]
+sub the_evil_cathedral_main
+    attack with weapon
+endsub
+sub the_evil_cathedral
+    call the_evil_cathedral_main
+    "repeat"
+endsub
+call the_evil_cathedral
+
+[ the fun-guy mansion ]
+sub funguy_mansion_main
+    attack with weapon
+endsub
+sub funguy_mansion
+    call setup_aborts
+    call init
+    skill silent treatment
+    call funguy_mansion_main
+    "repeat"
+endsub
+call funguy_mansion
+#pirate realm piraterealm
+
+[ the ghoul king's catacomb ]
+sub gk_catacomb
+    skill saucegeyser
+endsub
+call gk_catacomb
+
+[ the labyrinthine crypt ]
+sub MasterThief
+    if hppercentbelow 40
+        item gauze garter
+    endif
+    if hppercentbelow 80
+        skill saucy salve
+    endif
+    if !hppercentbelow 80
+        attack with weapon
+    endif
+endsub
+call MasterThief
+
+[ the master thief's chalet ]
+sub mt_chalet
+    skill saucegeyser
+endsub
+call mt_chalet
+
+[ the sprawling cemetery ]
+skill saucestorm
+
+[ the sunken party yacht ]
+sub sunken_party_yacht
+    call setup_aborts
+    call init
+    skill summon leviatuga
+    skill harpoon!
+    call big_main
+    "repeat"
+endsub
+call sunken_party_yacht
+
+[ the troll fortress ]
+sub the_troll_fortress_main
+    skill saucestorm
+endsub
+sub the_troll_fortress
+    call the_troll_fortress_main
+    "repeat"
+endsub
+call the_troll_fortress
+
+[ this is to make sure this section doesn't get matched by anything ]
+#seal clubber
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    skill club foot
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill lunging thrust-smack
+endsub
+#turtle tamer
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort haseffect teleportitis"
+    "abort missed 7"
+    "abort pastround 16"
+    "abort hppercentbelow 10"
+endsub
+sub doClassStun
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill lunging thrust-smack
+endsub
+#pastamancer
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort mpbelow 15"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    if hasskill entangling noodles
+        call heal
+        skill entangling noodles
+    endif
+endsub
+sub hit
+    skill saucestorm
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+#sauceror
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort (!mppercentbelow 100)"
+    "abort mpbelow 15"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    call heal
+    #skill soul bubble
+endsub
+sub hit
+    skill saucegeyser
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+#disco bandit
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort haseffect teleportitis"
+    "abort missed 2"
+    "abort pastround 25"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+endsub
+sub hit
+    call heal
+    skill disco dance of doom
+    skill disco dance ii: electric boogaloo
+    note unknown/ambiguous skill disco dance iii
+    if (hasskill pop and lock it && hasskill break it on down && hasskill run like the wind)
+        combo Rave Steal
+        combo Rave Concentration
+        combo Rave Nirvana
+        note unknown combo Rave Stats
+    endif
+    attack with weapon
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+#accordion thief
+sub setup_aborts
+    "abort haseffect beaten up"
+    "abort haseffect teleportitis"
+    "abort missed 3"
+    "abort pastround 11"
+    "abort hppercentbelow 25"
+endsub
+sub doClassStun
+    if hasskill Accordion Bash
+        skill accordion bash
+    endif
+    if hasskill steal accordion
+        skill steal accordion
+    endif
+endsub
+sub hit
+    attack with weapon
+endsub
+sub big_hit
+    skill saucegeyser
+endsub
+
+[ towering mountains ]
+sub tm_main
+    skill saucestorm
+endsub
+sub towering_mountains
+    call setup_aborts
+    call init
+    call tm_main
+    "repeat"
+endsub
+call towering_mountains
+
+[ upscale retail district ]
+sub upscale_retail_district
+    "abort hppercentbelow 25"
+    "abort pastround 25"
+    call init
+    if monstername "gingerbread gentrifier"
+        skill licorice rope
+    endif
+    if monstername "gingerbread tech bro"
+        item gingerbread restraining order
+    endif
+    if mysticalityclass
+        skill curse of weaksauce
+    endif
+    call main
+    "repeat"
+endsub
+call upscale_retail_district
+
+[ watertight seal ]
+skill lunging thrust-smack
+"repeat"
+#fantasyrealm
+
