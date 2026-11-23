@@ -8,18 +8,6 @@ endsub
 call default
 #------ GRINDING -------
 
-[ barrrney's ]
-sub barrrneys
-    call setup_aborts
-    call init
-    if hascombatitem big book of pirate insults
-        item The Big Book of Pirate Insults
-    endif
-    call main
-    "repeat"
-endsub
-call barrrneys
-
 [ bottles of beer on a golem ]
 sub bottles_of_beer_on_a_golem_main
     skill lunging thrust-smack
@@ -33,10 +21,6 @@ sub bottles_of_beer_on_a_golem
     "repeat"
 endsub
 call bottles_of_beer_on_a_golem
-
-[ clingy pirate ]
-call doPickpocket
-item cocktail napkin
 
 [ convention hall lobby ]
 sub clmain
@@ -112,51 +96,23 @@ sub foreboding_cave
 endsub
 call foreboding_cave
 
-[ gingerbread industrial zone ]
-sub gingerbread_industrial_zone_init
-    call doItems
-    call doClassStun
-    #skill sing along
-    skill a new habit
-endsub
-sub gingerbread_industrial_zone_main
-    if mysticalityclass
-        skill saucegeyser
-    endif
-    if muscleclass
-        skill saucestorm
-    endif
-    if moxieclass
-        attack with weapon
-    endif
-endsub
-sub gingerbread_industrial_zone
-    call setup_aborts
-    call gingerbread_industrial_zone_init
-    if monstername "gingerbread mutant"
-        skill licorice rope
-    endif
-    call gingerbread_industrial_zone_main
-    "repeat"
-endsub
-call gingerbread_industrial_zone
-
 [ global prefix ]
 scrollwhendone
+#turtle tamer
 sub setup_aborts
     "abort haseffect beaten up"
     "abort haseffect teleportitis"
-    "abort missed 2"
-    "abort pastround 25"
-    "abort hppercentbelow 25"
+    "abort missed 7"
+    "abort pastround 16"
+    "abort hppercentbelow 10"
 endsub
 sub doClassStun
 endsub
 sub hit
-    skill saucegeyser
+    attack with weapon
 endsub
 sub big_hit
-    skill saucegeyser
+    skill lunging thrust-smack
 endsub
 sub doPickpocket
     if !monstername "beefy bodyguard bat"  && !monstername "sabre-toothed lime" && !monstername "dairy ooze"
@@ -280,19 +236,6 @@ sub lov_engineer
 endsub
 call lov_engineer
 
-[ mcmillicancuddy's barn ]
-sub barn
-    call setup_aborts
-    call init
-    if hascombatitem chaos butterfly
-        item chaos butterfly
-    endif
-    call main
-    "repeat"
-endsub
-call barn
-#------ GLOBAL PREFIX ------
-
 [ mother hellseal ]
 sub mother_hellseal
     call setup_aborts
@@ -324,7 +267,6 @@ call ogre_chieftain
 #  "repeat"
 #endsub
 #call default
-#------ DAILY -------
 
 [ old rubee mine ]
 sub old_rubee_mine_main
@@ -386,19 +328,9 @@ if (monstername "*pop-and-lock*" && hasskill "pop and lock it") || (monstername 
     call outside_the_club
     #accordion thief
 
-[ palindome ]
-sub palindome
-    call setup_aborts
-    call init
-    if monstername "*Racecar*"
-        if hascombatitem disposable instant camera
-            item disposable instant camera
-        endif
-    endif
-    call main
-    "repeat"
-endsub
-call palindome
+[ pumpkin spice wraith ]
+try to steal an item
+skill saucegeyser
 
 [ putrid swamp ]
 sub putrid_swamp_main
@@ -414,11 +346,9 @@ call putrid_swamp
 
 [ sentient atm ]
 skill saucegeyser
-#------ ASCENSION -------
 
 [ servant of grodstank ]
 section infernal seal
-#------ GUILD -------
 #seal clubber
 
 [ shadow cauldron ]
@@ -457,24 +387,9 @@ skill saucegeyser
 item shard of double-ice
 skill saucegeyser
 
-[ signal island old ]
-sub alt_init
-    call doPickpocket
-    call doItems
-    call doClassStun
-    skill a new habit
-    skill extract jelly
-endsub
-sub alt_main
-    skill saucestorm
-endsub
-sub default
-    call setup_aborts
-    call alt_init
-    call alt_main
-    "repeat"
-endsub
-call default
+[ spectre of war ]
+try to steal an item
+skill saucegeyser
 
 [ sssshhsssblllrrggghsssssggggrrgglsssshhssslblgl ]
 skill saucegeyser
@@ -492,6 +407,7 @@ sub strong_wind
     "repeat"
 endsub
 call strong_wind
+# shadow rifts
 
 [ surprised mariachi ]
 sub default
@@ -599,17 +515,6 @@ call mt_chalet
 [ the sprawling cemetery ]
 skill saucestorm
 
-[ the sunken party yacht ]
-sub sunken_party_yacht
-    call setup_aborts
-    call init
-    skill summon leviatuga
-    skill harpoon!
-    call big_main
-    "repeat"
-endsub
-call sunken_party_yacht
-
 [ the troll fortress ]
 sub the_troll_fortress_main
     skill saucestorm
@@ -678,7 +583,6 @@ endsub
 #sauceror
 sub setup_aborts
     "abort haseffect beaten up"
-    "abort (!mppercentbelow 100)"
     "abort mpbelow 15"
     "abort haseffect teleportitis"
     "abort missed 3"
@@ -755,25 +659,6 @@ sub towering_mountains
     "repeat"
 endsub
 call towering_mountains
-
-[ upscale retail district ]
-sub upscale_retail_district
-    "abort hppercentbelow 25"
-    "abort pastround 25"
-    call init
-    if monstername "gingerbread gentrifier"
-        skill licorice rope
-    endif
-    if monstername "gingerbread tech bro"
-        item gingerbread restraining order
-    endif
-    if mysticalityclass
-        skill curse of weaksauce
-    endif
-    call main
-    "repeat"
-endsub
-call upscale_retail_district
 
 [ watertight seal ]
 skill lunging thrust-smack
