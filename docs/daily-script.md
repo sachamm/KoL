@@ -34,7 +34,7 @@ Either way, `smmdaily run` again carries on from where the day stopped. A task t
 | `smmdaily journal [n]` | Today's journal, or its last n lines. |
 | `smmdaily retry <task>` | Lets a failed or finished task run again. Counters and spending are kept. |
 | `smmdaily book` | Books today's purchases as operating spend and prints the ledger. |
-| `smmdaily audit` | Books purchases, checks their prices, and lists daily resources with uses left. |
+| `smmdaily audit` | Books purchases, checks their prices, and lists daily resources with uses left. Before the nightcap that list still holds what the nightcap steps and `good_night` spend, so run it again after them. |
 | `smmdaily unfence` | Takes fenced items back out of the closet. |
 | `smmdaily settings` | Every `smm.daily.*` setting with its value and meaning. |
 | `smmdaily reset` | Clears the run lock left by a crashed run. Nothing else is cleared. |

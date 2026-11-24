@@ -240,6 +240,9 @@ int smmDTPoolUsed(string value) {
 void smmDTAudit() {
 	int open = 0;
 	print("smmDaily: daily resources with uses left:", "blue");
+	// smmdaily does not run the nightcap or good_night yet, and those spend much of this list
+	if (my_inebriety() <= inebriety_limit())
+		print("&nbsp;&nbsp;(before the nightcap: the nightcap steps and good_night still spend the free fights, free kills, spikes and Cinch. Run smmdaily audit after them for what really went unused.)", "gray");
 	foreach i, line in smmDTPools {
 		SmmDPool pool = smmDTParsePool(line);
 		if (smmDTPoolProblem(pool) != "" || !smmDTPoolOwned(pool)) continue;
