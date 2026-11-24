@@ -34,7 +34,7 @@ Either way, `smmdaily run` again carries on from where the day stopped. A task t
 | `smmdaily journal [n]` | Today's journal, or its last n lines. |
 | `smmdaily retry <task>` | Lets a failed or finished task run again. Counters and spending are kept. |
 | `smmdaily book` | Books today's purchases as operating spend and prints the ledger. |
-| `smmdaily audit` | Books purchases, checks their prices, and lists daily resources with uses left. |
+| `smmdaily audit` | Books purchases, checks their prices, and lists daily resources with uses left. Before the nightcap that list still holds what the nightcap steps and `good_night` spend, so run it again after them. |
 | `smmdaily unfence` | Takes fenced items back out of the closet. |
 | `smmdaily settings` | Every `smm.daily.*` setting with its value and meaning. |
 | `smmdaily reset` | Clears the run lock left by a crashed run. Nothing else is cleared. |
@@ -77,7 +77,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **MP.** The day used to stall at 0 MP after rollover. `mp.bootstrap` restores MP to `smm.daily.mpFloor` from free sources only: License to Chill when a lot is missing, bat-wing rests, nuns visits, the eternal car battery. Free rests are never used for MP. Each one refills Cinch on the Cincho de Mayo, and 60 Cinch forces a noncombat (`grindRufusAndTheShadowRiftsForFree` spends them that way before the nightcap). If KoLmafia's breakfast did not finish its summons, it is run again. Before every later task up to and including garbo, MP under `smm.daily.mpLow` is topped up the same way. Nothing is bought to restore MP. While maximum MP is under `smm.daily.mpLow` no free restore is spent at all: each gives 1,000 MP or more, and a small maximum means the outfit or an effect is the problem.
 
-**Spending.** `close.book` reads the day's session log and counts every purchase `smmSpend` did not make as operating spend. `smmSpendRun` then allows half of the day's net, less its own purchases, less the operating spend. The report checks the day's biggest mall purchases against their average sale price and prints what was paid above it. The line in the log is the purchase request, so the total can run slightly high, never low. Only the log on the machine you are playing on is read.
+**Spending.** `close.book` reads the day's session log and counts every purchase that neither `smmSpend` nor `diet.js` made as operating spend. The diet has a budget of its own, `smm.diet.budget` (see [daily-spending.md](daily-spending.md#the-diets-purchases)). `smmSpendRun` then allows half of the day's net, less its own purchases, less the operating spend. The report checks the day's biggest mall purchases against their average sale price and prints what was paid above it. The line in the log is the purchase request, so the total can run slightly high, never low. Only the log on the machine you are playing on is read.
 
 **garbo.** The `garbo` task refuses to start unless `valueOfAdventure` is between 3,500 and 10,000. It always passes an explicit negative turn count, and refuses `ascend`, `workshed=`, `quick` and a turn count in `smm.daily.garboArgs`. While garbo runs, the items in `smm.daily.fenceItems` sit in the closet, recorded in `smm.daily.fenced`, and come back out afterwards even if garbo aborts.
 
@@ -154,5 +154,6 @@ Known limits of what is built:
 - the new files never call `user_confirm`;
 - every function a task names exists, and every KoLmafia preference the new files read exists in r29462;
 - the Day 0 settings are in `data/smm-prefs.txt` and `smm.daily.runner` is not.
+- when node is installed, `diet.js` keeps its price rule and budget (`tests/diet-spending.cjs`) and its adventure bounds (`tests/nightcap-adventure-bounds.cjs`).
 
 The tests cannot log in, so nothing that touches the game is exercised by them: the free MP restores, the fence moves, garbo and every legacy task are untested until the first live run. Start with `smmdaily plan` and `smmdaily dry`.

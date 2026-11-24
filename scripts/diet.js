@@ -70,7 +70,13 @@
 //                  option and preference, named after it without spaces
 //                  (meatdrop=N / smm.MeatDropValue, familiarweight=N / ...);
 //                  0 ignores that modifier
-//   noRefresh      don't re-check live mall prices of the chosen items
+//   noRefresh      don't re-check live mall prices of the chosen items (and
+//                  don't look up their average sale prices: buying is still
+//                  capped at the average, so an overpriced item stops the run)
+//   budget=N       meat the diet may spend on purchases today (default:
+//                  smm.diet.budget, else 500,000). What earlier runs spent
+//                  today counts (_smm.diet.spent). A plan that would pass it
+//                  is re-planned at a lower value per adventure until it fits
 //   exclude=a|b|c  item names to leave out
 //   (execute, turngen and finish handle helpers, effects, Ode to Booze and gear, then
 //   restore your outfit and familiar)
@@ -2004,6 +2010,101 @@ function priceOf(it, fresh) {
 	return result
 }
 
+// smm: the spending rules (docs/aftercore-goals.md) -- nothing is bought
+// above its average sale price. The average comes from Pricegun, read the
+// way smmSpend.ash reads it: an answer for this item with at least one sale
+// and one history entry. Anything else is "unknown" (0).
+function parseAverage(text, id) {
+	var data = null
+	try { data = JSON.parse(text) } catch (e) { return 0 }
+	if (!data || data.itemId != id) return 0
+	if (!data.sales || !data.sales.length || !data.history || !data.history.length) return 0
+	var v = data.value
+	if (v && typeof v == "object") v = v.__decimal__
+	v = parseFloat(v)
+	return v > 0 ? v : 0
+}
+
+var average_cache = {}  // item id -> average sale price, 0 when unknown
+
+function averageSalePrice(it) {
+	var id = km.toInt(it)
+	if (average_cache[id] === undefined) {
+		var text = ""
+		try { text = km.visitUrl("https://pricegun.loathers.net/api/" + id, false, false) } catch (e) { text = "" }
+		average_cache[id] = parseAverage(text, id)
+	}
+	return average_cache[id]
+}
+
+// What to do with a planned item the mall sells at `price`:
+//   "buy"   the price is at or under the average, or the average is unknown
+//           (no sales on record: the current listing is the only price there is);
+//   "owned" above the average, but spare copies are owned: use only those;
+//   "drop"  above the average and none to spare: leave it out of the diet.
+function averageRule(price, average, spare) {
+	if (!(average > 0) || price <= average) return "buy"
+	return spare > 0 ? "owned" : "drop"
+}
+
+// The most the diet may pay for one copy: the planned price with its slack,
+// and never more than the average sale price when that is known.
+function buyCap(planned, average) {
+	var cap = Math.ceil(planned * PRICE_SLACK)
+	if (average > 0) cap = Math.min(cap, Math.floor(average))
+	return Math.max(0, cap)
+}
+
+// smm: the diet's own daily budget. Its purchases do not count against the
+// half-of-net spending rule (smmDaily books them apart), so they have a cap
+// of their own.
+var DIET_BUDGET = 500000
+var BUDGET_STEP = 0.85   // each re-plan values an adventure this much lower
+var PLAN_PASSES = 16     // re-plans for changed prices and for the budget
+
+function dietBudget(opts) {
+	var explicit = opts.budget !== undefined ? opts.budget : pref("smm.diet.budget")
+	var n = parseInt(explicit, 10)
+	return isNaN(n) ? DIET_BUDGET : Math.max(0, n)
+}
+
+// How many of each item a plan uses over the whole day (consumables and the
+// helpers consumed with them).
+function planUnits(plan) {
+	var units = {}
+	var rows = plan.result.diet_items
+	for (var i = 0; i < rows.length; i++) {
+		var n = 0
+		for (var ph = 1; ph <= LAST_PHASE; ph++) n += plan.parts[i][ph] || 0
+		if (!n) continue
+		units[rows[i].name] = (units[rows[i].name] || 0) + n
+		var extra = rows[i].desc.extra
+		for (var j = 0; j < extra.length; j++) {
+			if (extra[j].type == "item" && extra[j].exclude)
+				units[extra[j].item.name] = (units[extra[j].item.name] || 0) + n
+		}
+	}
+	return units
+}
+
+// Meat a plan still has to pay for purchases: the copies beyond the spare
+// ones already owned, at the planned price. Owned-only and speakeasy entries
+// are not purchases.
+function planPurchaseCost(units, consumables, spareOf) {
+	var cost = 0
+	for (var c = 0; c < consumables.length; c++) {
+		var entry = consumables[c]
+		var n = units[entry.name] || 0
+		if (!n || entry.speakeasy || entry.owned || !(entry.price > 0)) continue
+		cost += Math.max(0, n - spareOf(entry.name)) * entry.price
+	}
+	return cost
+}
+
+function noteDietSpend(key, paid) {
+	if (paid > 0) km.setProperty(key, String(prefInt(key) + Math.round(paid)))
+}
+
 // Magical sausages: no fullness, 1 adventure each, 23 a day. Owned spare ones
 // are free; more are ground from casings with a Kramco Sausage-o-Matic for
 // 111 meat times the number made today (meat already in the grinder counts).
@@ -2921,6 +3022,96 @@ function printSweatFlag(settings, finish) {
 		" per cast) -- " + why + ".", "orange")
 }
 
+// Re-checks the live mall price of everything the plan buys and applies the
+// average-sale-price rule to it. True when anything changed, so that the day
+// must be planned again.
+function refreshPlanPrices(plan) {
+	var names = planItemNames(plan.result)
+	var changed = false
+	for (var c = 0; c < diet_consumables.length; c++) {
+		var entry = diet_consumables[c]
+		if (!names[entry.name] || entry.speakeasy || entry.owned) continue
+		var it = km.Item.get(entry.name)
+		var live = priceOf(it, true)
+		if (!live) continue
+		if (Math.abs(live.price - entry.price) > 0.02 * entry.price) {
+			km.print("Price of " + entry.name + ": " + fmt(entry.price) + " -> " + fmt(live.price), "gray")
+			entry.price = live.price
+			changed = true
+		}
+		var npc = km.npcPrice(it)
+		if (!it.tradeable || live.owned || (npc > 0 && npc <= live.price)) continue  // not a mall purchase
+		var average = averageSalePrice(it)
+		var spare = entry.type ? Math.max(0, spareCopies(it)) : 0  // helpers are bought or left out
+		var rule = averageRule(live.price, average, spare)
+		if (rule == "buy") continue
+		km.print("Not buying " + entry.name + ": the mall's " + fmt(live.price) + " is above its average sale price of " + fmt(Math.floor(average)) +
+			(rule == "owned" ? "; only the " + spare + " spare owned are used" : ""), "orange")
+		if (rule == "owned") {
+			entry.limit = Math.min(entry.limit || spare, spare)
+			entry.price = Math.floor(average)  // what a spare copy could be sold for
+			entry.owned = true
+		} else {
+			diet_consumables.splice(c, 1)
+			c--
+		}
+		changed = true
+	}
+	return changed
+}
+
+// Settles a plan: re-plans while refresh() reports changed prices, and while
+// the plan's purchases cost more than `room` (the Meat left in the diet's
+// budget). Over budget, each re-plan values an adventure BUDGET_STEP lower, so
+// the purchases that return least per Meat go first; settings["adventure
+// value"] is left at the value the final plan was made with. When there is no
+// room at all, or the passes run out, the plan is made from owned copies only.
+// Returns {plan, toBuy, over, ownedOnly}.
+function fitPlan(plan, settings, finish, room, refresh, spareOf) {
+	var fullValue = settings["adventure value"], toBuy = 0, ownedOnly = false
+	room = Math.max(0, room)
+	var cost = function () { return planPurchaseCost(planUnits(plan), diet_consumables, spareOf) }
+	for (var pass = 0; ; pass++) {
+		var changed = refresh && !ownedOnly ? refresh(plan) : false
+		toBuy = cost()
+		if (!changed && toBuy <= room) break
+		if (pass >= PLAN_PASSES) {
+			if (changed) {
+				plan = planDay(settings, finish)
+				toBuy = cost()
+			}
+			break
+		}
+		if (!changed) {
+			if (room > 0 && pass < PLAN_PASSES - 1) {
+				settings["adventure value"] *= BUDGET_STEP
+			} else {
+				restrictToOwned(diet_consumables, spareOf)
+				settings["adventure value"] = fullValue
+				ownedOnly = true
+			}
+		}
+		plan = planDay(settings, finish)
+	}
+	return {plan: plan, toBuy: toBuy, over: toBuy > room, ownedOnly: ownedOnly}
+}
+
+// Takes every purchase off the list: an entry with spare owned copies is
+// limited to them, any other priced entry is removed.
+function restrictToOwned(consumables, spareOf) {
+	for (var c = consumables.length - 1; c >= 0; c--) {
+		var entry = consumables[c]
+		if (entry.speakeasy || entry.owned || !(entry.price > 0)) continue
+		var spare = entry.type ? spareOf(entry.name) : 0  // helpers are bought or left out
+		if (spare > 0) {
+			entry.limit = Math.min(entry.limit || spare, spare)
+			entry.owned = true
+		} else {
+			consumables.splice(c, 1)
+		}
+	}
+}
+
 function main(argString) {
 	if (!km) throw "diet.js must be run inside KoLmafia"
 	var opts = parseArgs(argString)
@@ -2937,22 +3128,17 @@ function main(argString) {
 
 	// Historical prices can be stale: re-check live mall prices for everything
 	// the plan uses, and re-plan until those prices stop changing.
-	for (var pass = 0; pass < 3 && !opts.noRefresh; pass++) {
-		var names = planItemNames(plan.result)
-		var changed = false
-		for (var c = 0; c < diet_consumables.length; c++) {
-			var entry = diet_consumables[c]
-			if (!names[entry.name] || entry.speakeasy || entry.owned) continue
-			var live = priceOf(km.Item.get(entry.name), true)
-			if (live && Math.abs(live.price - entry.price) > 0.02 * entry.price) {
-				km.print("Price of " + entry.name + ": " + fmt(entry.price) + " -> " + fmt(live.price), "gray")
-				entry.price = live.price
-				changed = true
-			}
-		}
-		if (!changed) break
-		plan = planDay(settings, !!opts.finish)
-	}
+	// smm: the same pass holds each planned purchase to its average sale price,
+	// and the whole plan to the diet's budget for the day.
+	var budget = dietBudget(opts), spentToday = prefInt("_smm.diet.spent")
+	var fullValue = settings["adventure value"]
+	var fit = fitPlan(plan, settings, !!opts.finish, budget - spentToday, opts.noRefresh ? null : refreshPlanPrices,
+		function (name) { return Math.max(0, spareCopies(km.Item.get(name))) })
+	plan = fit.plan
+	var budgetNote = "Diet budget: " + fmt(Math.max(0, budget - spentToday)) + " of " + fmt(budget) + " meat left today (smm.diet.budget, or budget=N), so this plan "
+	if (fit.ownedOnly) km.print(budgetNote + "buys nothing and uses only what is owned.", "orange")
+	else if (settings["adventure value"] < fullValue) km.print(budgetNote + "values an adventure at " + fmt(settings["adventure value"]) +
+		" meat instead of " + fmt(fullValue) + ".", "orange")
 
 	printPlan(plan, settings, !!opts.finish)
 	if (opts.finish) {
@@ -2971,6 +3157,11 @@ function main(argString) {
 			km.print("Not finishing: this plan would lose " + lost + " adventures at rollover.", "red")
 			return
 		}
+	}
+	if (fit.over) {
+		km.print("Diet budget: this plan buys about " + fmt(fit.toBuy) + " meat of items, with " + fmt(spentToday) + " already spent today and a budget of " +
+			fmt(budget) + " (smm.diet.budget, or budget=N)." + (opts.finish || opts.turngen || opts.execute ? " Nothing is bought or consumed." : ""), "red")
+		return
 	}
 	if (opts.finish) executePlan(plan.result, settings, plan.parts, LAST_PHASE)
 	else if (opts.turngen) executePlan(plan.result, settings, plan.parts, 2)
@@ -3015,11 +3206,23 @@ function acquire(name, n) {
 		km.useSkill(1, skill)
 		return km.availableAmount(it) >= n
 	}
+	var npc = km.npcPrice(it)
 	if (it.tradeable && km.canInteract()) {
-		var cap = Math.ceil(plannedPrice(name) * PRICE_SLACK)
+		// smm: never above the average sale price, whatever the plan says
+		var planned = plannedPrice(name)
+		var cap = buyCap(planned, npc > 0 && npc <= planned ? 0 : averageSalePrice(it))
+		var meatBefore = km.myMeat()
 		if (cap > 0) km.buy(n - have, it, cap)
+		noteDietSpend("_smm.diet.bought", meatBefore - km.myMeat())
 	}
-	if (km.availableAmount(it) < n) km.retrieveItem(n, it)  // NPC stores, Mayo Clinic, crafting
+	if (km.availableAmount(it) < n) {
+		// NPC stores, Mayo Clinic, crafting. Not the mall: KoLmafia's own mall
+		// buying (autoSatisfyWithMall) knows neither cap.
+		var mallOn = prefBool("autoSatisfyWithMall"), meatThen = km.myMeat()
+		if (mallOn) km.setProperty("autoSatisfyWithMall", "false")
+		try { km.retrieveItem(n, it) } finally { if (mallOn) km.setProperty("autoSatisfyWithMall", "true") }
+		if (npc > 0) noteDietSpend("_smm.diet.bought", meatThen - km.myMeat())  // a store purchase is in the session log too
+	}
 	return km.availableAmount(it) >= n
 }
 
@@ -3294,6 +3497,7 @@ function executePlan(result, settings, parts, lastPhase) {
 			lateDone = !error
 		}
 	} finally {
+		noteDietSpend("_smm.diet.spent", startMeat - km.myMeat())  // smm: against the day's diet budget
 		// Stopped before the overdrink: taking the gear or Stooper off now
 		// could leave you over your liver limit without the nightcap.
 		var keepGear = wore && !lateDone && km.myInebriety() <= km.inebrietyLimit()
@@ -3335,6 +3539,12 @@ module.exports.planDay = planDay
 module.exports._printPlan = printPlan  // for tests
 module.exports.effectRates = effectRates
 module.exports.effectOf = effectOf
+module.exports._parseAverage = parseAverage  // for tests
+module.exports._averageRule = averageRule
+module.exports._buyCap = buyCap
+module.exports._planUnits = planUnits
+module.exports._planPurchaseCost = planPurchaseCost
+module.exports._fitPlan = fitPlan
 module.exports._setData = function (consumables, srValue) {  // for tests
 	diet_consumables = consumables
 	semirare_value = srValue

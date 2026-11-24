@@ -73,10 +73,12 @@ void main(string command) {
 	case "book":
 		smmDBookPurchases();
 		smmSpendReport();
+		smmDDietReport();
 		break;
 	case "audit":
 		smmDBookPurchases();
 		smmSpendReport();
+		smmDDietReport();
 		smmDPriceCheck();
 		smmDTAudit();
 		break;
