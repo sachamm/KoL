@@ -136,6 +136,15 @@ void testHold() {
 	same(smmDTasks[smmDTaskIndex["route.paid"]].done_fn, "smmDLRoutePaidDone", "and so is its paid pass");
 }
 
+void testMpSources() {
+	// Logged out nothing is owned, so no source is offered. What matters here
+	// is the one that must never be offered whatever is owned.
+	same(smmDNextFreeMP(5000), "", "no free MP source is offered with nothing owned");
+	boolean restsListed = false;
+	foreach i, line in smmDTPools if (smmDTParsePool(line).pref == "timesRested") restsListed = true;
+	check(restsListed, "free rests are still reported in the audit");
+}
+
 void testAuditTable() {
 	check(count(smmDTPools) >= 30, "the audit table is there");
 	boolean [string] labels;
@@ -190,6 +199,7 @@ void main() {
 	testFence();
 	testGarbo();
 	testHold();
+	testMpSources();
 	testAuditTable();
 	testRegistry();
 	if (failures == 0) print("PASS smmDailyGateTest: " + checks + " checks");

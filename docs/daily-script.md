@@ -73,7 +73,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **No questions.** The new code never asks anything. The six questions today's code asks are answered ahead of time, in the shared settings and again for the length of each run. An answer of `false` to `useBanishers` or `highItem` still stops the run after the bounty, as it does in `dailyGrind()`, so the banishers and item-drop buffs can be kept for work by hand. To stop anywhere else, `set smm.daily.halt = <task>` before the run.
 
-**MP.** The day used to stall at 0 MP after rollover. `mp.bootstrap` restores MP to `smm.daily.mpFloor` from free sources only: License to Chill when a lot is missing, bat-wing rests, nuns visits, free rests, the eternal car battery. If KoLmafia's breakfast did not finish its summons, it is run again. Before every later task up to and including garbo, MP under `smm.daily.mpLow` is topped up the same way. Nothing is bought to restore MP.
+**MP.** The day used to stall at 0 MP after rollover. `mp.bootstrap` restores MP to `smm.daily.mpFloor` from free sources only: License to Chill when a lot is missing, bat-wing rests, nuns visits, the eternal car battery. Free rests are never used for MP. Each one refills Cinch on the Cincho de Mayo, and 60 Cinch forces a noncombat (`grindRufusAndTheShadowRiftsForFree` spends them that way before the nightcap). If KoLmafia's breakfast did not finish its summons, it is run again. Before every later task up to and including garbo, MP under `smm.daily.mpLow` is topped up the same way. Nothing is bought to restore MP.
 
 **Spending.** `close.book` reads the day's session log and counts every purchase `smmSpend` did not make as operating spend. `smmSpendRun` then allows half of the day's net, less its own purchases, less the operating spend. The report checks the day's biggest mall purchases against their average sale price and prints what was paid above it. The line in the log is the purchase request, so the total can run slightly high, never low. Only the log on the machine you are playing on is read.
 
@@ -120,6 +120,7 @@ These are in the plan and not in this milestone:
 - **The planner pools** for MP, banishes, paid turns and organs. The Museum turn cap is a simple counter.
 - **Free-fight adapters** for Snojo and CyberRealm, and the fixes to `burnMP` and `moodExecute` in KoLUtils.
 - **Values in the audit.** It lists the daily resources with uses left, without a value or an owner for each.
+- **An owner for forced noncombats.** The audit lists what is left of each source (Cinch, spikolodon spikes, Avalanche, the Apriling tuba, Allied Radio, Clara's bell, the free Sneakisol). Today only the Shadow Rift work before the nightcap spends any, on spikes and Cinch. Choosing the best noncombat for each is not built.
 
 Known limits of what is built:
 

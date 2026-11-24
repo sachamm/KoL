@@ -62,7 +62,7 @@ These facts correct the resource ledger and the brief.
 |---|---|---|
 | **`valueOfAdventure`** | It is **4,500**, not 500. The scripts still use 5,000 because `smm.TurnValue` is unset. | `data/smm-prefs.txt:11`; garbo printed `Using adventure value 4500.` (`Tquilla_20261123.txt:53694`) |
 | **MP stall** | `burnMP` did not spend 17,797 MP: a negative argument means "keep this much" (`smmUtils.ash:2450-2457`). What actually happens: <br>• Rollover leaves MP near 0 (2,089 on Nov 21, 82 on Nov 23). <br>• Breakfast spent the rest on Nov 21: 22 libram summons cost about 1,793 MP, since the n-th summon costs `1+n(n-1)/2` ([wiki](https://wiki.kingdomofloathing.com/Mystical_bookshelf)). <br>• Recovery is off (`mpAutoRecovery=-0.05`, no `recoveryScript`). <br>• `burnMP` runs the mood **before** it honours its reserve (`smmUtils.ash:2461-2463`), and again in `finally` (`:2488`). <br>• A failed mood cast aborts the day. <br>In short, steps that spend MP run before steps that gain it. | `Tquilla_20261121.txt:542,1424,1501`; `Tquilla_20261123.txt:178,1112` |
-| **MP supply** | Plenty once it is collected first: 11 bat-wing rests of 1,000, 3 nuns visits of 1,000, License to Chill, Gulp Latte (one gulp gave 39,200), free rests and the car battery. Bought MP costs about 1 Meat per MP. Separately, `burnMP` cast Fat Leon's for 662 turns with about 400 turns left. | `Tquilla_20261123.txt:23293` |
+| **MP supply** | Plenty once it is collected first: 11 bat-wing rests of 1,000, 3 nuns visits of 1,000, License to Chill, Gulp Latte (one gulp gave 39,200) and the car battery. Free rests are left out: they refill Cinch (§6). Bought MP costs about 1 Meat per MP. Separately, `burnMP` cast Fat Leon's for 662 turns with about 400 turns left. | `Tquilla_20261123.txt:23293` |
 | **Sword of S Words** | Its 100 daily kills are the largest single value line. On Nov 19 garbo used all 100 and got 72 LED blocks (2.92M) and 72 synthetic stuffing (2.40M) at listing prices; the LED blocks went into the case. On Nov 23 `dailyGrind` used 1 kill in 220 turns and left the rest to garbo. So the Sword is wasted only on days garbo doesn't run, like Nov 21. The Sword's value must also be charged for the familiar it displaces and the native item drops it replaces. | Nov 19 log (garbo summary, `put in display case: 72 LED block`); `Tquilla_20261123.txt:7498-7523` |
 | **Oasis or Barf** | Barf under garbo made **4,329 raw Meat a turn** on Nov 19 (211 turns) and **3,723** on Nov 22 (350 turns, `garboResults*` prefs). The Oasis on Nov 23 made **2,367 raw Meat a turn**, plus 65 mojo filters, 66 hammers and 70 happiness. Tquilla already holds 42k, 77k and 43k of those and is #1 in all three, so the extra copies are worth almost nothing on the market. | Nov 19 log; Oasis block ending `Tquilla_20261123.txt:39205`; ledger |
 | **Grind ledger** | Its figures can't be used: the Oasis at 325k a turn, the ghost costume at 3.3M a turn, Gingerbread at 45.9M in 0 turns, and every grind exempt from the turn-value test. Three causes: <br>• gains are diffs of holdings, so stock moves show up as income; <br>• items consumed are ignored ("Only gains count", `smmUnrestricted.ash:818`); <br>• any untradeable drop counts as a Museum gain. | `Tquilla_20261123.txt:53460-53469`; `smmUnrestricted.ash:808-852` |
@@ -184,8 +184,9 @@ These rules hold in every phase:
   2. License to Chill;
   3. bat-wing rests (`_batWingsRestUsed < 11`);
   4. nuns visits (`nunsVisits < 3`);
-  5. free rests (`timesRested < total_free_rests()`);
-  6. the car battery.
+  5. the car battery.
+
+  Free rests are not an MP source. Each one refills Cinch on the Cincho de Mayo, and 60 Cinch (Fiesta Exit) forces a noncombat. They belong to the forced-noncombat pool in §6.
 - Re-cast any breakfast summon whose own counter shows it failed (`noodleSummons`, `reagentSummons`, `_candySummons`, ...).
 - Then `secondBreakfast`'s collections and buffs.
 
@@ -306,7 +307,8 @@ garbo eats the daytime diet, runs its free fights and copy chain, spends the rem
 | Free kills (7+) | Phase 4 | Only on paid fights. Subtract the loot destroyed by kills that destroy it. No night-time drum-machine fights (`smmUnrestricted.ash:6835`) |
 | Free fights (about 45) | Route free workers in phase 2, then garbo | Snojo and CyberRealm after their unlocks, counting only fights that turn out to be free |
 | Banishes | Per source | Track uses, active slots, duration, scope, turn cost and drop handling for each source. Short banishes go to short grinds. Rollover banishes go to all-day zones once the short grinds release them. Restraining orders may pass the 100-Meat-per-turn cap. No Batter Up! |
-| MP | Phase 1, then floor R | Free sources first, then mall magical mystery juice (about 1 Meat per MP). No libram summons |
+| MP | Phase 1, then floor R | Free sources first, then mall magical mystery juice (about 1 Meat per MP). No libram summons. Never free rests |
+| Forced noncombats | The Shadow Rift work before the nightcap today. A phase 2 or 3 owner once targets are chosen | A forced noncombat is worth the turns it saves reaching the choice, or the item only that choice gives. Sources: Cinch (100 a day plus 30, 30, 30, 30, 30, 25, 20, 15, 10, then 5 per free rest, 60 per Fiesta Exit), 5 spikolodon spikes, 3 McHugeLarge Avalanches, 3 Apriling tuba uses if the tuba is taken, 3 Allied Radio drops, Clara's bell, one free Sneakisol. Free rests are reserved for Cinch. Aim them at register targets that sit behind a noncombat before spending them on Shadow Rift bosses |
 | Lucky! | Phase 2, one paid turn each from the Museum turn budget | Museum target, then the Embezzler, then sell the clovers |
 | Drum machines, leaves, Special Seasoning | Fenced | Museum stock. No sandworms. Leaves are crafted only within `leafCraftCap` once their rank is known |
 | Workshed | Phase 2 (route) | Pick by daily value. An anchor bomb needs 1 rum, 3 anchors, 1 mast and 1 gold, so the 1,826 anchors are limited by gold and worth about 0 at the margin. Never `garbo workshed=` |

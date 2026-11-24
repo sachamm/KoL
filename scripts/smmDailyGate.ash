@@ -152,6 +152,9 @@ int smmDMpTarget() { return min(smmDSettingInt("mpFloor"), my_maxmp()); }
 
 // The next free source worth using with `missing` MP short of full, "" when
 // none is left. Cheapest to waste first: bat-wing rests have no other use.
+// Free rests are not on the list. Each one refills Cinch on the Cincho de
+// Mayo, and 60 Cinch (Fiesta Exit) forces a noncombat, which is worth far more
+// than the MP.
 string smmDNextFreeMP(int missing) {
 	if (!smmDMpSourceFailed["License to Chill"] && missing >= smmDSettingInt("fullRestoreAt")
 		&& item_amount($item[License to Chill]) > 0 && get_property("_licenseToChillUsed") != "true")
@@ -160,8 +163,6 @@ string smmDNextFreeMP(int missing) {
 		return "bat wings";
 	if (!smmDMpSourceFailed["nuns"] && get_property("sidequestNunsCompleted") == "fratboy" && get_property("nunsVisits").to_int() < 3)
 		return "nuns";
-	if (!smmDMpSourceFailed["free rest"] && get_property("timesRested").to_int() < total_free_rests())
-		return "free rest";
 	if (!smmDMpSourceFailed["eternal car battery"] && item_amount($item[eternal car battery]) > 0 && get_property("_eternalCarBatteryUsed") != "true")
 		return "eternal car battery";
 	return "";
@@ -185,9 +186,6 @@ void smmDUseFreeMP(string source) {
 		break;
 	case "nuns":
 		ok = cli_execute("nuns");
-		break;
-	case "free rest":
-		ok = cli_execute("camp rest");
 		break;
 	case "eternal car battery":
 		ok = use(1, $item[eternal car battery]);

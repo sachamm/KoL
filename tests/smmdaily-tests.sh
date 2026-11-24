@@ -78,6 +78,11 @@ NEW="$REPO/scripts/smmdaily.ash $REPO/scripts/smmDailyCore.ash $REPO/scripts/smm
 if grep -n "user_confirm\|user_prompt\|user_notify" $NEW; then fail "the engine must never ask a question"
 else pass "no user_confirm, user_prompt or user_notify in the smmDaily files"; fi
 
+# Free rests refill Cinch on the Cincho de Mayo (60 Cinch forces a noncombat),
+# so the new code must never spend one, least of all for MP.
+if grep -n '"camp rest\|"rest free\|"rest"\|CampgroundRequest\|campground.php' $NEW; then fail "the smmDaily files must not rest: free rests are kept for Cinch"
+else pass "the smmDaily files never spend a free rest"; fi
+
 # --- 5. every function a task names exists -----------------------------------
 
 missing=0
