@@ -748,6 +748,21 @@ int gGrindTurnMark;
 int gGrindMeatMark;
 int [item] gGrindInventoryMark;
 
+// The grind history before 2026-11-25 was valued at listing prices (above).
+// It is cleared once, so the turn-value test starts again from honest figures.
+string kGrindValueVersionKey = "smm.grind.valueVersion";
+boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread];
+
+void dailyGrindMigrateHistory() {
+	if (get_property(kGrindValueVersionKey) == "2") return;
+	foreach name in kDailyGrindNames {
+		foreach key in $strings[histTurns, histValue, histRuns, histMuseumAt]
+			set_property("smm.grind." + key + "." + name, "");
+	}
+	set_property(kGrindValueVersionKey, "2");
+	print("dailyGrind: cleared the grind history, which valued items at their listing price instead of their sale price", "orange");
+}
+
 int dailyGrindMinDays() {
 	string explicit = get_property("smm.dailyGrind.minDays");
 	return explicit == "" ? 5 : max(1, explicit.to_int());
@@ -776,7 +791,9 @@ boolean dailyGrindMayRun(string name) {
 		print("dailyGrind: skipping " + name + ", the day's paid-turn budget of " + limit + " is used up", "blue");
 		return false;
 	}
-	if (preset != "true" && get_property("smm.grind.histRuns." + name).to_int() >= dailyGrindMinDays() && !dailyGrindMuseumRecent(name)) {
+	// history from before the sale-price valuation is cleared at the next grind, and never skips one before that
+	boolean honestHistory = get_property(kGrindValueVersionKey) == "2";
+	if (preset != "true" && honestHistory && get_property("smm.grind.histRuns." + name).to_int() >= dailyGrindMinDays() && !dailyGrindMuseumRecent(name)) {
 		int perTurn = dailyGrindReturnPerTurn(name);
 		if (perTurn >= 0 && perTurn < kTurnValue) {
 			print("dailyGrind: skipping " + name + ", it has returned " + perTurn + " Meat per turn against a turn value of " + kTurnValue
@@ -799,16 +816,31 @@ int [item] dailyGrindHoldings() {
 }
 
 void dailyGrindBegin() {
+	dailyGrindMigrateHistory();
 	gGrindTurnMark = total_turns_played();
 	gGrindMeatMark = my_meat();
 	gGrindInventoryMark = dailyGrindHoldings();
 }
 
-// What one gained copy is worth for the log: the stored mall price (no request), else autosell.
-int dailyGrindItemValue(item it) {
-	int price = it.tradeable ? historical_price(it) : 0;
-	return price > 0 ? price : autosell_price(it);
+// What one gained copy is worth for the log: what it really sells for. The
+// stored mall price is the lowest listing, and for an item nobody buys that
+// is an ask, not a price: on 2026-11-24 it valued 154 Oasis turns at 37.6M
+// (about 75 mojo filters and 369,000 Meat), which kept the turn-value test
+// from ever skipping a grind. So the average sale price (Pricegun) is used,
+// never above the lowest listing, and an item with no recent sales counts at
+// its autosell price.
+int dailyGrindItemValueFrom(boolean tradeable, int listed, float average, int autosell) {
+	if (!tradeable) return autosell;
+	if (average <= 0) return autosell;
+	int sells = floor(average);
+	return listed > 0 ? min(listed, sells) : sells;
 }
+
+int dailyGrindItemValue(item it) {
+	if (!it.tradeable) return autosell_price(it);
+	return dailyGrindItemValueFrom(true, historical_price(it), smmSpendAveragePrice(it), autosell_price(it));
+}
+
 
 void dailyGrindEnd(string name) {
 	int turns = total_turns_played() - gGrindTurnMark;
@@ -857,7 +889,7 @@ void dailyGrindEnd(string name) {
 
 void printDailyGrindLedger() {
 	print("dailyGrind paid-turn ledger (turn value " + kTurnValue + "):", "blue");
-	foreach name in $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread] {
+	foreach name in kDailyGrindNames {
 		int turns = get_property("_smm.grind.turns." + name).to_int();
 		int perTurn = dailyGrindReturnPerTurn(name);
 		if (turns <= 0 && perTurn < 0) continue;
@@ -1382,13 +1414,16 @@ void dressupForDrip(location dripLoc, string dressupTweak, int turnsToGrind) {
 		abort("not enough muscle!");
 }
 
-void grindDrip(location dripLoc, string dressupTweak) {
-	print("grindDrip at " + dripLoc + " with dressupTweak: " + dressupTweak, "green");
+// The drippy nugget and glass of drippy wine are where the Drip's turns
+// (drippyJuice) come from. Each takes 5 organ space, so they go in before the
+// day's diet fills the organs: on 2026-11-24 the diet ran first and the Drip
+// got no turns at all.
+boolean dripConsumePending() {
+	return (!to_boolean(get_property("_drippyNuggetUsed")) && available_amount($item[drippy nugget]) > 0)
+		|| (!to_boolean(get_property("_drippyWineUsed")) && available_amount($item[glass of drippy wine]) > 0);
+}
 
-	setDefaultState();
-	change_mcd(0);
-
-	// CONSUME
+void dripConsume() {
 	if (!to_boolean(get_property("_drippyNuggetUsed")) && my_fullness() <= fullness_limit() - 5) {
 		useMoMifNeeded();
 		museumSafeEat(1, $item[drippy nugget]);
@@ -1397,6 +1432,15 @@ void grindDrip(location dripLoc, string dressupTweak) {
 		useOdeToBoozeIfNeeded(5);
 		museumSafeDrink(1, $item[glass of drippy wine]);
 	}
+}
+
+void grindDrip(location dripLoc, string dressupTweak) {
+	print("grindDrip at " + dripLoc + " with dressupTweak: " + dressupTweak, "green");
+
+	setDefaultState();
+	change_mcd(0);
+
+	dripConsume();
 	int turnsToGrind = to_int(get_property("drippyJuice"));
 
 	if (turnsToGrind > 0) {
@@ -4117,6 +4161,10 @@ void grindRufusAndTheShadowRiftsForFreeHelper() {
 	}
 }
 
+int avalanchesUsed() {
+	return get_property("_mcHugeLargeAvalancheUses").to_int();
+}
+
 void grindRufusAndTheShadowRiftsForFree() {
 	print("grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes available and " + cinchUsed() + " cinch used with " + cinchRestsUsed() + " cinch rests used and " + total_free_rests() + " total free rests", "green");
 
@@ -4157,6 +4205,31 @@ void grindRufusAndTheShadowRiftsForFree() {
 	}
 
 	set_property("_smm.kSpikolodonNextCombat", "false");
+
+	// McHUGELARGE AVALANCHE: 3 a day, cast in a fight like the spikes, forces the next noncombat
+	boolean haveSki = available_amount($item[McHugeLarge left ski]) > 0;
+	while (haveSki && avalanchesUsed() < 3 && (freeCombatsAvailable() > 0 || instaKillsAvailable() > 0) && questStage("questRufus") == 0) {
+		int before = avalanchesUsed();
+		set_property(kAvalancheNextCombatKey, "true");
+		if (freeCombatsAvailable() > 0) {
+			AdventureRecord ar = chooseFreeCombat();
+			print("using free combat " + ar.toString() + " to cast McHugeLarge Avalanche", "green");
+			healIfRequiredWithMPRestore();
+			anyAdventure(ar);
+		} else {
+			print("using instakill to cast McHugeLarge Avalanche", "green");
+			burnInstaKill();
+		}
+		set_property(kAvalancheNextCombatKey, "false");
+		if (avalanchesUsed() <= before) {
+			print("grindRufusAndTheShadowRiftsForFree: McHugeLarge Avalanche was not cast, so the rest are left", "orange");
+			break;
+		}
+		grindRufusAndTheShadowRifts(1); // should be the boss
+		grindRufusAndTheShadowRiftsForFreeHelper();
+		assert(questStage("questRufus") == 0, "grindRufusAndTheShadowRiftsForFree: Avalanche: we haven't started the quest!");
+	}
+
 	// running out of free combats and free kills before the spikes is normal; leftover spikes are a
 	// missed opportunity, not a reason to abort the rest of the free Rufus/Cincho work and the day
 	cprint(spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them", "orange");

@@ -18,6 +18,8 @@ using smmConsult.ash
 
 string kNostalgiaNextCombatKey = "_smm.NostalgiaNextCombat";
 string kSpikolodonNextCombatKey = "_smm.kSpikolodonNextCombat";
+// set before a fight to cast McHugeLarge Avalanche in it (forces the next noncombat); needs the left ski on
+string kAvalancheNextCombatKey = "_smm.kAvalancheNextCombat";
 
 record AbortRecord {
 	int missed;
@@ -1400,6 +1402,13 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 	if (kSpikolodonNextCombatKey.get_property().to_boolean()) {
 		scriptString += "skill Launch spikolodon spikes;";
 		kSpikolodonNextCombatKey.set_property("false");
+	}
+
+	// MCHUGELARGE AVALANCHE: forces the next noncombat, like the spikes
+	if (kAvalancheNextCombatKey.get_property().to_boolean()) {
+		if (have_equipped($item[McHugeLarge left ski]))
+			scriptString += "skill McHugeLarge Avalanche;";
+		kAvalancheNextCombatKey.set_property("false");
 	}
 
 	// SING ALONG

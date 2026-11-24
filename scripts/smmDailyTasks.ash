@@ -29,9 +29,13 @@ void smmDTOpen() {
 		print("smmDaily: " + warning + ".", "orange");
 		smmDLog("day.open", "NOTE", warning);
 	}
-	boolean unused = cli_execute("smmPrefs check");
+	// git update can bring new shared settings after they were last applied
+	boolean unused = cli_execute(smmDSettingBool("applyPrefs") ? "smmPrefs apply" : "smmPrefs check");
 	smmDLog("day.open", "NOTE", "opening Meat " + get_property(kSmmSpendStartKey) + ", " + my_adventures() + " adventures, profile " + smmDSetting("profile"));
 }
+
+boolean smmDTSettings =
+	smmDDeclare("applyPrefs", "true", "day.open runs smmPrefs apply (true) or only smmPrefs check (false)");
 
 // ---------------------------------------------------------------------------
 // Phase 1: MP before anything casts
@@ -55,6 +59,60 @@ void smmDTBootstrap() {
 		print("smmDaily: maximum MP is only " + my_maxmp() + ", so no free restore was spent. Something is holding it down: check the outfit and effects.", "orange");
 	else if (my_mp() < target)
 		print("smmDaily: MP is " + my_mp() + ", under the floor of " + target + ", and the free restores are used up.", "orange");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1: the diet. diet.js plans the whole day; each run buys and consumes
+// one part of it. "yes" answers its question (it asks before buying).
+
+string smmDTDietCommand(string part) {
+	return "call diet.js " + part + " yes";
+}
+
+boolean smmDTOrgansFull() {
+	return my_fullness() >= fullness_limit() && my_inebriety() >= inebriety_limit() && my_spleen_use() >= spleen_limit();
+}
+
+string smmDTDietReady() {
+	if (my_inebriety() > inebriety_limit()) return "overdrunk";
+	return smmDTOrgansFull() ? "the organs are full" : "";
+}
+
+void smmDTDiet() {
+	boolean unused = cli_execute(smmDTDietCommand("execute"));
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: forced noncombats, before garbo
+
+// Fiesta Exits the Cincho de Mayo can still pay for: what is left of today's
+// Cinch, plus what the free rests left would refill (30 for each of the first
+// five rests, 5 less for each one after, never under 5). 60 Cinch an exit.
+int smmDTCinchRestore(int restNumber) {
+	return max(5, min(30, 50 - restNumber * 5));
+}
+
+int smmDTFiestaExitsLeft(int cinchUsed, int cinchoRests, int restsLeft) {
+	int cinch = max(0, 100 - cinchUsed);
+	for i from 0 upto restsLeft - 1
+		cinch += smmDTCinchRestore(cinchoRests + i);
+	return cinch / 60;
+}
+
+int smmDTForcedNoncombatsLeft() {
+	int left = 0;
+	if (available_amount($item[Jurassic Parka]) > 0) left += max(0, 5 - get_property("_spikolodonSpikeUses").to_int());
+	if (available_amount($item[McHugeLarge left ski]) > 0) left += max(0, 3 - get_property("_mcHugeLargeAvalancheUses").to_int());
+	if (available_amount($item[Cincho de Mayo]) > 0)
+		left += smmDTFiestaExitsLeft(get_property("_cinchUsed").to_int(), get_property("_cinchoRests").to_int(),
+			max(0, total_free_rests() - get_property("timesRested").to_int()));
+	return left;
+}
+
+string smmDTForcedReady() {
+	if (smmDTForcedNoncombatsLeft() <= 0) return "no spikes, Avalanches or Fiesta Exits left";
+	if (available_amount($item[closed-circuit pay phone]) <= 0) return "no closed-circuit pay phone for Rufus's quest";
+	return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -93,21 +151,79 @@ boolean smmDTGarboDone() {
 	return get_property("_garboCompleted") != "";
 }
 
-void smmDTGarbo() {
-	string command = smmDTGarboCommand(smmDSettingInt("garboLeaveTurns"), smmDSetting("garboArgs"));
+void smmDTGarboRun(string task, string command) {
 	int operatingBefore = smmDBookPurchases();
 	boolean finished = false;
 	try {
 		smmDFence();
-		smmDLog("garbo", "NOTE", command + "; fenced " + get_property(kSmmDFencedKey));
+		smmDLog(task, "NOTE", command + "; fenced " + get_property(kSmmDFencedKey));
 		finished = cli_execute(command);
 	} finally {
 		smmDUnfence();
 	}
 	int bought = smmDBookPurchases() - operatingBefore;
-	smmDLog("garbo", "NOTE", "garbo bought " + bought + " Meat of items; its own count: Meat " + get_property("garboResultsMeat")
+	smmDLog(task, "NOTE", "garbo bought " + bought + " Meat of items; its own count: Meat " + get_property("garboResultsMeat")
 		+ ", items " + get_property("garboResultsItems") + ", turns " + get_property("garboResultsTurns"));
 	if (!finished) smmDStopRun = "garbo did not finish; smmdaily run starts it again";
+}
+
+void smmDTGarbo() {
+	smmDTGarboRun("garbo", smmDTGarboCommand(smmDSettingInt("garboLeaveTurns"), smmDSetting("garboArgs")));
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: the nightcap, in the order it was run by hand: the free work held
+// for the end of the day, the diet's turn generation, garbo down to the
+// diet's stop point, the nightcap drink, the overdrunk turns, good_night.
+
+string smmDTAfterGarboReady() {
+	return smmDTGarboDone() ? "" : "garbo has not finished today (run it, or set smm.daily.task.garbo = on)";
+}
+
+string smmDTSoberAfterGarboReady() {
+	if (my_inebriety() > inebriety_limit()) return "overdrunk: the nightcap is in";
+	return smmDTAfterGarboReady();
+}
+
+void smmDTDietTurngen() {
+	boolean unused = cli_execute(smmDTDietCommand("turngen"));
+}
+
+// diet.js records the stop point of its last plan in _smm.diet.stopAt: the
+// adventures to hold for after the nightcap. With none to hold, garbo spends
+// them all ("garbo" with no number).
+int smmDTStopPoint(string stored) {
+	return stored.is_integer() ? max(0, stored.to_int()) : 0;
+}
+
+string smmDTGarboFinalCommand(int stopAt, string args) {
+	return (stopAt > 0 ? "garbo -" + stopAt : "garbo") + (args != "" ? " " + args : "");
+}
+
+string smmDTGarboFinalReady() {
+	string why = smmDTSoberAfterGarboReady();
+	if (why != "") return why;
+	why = smmDTGarboReady();
+	if (why != "") return why;
+	int stopAt = smmDTStopPoint(get_property("_smm.diet.stopAt"));
+	if (my_adventures() <= stopAt) return my_adventures() + " adventures, at or under the diet's stop point of " + stopAt;
+	return "";
+}
+
+void smmDTGarboFinal() {
+	smmDTGarboRun("garbo.final", smmDTGarboFinalCommand(smmDTStopPoint(get_property("_smm.diet.stopAt")), smmDSetting("garboArgs")));
+}
+
+boolean smmDTOverdrunk() {
+	return my_inebriety() > inebriety_limit();
+}
+
+void smmDTDietFinish() {
+	boolean unused = cli_execute(smmDTDietCommand("finish"));
+}
+
+string smmDTOverdrunkReady() {
+	return smmDTOverdrunk() ? "" : "the nightcap is not in yet";
 }
 
 // ---------------------------------------------------------------------------
@@ -240,9 +356,12 @@ int smmDTPoolUsed(string value) {
 void smmDTAudit() {
 	int open = 0;
 	print("smmDaily: daily resources with uses left:", "blue");
-	// smmdaily does not run the nightcap or good_night yet, and those spend much of this list
+	// the nightcap and good_night spend much of this list
 	if (my_inebriety() <= inebriety_limit())
-		print("&nbsp;&nbsp;(before the nightcap: the nightcap steps and good_night still spend the free fights, free kills, spikes and Cinch. Run smmdaily audit after them for what really went unused.)", "gray");
+		print("&nbsp;&nbsp;(before the nightcap: the nightcap steps and good_night still spend the free fights, free kills and the rest of the Cinch. The close phase after them shows what really went unused.)", "gray");
+	if (available_amount($item[Cincho de Mayo]) > 0)
+		print("&nbsp;&nbsp;Fiesta Exits the Cinch and free rests still pay for: " + smmDTFiestaExitsLeft(get_property("_cinchUsed").to_int(),
+			get_property("_cinchoRests").to_int(), max(0, total_free_rests() - get_property("timesRested").to_int())));
 	foreach i, line in smmDTPools {
 		SmmDPool pool = smmDTParsePool(line);
 		if (smmDTPoolProblem(pool) != "" || !smmDTPoolOwned(pool)) continue;
@@ -258,7 +377,17 @@ void smmDTAudit() {
 		+ ", net " + smmSpendNet());
 }
 
+// The day is over only when the nightcap is in. A diet.js finish that refused
+// (more adventures held than its stop point) leaves the day open: say so.
+string smmDTDayEndProblem() {
+	if (!smmDTGarboDone()) return "garbo has not finished today";
+	if (!smmDTOverdrunk()) return "the nightcap is not in: spend down to the diet's stop point (_smm.diet.stopAt = " + get_property("_smm.diet.stopAt") + "), then smmdaily run nightcap";
+	return "";
+}
+
 void smmDTReport() {
+	string open = smmDTDayEndProblem();
+	if (open != "") print("smmDaily: the day is not finished: " + open + ".", "orange");
 	smmDLLedger();
 	smmDBookPurchases();
 	smmSpendReport();
@@ -300,6 +429,8 @@ boolean smmDTRegisterAll() {
 	// 1 breakfast
 	smmDTAdd(1, "mp.bootstrap", "restore MP from free sources, then repeat any breakfast summon that failed", "", "", "smmDTBootstrap", "", "", "on", "on");
 	smmDTAdd(1, "breakfast.second", "second breakfast: collections, mood, outfit, daily buffs", "", "smmDLSecondBreakfastDone", "", "smmDLSecondBreakfast", "", "legacy", "legacy");
+	smmDTAdd(1, "drip.prep", "drippy nugget and drippy wine, before the diet fills the organs", "smmDLDripPrepReady", "", "", "smmDLDripPrep", "", "legacy", "legacy");
+	smmDTAdd(1, "diet", "diet.js: buy and consume the first part of the day's diet", "smmDTDietReady", "", "smmDTDiet", "", "", "on", "on");
 	// 2 free
 	smmDTAdd(2, "route", "the IoTM route (legacy: all of it; on: free actions only)", "", "smmDLRouteDone", "smmDLRouteFree", "smmDLRouteAll", "turns on-free", "legacy", "on");
 	smmDTAdd(2, "deeds", "daily deeds that cost no adventures", "", "", "", "smmDLDeeds", "", "legacy", "legacy");
@@ -327,14 +458,22 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(3, "workshed", "fuel Driving Observantly, then swap the Asdon for the model train set", "smmDLWorkshedReady", "", "", "smmDLWorkshed", "", "legacy", "legacy");
 	smmDTAdd(3, "gingerbread", "Gingerbread City items", "", "", "", "smmDLGingerbread", "turns museum need=20", "legacy", "legacy");
 	smmDTAdd(3, "route.paid", "the IoTM route's paid-turn actions, after the grinds", "", "smmDLRoutePaidDone", "", "smmDLRouteAll", "turns museum", "off", "legacy");
-	// 4 garbo
-	smmDTAdd(4, "garbo", "fence, garbo -N, unfence", "smmDTGarboReady", "smmDTGarboDone", "smmDTGarbo", "", "turns", "dry", "on");
-	// 5 close
-	smmDTAdd(5, "close.unfence", "take back anything still closeted from a garbo run", "", "smmDTUnfenceDone", "smmDTUnfence", "", "repeat", "on", "on");
-	smmDTAdd(5, "close.book", "book the day's purchases from the session log as operating spend", "", "", "smmDTBook", "", "repeat", "on", "on");
-	smmDTAdd(5, "close.store", "restock the store", "", "", "", "smmDLStore", "repeat", "legacy", "legacy");
-	smmDTAdd(5, "close.spend", "budgeted buying: positive-return items, then Display Case items on sale", "", "", "", "smmDLSpend", "repeat", "legacy", "legacy");
-	smmDTAdd(5, "close.report", "ledgers, price check and the daily resources still unused", "", "", "smmDTReport", "", "repeat", "on", "on");
+	// 4 garbo. The forced noncombats go first: garbo spends free rests and Cinch otherwise.
+	smmDTAdd(4, "forced.nc", "spikes, Avalanches and Fiesta Exits at the Shadow Rift, before garbo", "smmDTForcedReady", "", "", "smmDLForcedNoncombats", "", "legacy", "legacy");
+	smmDTAdd(4, "garbo", "fence, garbo -N, unfence", "smmDTGarboReady", "smmDTGarboDone", "smmDTGarbo", "", "turns", "on", "on");
+	// 5 nightcap
+	smmDTAdd(5, "nightcap.before", "beforeOverdrunkGoodNight: store, route, Oliver's Place, Shadow Rifts", "smmDTSoberAfterGarboReady", "", "", "smmDLBeforeOverdrunk", "", "legacy", "legacy");
+	smmDTAdd(5, "diet.turngen", "diet.js: chocolates, sausages and other turn generation", "smmDTSoberAfterGarboReady", "", "smmDTDietTurngen", "", "", "on", "on");
+	smmDTAdd(5, "garbo.final", "fence, garbo down to the diet's stop point, unfence", "smmDTGarboFinalReady", "", "smmDTGarboFinal", "", "turns", "on", "on");
+	smmDTAdd(5, "diet.finish", "diet.js: the rest of the diet and the nightcap drink", "smmDTSoberAfterGarboReady", "smmDTOverdrunk", "smmDTDietFinish", "", "", "on", "on");
+	smmDTAdd(5, "goodnight.adv", "good_night_adv: the overdrunk turns", "smmDTOverdrunkReady", "", "", "smmDLGoodNightAdv", "", "legacy", "legacy");
+	smmDTAdd(5, "goodnight", "good_night: rollover gear, free uses, budgeted buying", "smmDTOverdrunkReady", "", "", "smmDLGoodNight", "", "legacy", "legacy");
+	// 6 close
+	smmDTAdd(6, "close.unfence", "take back anything still closeted from a garbo run", "", "smmDTUnfenceDone", "smmDTUnfence", "", "repeat", "on", "on");
+	smmDTAdd(6, "close.book", "book the day's purchases from the session log as operating spend", "", "", "smmDTBook", "", "repeat", "on", "on");
+	smmDTAdd(6, "close.store", "restock the store", "", "", "", "smmDLStore", "repeat", "legacy", "legacy");
+	smmDTAdd(6, "close.spend", "budgeted buying: positive-return items, then Display Case items on sale", "", "", "", "smmDLSpend", "repeat", "legacy", "legacy");
+	smmDTAdd(6, "close.report", "ledgers, price check and the daily resources still unused", "", "", "smmDTReport", "", "repeat", "on", "on");
 
 	smmDHookRunStart = "smmDLRunStart";
 	smmDHookRunEnd = "smmDLRunEnd";

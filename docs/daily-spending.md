@@ -21,6 +21,8 @@ Only Meat is counted: items gained are not valued until they sell. Anything else
 1. **Positive return.** Reads `data/unrestricted_buy_map.txt` (item, what one copy is worth, how many to keep on hand). It buys an item when the mall price is under that worth, never paying more than the average sale price, best return per Meat first. When Pricegun has no sales for an item it pays no more than the current listing.
 2. **Display Case items on sale.** Considers tradeable items that have a stored Museum ranking and are short of first place, items short of the top ten first. The average sale price is trusted only when at least `smm.spend.minSales` copies sold in Pricegun's history. Each candidate is probed by buying one copy at no more than 80% of its average: the mall fills that from its cheapest listing, so a sale of only a few copies is found, which the quoted mall price (the fifth-cheapest listing) would hide. Items whose probe filled are then bought biggest discount first, to the top ten for every item before any is bought toward first place, and the copies go into the Display Case.
 
+3. **Display Case places at the average sale price.** What the budget still allows goes to the cheapest whole gaps in the Display Case: to the top ten for every item before any toward first place, the cheapest gap first (sorted by the stored mall price, so no request is made to sort them). Each copy costs no more than the item's average sale price, and only a gap the budget can close in full is bought, because part of a gap gains no place. `smm.spend.rankPass = false` turns this pass off. On 2026-11-24 nine such gaps (about 2.5M Meat for nine #1 places) were bought by hand after the day was over.
+
 Every purchase is sized by the most it may pay per copy, so the budget cannot be exceeded. The probes run in list order, one copy each, before the discounts are known; the larger purchases that follow are in discount order. In a dry run nothing is probed, so the quoted mall price stands in and small sales are not shown.
 
 Price lookups are capped per pass per run. The second pass remembers where it stopped and continues from there the next day, so the whole list is covered over several days. The step makes no Museum requests; run `dc refresh` to store more rankings.
@@ -35,6 +37,7 @@ This replaces the old trigger in `secondBreakfast()` that ran `buyMallSpecials()
 | `smm.spend.minDiscount` | 0.2 | Discount that counts as a sale. Never under 0.2. |
 | `smm.spend.minSales` | 5 | Copies sold recently before an item's average sale price is trusted in pass 2. |
 | `smm.spend.maxLookups` | 60 | Items priced per pass per run. |
+| `smm.spend.rankPass` | true | `false` turns off pass 3, the Display Case places at the average sale price. |
 
 ## The diet's purchases
 
@@ -54,7 +57,7 @@ The paid-turn grinds that follow the IoTM route are `oasis`, `beerLens`, `ghostC
 
 - `smm.dailyGrind.<name> = false` skips that grind. `true` runs it whatever its logged return.
 - `smm.dailyGrind.maxPaidTurns` is an optional daily turn budget shared by all of them. Once it is used up, the rest are skipped. Unset means no limit. It is separate from the route's own `smm.IR.maxPaidTurns`, which is also uncapped unless set.
-- Each grind's turns, Meat change and items gained are logged and printed at the end of the run. Items are counted across inventory, closet and Display Case, at the stored mall price (autosell when there is none).
+- Each grind's turns, Meat change and items gained are logged and printed at the end of the run. Items are counted across inventory, closet and Display Case, at their average sale price (Pricegun), never above the lowest listing. An item with no recent sales counts at its autosell price: its listing is an ask nobody has met. Until 2026-11-24 the lowest listing was used, which valued 154 Oasis turns at 37.6M Meat (they brought about 75 mojo filters and 369,000 Meat) and kept the test below from ever skipping a grind. The history from then is cleared once, at the first grind after the change (`smm.grind.valueVersion = 2`), and is not used to skip anything before that.
 - **Turn-value test.** The log is kept across days, weighted toward about the last 14. Once a grind has `smm.dailyGrind.minDays` (default 5) logged days, it is skipped while its return per turn is under the value of a turn. A grind that brought in an untradeable item the Display Case still needs within its last `minDays` logged days is not skipped: such an item has no price, and unbuyable Museum items come first.
 
 A skipped grind prints an orange line with its figures. To clear a grind's history, remove its `smm.grind.hist*.<name>` properties.

@@ -728,6 +728,9 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 	// JURASSIC PARKA if we're casting Launch spikolodon spikes
 	if (kSpikolodonNextCombatKey.get_property().to_boolean())
 		maxString = maxStringAppend(maxString, "equip Jurassic Parka");
+	// McHUGELARGE LEFT SKI if we're casting McHugeLarge Avalanche
+	if (kAvalancheNextCombatKey.get_property().to_boolean())
+		maxString = maxStringAppend(maxString, "equip McHugeLarge left ski");
 
 	// VOTE MONSTER
 	// equip the i voted sticker if we can get a free fight, or if we are in aftercore

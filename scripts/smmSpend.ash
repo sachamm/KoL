@@ -340,6 +340,69 @@ void smmSpendMuseumSales() {
 	}
 }
 
+// Pass 3: Museum places at no more than the average sale price. What the
+// budget still allows after the first two passes goes to the cheapest whole
+// gaps: to the top ten for every item before any toward first place, the
+// cheapest gap first (estimated at the stored mall price, so no request is
+// made to sort them). Rule 3 holds: nothing is paid above the average sale
+// price. Only whole gaps are bought, because part of a gap gains no place.
+// On 2026-11-24 nine such gaps (about 2.5M Meat for nine #1 places) were
+// bought by hand after the day was over.
+boolean smmSpendRankPassOn() { return get_property("smm.spend.rankPass") != "false"; }
+
+record SmmSpendGap {
+	item it;
+	int quantity;
+	int estimate;
+	boolean toTen;
+};
+
+// Sorting key: every top-ten gap before any first-place gap, cheapest first.
+int smmSpendGapOrder(boolean toTen, int estimate) {
+	return (toTen ? 0 : 1000000000000) + max(0, estimate);
+}
+
+void smmSpendMuseumRanks() {
+	if (!smmSpendRankPassOn() || !smmMuseumEnabled() || !have_display()) return;
+	SmmSpendGap [int] gaps;
+	foreach it in $items[] {
+		if (!it.tradeable || !is_displayable(it) || !smmMuseumStored(it)) continue;
+		SmmMuseumGoal goal = smmMuseumGoal(it);
+		if (!goal.known) continue;
+		int missing = smmMuseumMissing(it, goal);
+		if (missing < 1) continue;
+		int price = historical_price(it);
+		if (price <= 0) continue;
+		int toTen = smmSpendTenGap(it);
+		SmmSpendGap gap;
+		gap.it = it;
+		gap.toTen = toTen > 0;
+		gap.quantity = toTen > 0 ? toTen : missing;
+		gap.estimate = gap.quantity * price;
+		gaps[count(gaps)] = gap;
+	}
+	sort gaps by smmSpendGapOrder(value.toTen, value.estimate);
+	print("Spending: " + count(gaps) + " Display Case gaps to price at their average sale price, cheapest first", "blue");
+
+	int lookups = 0;
+	foreach i, gap in gaps {
+		int budget = smmSpendBudget();
+		if (budget < 1 || lookups >= smmSpendMaxLookups()) break;
+		if (gap.estimate > budget) continue; // cannot close this gap today
+		lookups += 1;
+		float average = smmSpendAveragePrice(gap.it);
+		if (average <= 0 || smmSpendSalesVolume(gap.it) < smmSpendMinSales()) continue;
+		SmmSpendOffer offer;
+		offer.it = gap.it;
+		offer.average = floor(average);
+		offer.limit = floor(average); // rule 3: never above the average sale price
+		offer.quantity = gap.quantity;
+		if (offer.limit < 1 || offer.quantity * offer.limit > budget) continue;
+		if (smmSpendBuy(offer, (gap.toTen ? "to the top ten" : "to first place") + " at no more than its average sale price") > 0)
+			smmSpendDeposit(gap.it);
+	}
+}
+
 // The whole step. Can run any number of times a day: each run spends only what
 // the budget still allows, so a later run picks up Meat netted since the last.
 void smmSpendRun() {
@@ -357,6 +420,8 @@ void smmSpendRun() {
 		smmSpendPositiveReturn();
 		if (smmSpendBudget() > 0)
 			smmSpendMuseumSales();
+		if (smmSpendBudget() > 0)
+			smmSpendMuseumRanks();
 		smmSpendReport();
 	}
 	smmSpendDayClose(); // the next day opens from here, so later sales count as its net
