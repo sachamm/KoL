@@ -1,6 +1,17 @@
 import <smmUtils.ash>
 import <smmCCS.ash>
 import <smmConsult.ash>
+
+// A yes/no question. During an smmdaily run (smm.daily.active is set) nobody
+// is there to answer, so it takes the default answer at once instead of
+// waiting a minute for it.
+boolean smmConfirm(string prompt, boolean defaultAnswer) {
+	if (get_property("smm.daily.active") != "") {
+		print(prompt + " -- " + defaultAnswer + " (smmdaily run: the default answer)", "blue");
+		return defaultAnswer;
+	}
+	return user_confirm(prompt, 60000, defaultAnswer);
+}
 string __smm_automation_version = "0.3";
 
 
@@ -1335,7 +1346,7 @@ location redirectionDelayLocation() { // #locationfordelay #redirect delay locat
 	} else {
 		int turnsToPervert = 19 - smutOrcPervertProgress();
 		if (turnsToPervert == 0)
-			if (!user_confirm(turnsToPervert + " turns to Smut Orc Pervert, " + $location[The Smut Orc Logging Camp].turns_spent + " turns spent -- adventuring here will overwrite it. Continue?", 60000, false))
+			if (!smmConfirm(turnsToPervert + " turns to Smut Orc Pervert, " + $location[The Smut Orc Logging Camp].turns_spent + " turns spent -- adventuring here will overwrite it. Continue?", false))
 				abort();
 		reason = "smut orc keepsake box. Progress to pervert BEFORE adventure: " + smutOrcPervertProgress();
 		rval = $location[The Smut Orc Logging Camp];
@@ -1888,7 +1899,7 @@ boolean targetMob(location aLocation, monster [] target_monsters, skill skillToU
 // 	}
 	assert(count(target_monsters) > 0, "targeting nobody?? target_monsters has no elements");
 	if (!isAutomatingDressup()
-		&& !user_confirm("We're targetting a mob but we have no automated dressup set up, therefore we can't auto-banish... continue?", 60000, true))
+		&& !smmConfirm("We're targetting a mob but we have no automated dressup set up, therefore we can't auto-banish... continue?", true))
 		abort("targetMob: targetting mob but not automated dressup (user aborted)");
 
 	print("targetMob: going to " + aLocation + " and targeting mob: " + target_monsters[0] + " (" + count(target_monsters) + " total targets) " + kills + " times, optimal: " + optimal + ", maxPerTurnCost: " + maxPerTurnCost, "green");

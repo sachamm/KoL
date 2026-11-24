@@ -474,7 +474,7 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(3, "gingerbread", "Gingerbread City items", "", "", "", "smmDLGingerbread", "turns museum need=20", "legacy", "legacy");
 	smmDTAdd(3, "route.paid", "the IoTM route's paid-turn actions, after the grinds", "", "smmDLRoutePaidDone", "", "smmDLRouteAll", "turns museum", "off", "legacy");
 	// 4 garbo. The forced noncombats go first: garbo spends free rests and Cinch otherwise.
-	smmDTAdd(4, "forced.nc", "spikes, Avalanches and Fiesta Exits at the Shadow Rift, before garbo", "smmDTForcedReady", "", "", "smmDLForcedNoncombats", "", "legacy", "legacy");
+	smmDTAdd(4, "forced.nc", "spikes, Avalanches and Fiesta Exits at the Shadow Rift, before garbo (a paid Rift fight when no free fight is left)", "smmDTForcedReady", "", "", "smmDLForcedNoncombats", "turns", "legacy", "legacy");
 	smmDTAdd(4, "garbo", "fence, garbo -N, unfence", "smmDTGarboReady", "smmDTGarboDone", "smmDTGarbo", "", "turns", "on", "on");
 	// 5 nightcap
 	smmDTAdd(5, "nightcap.before", "beforeOverdrunkGoodNight: store, route, Oliver's Place, Shadow Rifts", "smmDTSoberAfterGarboReady", "", "", "smmDLBeforeOverdrunk", "", "legacy", "legacy");

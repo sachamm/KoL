@@ -175,6 +175,28 @@ void testGrindValue() {
 	check(dailyGrindItemValueFrom(false, 0, 0.0, 40) == 40, "an untradeable item is worth its autosell price");
 }
 
+void testGrindSkip() {
+	// runs, return per turn, minDays, earlyDays, turn value, Museum item still short
+	same(dailyGrindSkipReason(0, -1, 5, 2, 4500, false), "", "a grind with no history runs");
+	same(dailyGrindSkipReason(1, 100, 5, 2, 4500, false), "", "one day is not enough to drop a grind");
+	check(dailyGrindSkipReason(2, 2000, 5, 2, 4500, false) != "", "after 2 days a grind under half the turn value is dropped");
+	same(dailyGrindSkipReason(2, 3000, 5, 2, 4500, false), "", "after 2 days a grind over half the turn value still runs");
+	check(dailyGrindSkipReason(5, 3000, 5, 2, 4500, false) != "", "after 5 days a grind under the turn value is dropped");
+	same(dailyGrindSkipReason(5, 4500, 5, 2, 4500, false), "", "a grind at the turn value runs");
+	same(dailyGrindSkipReason(9, 100, 5, 2, 4500, true), "", "a grind whose Museum item is still short runs");
+}
+
+void testFeelEnvy() {
+	// rate, type, item drop %, value
+	check(feelEnvyMissingValue(10.0, "", 0.0, 10000) == 9000, "a 10% drop: Feel Envy adds 90% of its value");
+	check(feelEnvyMissingValue(10.0, "", 900.0, 10000) == 0, "item drop that already makes it certain: nothing added");
+	check(feelEnvyMissingValue(10.0, "n", 900.0, 10000) == 9000, "a drop item drop does not touch: still 90%");
+	check(feelEnvyMissingValue(10.0, "p", 0.0, 10000) == 0, "a pickpocket-only drop is left out");
+	check(feelEnvyMissingValue(10.0, "c", 0.0, 10000) == 0, "a conditional drop is left out");
+	check(feelEnvyMissingValue(0.0, "", 0.0, 10000) == 0, "a drop of unknown rate is left out");
+	check(feelEnvyMinGain() > 0, "Feel Envy needs a gain worth something");
+}
+
 void testMpSources() {
 	// Logged out nothing is owned, so no source is offered. What matters here
 	// is the one that must never be offered whatever is owned.
@@ -253,6 +275,8 @@ void main() {
 	testHold();
 	testForcedNoncombats();
 	testGrindValue();
+	testGrindSkip();
+	testFeelEnvy();
 	testMpSources();
 	testAuditTable();
 	testRegistry();

@@ -18,16 +18,16 @@ Each score reads the code, not a day's log, unless it says otherwise. Add a row 
 
 ## Scores
 
-| Criterion | Max | Live run 2026-11-24 (log) | main, 2026-11-24 (code) | Round 1 | Round 2 |
-|---|---|---|---|---|---|
-| 1 Whole day | 2 | 0.5 | 0.5 | 1.6 | 1.6 |
-| 2 Daily resources | 2 | 1.2 | 1.0 | 1.6 | 1.7 |
-| 3 Scarce resources | 1.5 | 0.2 | 0.25 | 1.2 | 1.2 |
-| 4 Paid turns | 1.5 | 0.6 | 0.5 | 1.0 | 1.0 |
-| 5 Spending rules | 1 | 0.8 | 0.75 | 0.75 | 0.8 |
-| 6 Museum | 1 | 0.9 | 0.5 | 0.5 | 0.9 |
-| 7 Safety and reporting | 1 | 0.6 | 0.6 | 0.8 | 0.9 |
-| **Total** | **10** | **4.8 (5)** | **4.1 (4)** | **7.45 (7)** | **8.1 (8)** |
+| Criterion | Max | Live run 2026-11-24 (log) | main, 2026-11-24 (code) | Round 1 | Round 2 | Round 3 |
+|---|---|---|---|---|---|---|
+| 1 Whole day | 2 | 0.5 | 0.5 | 1.6 | 1.6 | 1.75 |
+| 2 Daily resources | 2 | 1.2 | 1.0 | 1.6 | 1.7 | 1.85 |
+| 3 Scarce resources | 1.5 | 0.2 | 0.25 | 1.2 | 1.2 | 1.35 |
+| 4 Paid turns | 1.5 | 0.6 | 0.5 | 1.0 | 1.0 | 1.3 |
+| 5 Spending rules | 1 | 0.8 | 0.75 | 0.75 | 0.8 | 0.8 |
+| 6 Museum | 1 | 0.9 | 0.5 | 0.5 | 0.9 | 0.9 |
+| 7 Safety and reporting | 1 | 0.6 | 0.6 | 0.8 | 0.9 | 0.9 |
+| **Total** | **10** | **4.8 (5)** | **4.1 (4)** | **7.45 (7)** | **8.1 (8)** | **8.85 (8)** |
 
 The live run scored higher than main's code on the Museum and daily resources only because Sacha ran garbo, the nightcap, `good_night` and nine `dc rankup` commands by hand.
 
@@ -53,11 +53,19 @@ The live run scored higher than main's code on the Museum and daily resources on
 - The report says first when the day is not finished (garbo not run, or the nightcap not in).
 - History from before the valuation change is never used to skip a grind, and `smmdaily plan` changes nothing.
 
+### Round 3 (8.85)
+
+- Codex's two review findings: `diet.finish` spends down to finish's own stop point (Sweat Out Some Booze is counted only there) and finishes again; `goodnight` checks the rollover cap again after `good_night`'s turn generation.
+- A grind under half the turn value is dropped after 2 logged days (`smm.dailyGrind.earlyDays`), not 5. The Museum exemption holds only while the untradeable item the grind brought in is still short in the Display Case.
+- Spikes and Avalanches no longer go unused when the free fights and free kills run out: each takes one paid Shadow Rift fight, which pays for itself with about 11 free Rift fights (`smm.forcedNC.paidTurns`).
+- Feel Envy has an owner: the consult script casts it on a monster whose uncertain drops are worth at least two turns (`smm.envy.minGain`).
+- During a run, the questions the run can reach in the shared scripts answer their default at once instead of waiting a minute.
+
 ### What keeps it from 10
 
-- Questions still asked outside `smmdaily` itself: Gingerbread City's buff cost (`gbc.ash`), cancelling a platinum bounty, the Dreadsylvania gear checks, wishing for a monster. garbo can also ask.
+- garbo can still ask, and its questions have no timeout (`garbo_autoUserConfirm` is off). Winning the Gingerbread City sprinkles leaderboard is left to `gbc win` by hand.
 - Forced noncombats all go to the Shadow Rift. No target is chosen per day.
-- The turn-value test needs 5 days of honest history before it can skip a grind, and an untradeable item the Museum still needs exempts a grind even when it is incidental loot.
+- The turn-value test still needs 2 to 5 days of history before it can skip a grind.
 - garbo buys at its own prices (for example a Dinsey day ticket at 145,350). Its purchases are booked against the cap afterwards, not blocked before.
-- Unused for want of an owner: Feel Envy, the last Neverending Party fight. Snojo and CyberRealm are not unlocked.
-- None of the round 1 and 2 code has run in the game yet.
+- Unused for want of an owner: the last Neverending Party fight (the quest finishes on the 9th). Snojo and CyberRealm are not unlocked. The audit lists unused resources without saying which task owns each.
+- None of the round 1 to 3 code has run in the game yet.

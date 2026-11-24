@@ -740,8 +740,10 @@ int museumShortfall(boolean [item] theItems) {
 //
 // Each one's turns, Meat and items gained are logged. Once a grind has
 // smm.dailyGrind.minDays (default 5) logged days, it is skipped while its
-// return per turn stays under kTurnValue. A grind that recently brought in an
-// untradeable item the Display Case still needs is never skipped for that:
+// return per turn stays under kTurnValue. One that is clearly losing, under
+// half of kTurnValue, is skipped after smm.dailyGrind.earlyDays (default 2).
+// A grind that recently brought in an untradeable item the Display Case
+// still needs is never skipped for that, while that item is still short:
 // such an item has no price, and unbuyable Museum items come first.
 string kGrindTurnsTotalKey = "_smm.grind.turnsTotal";
 int gGrindTurnMark;
@@ -756,7 +758,7 @@ boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spac
 void dailyGrindMigrateHistory() {
 	if (get_property(kGrindValueVersionKey) == "2") return;
 	foreach name in kDailyGrindNames {
-		foreach key in $strings[histTurns, histValue, histRuns, histMuseumAt]
+		foreach key in $strings[histTurns, histValue, histRuns, histMuseumAt, histMuseumItems]
 			set_property("smm.grind." + key + "." + name, "");
 	}
 	set_property(kGrindValueVersionKey, "2");
@@ -768,6 +770,23 @@ int dailyGrindMinDays() {
 	return explicit == "" ? 5 : max(1, explicit.to_int());
 }
 
+int dailyGrindEarlyDays() {
+	string explicit = get_property("smm.dailyGrind.earlyDays");
+	return explicit == "" ? 2 : max(1, explicit.to_int());
+}
+
+// Why a grind with this history is skipped, "" when it runs. perTurn is -1
+// with no history; museumShort is true while an untradeable item it brought
+// in recently is still short in the Display Case.
+string dailyGrindSkipReason(int runs, int perTurn, int minDays, int earlyDays, int turnValue, boolean museumShort) {
+	if (museumShort || perTurn < 0) return "";
+	if (runs >= minDays && perTurn < turnValue)
+		return "it has returned " + perTurn + " Meat per turn over " + runs + " days against a turn value of " + turnValue;
+	if (runs >= earlyDays && perTurn * 2 < turnValue)
+		return "it has returned " + perTurn + " Meat per turn over " + runs + " days, under half the turn value of " + turnValue;
+	return "";
+}
+
 // Logged return per turn over the grind's history, -1 when there is none.
 int dailyGrindReturnPerTurn(string name) {
 	int turns = get_property("smm.grind.histTurns." + name).to_int();
@@ -775,9 +794,22 @@ int dailyGrindReturnPerTurn(string name) {
 	return get_property("smm.grind.histValue." + name).to_int() / turns;
 }
 
+// True while the grind brought in, within the last minDays logged days, an
+// untradeable item the Display Case is still short of. The items are kept in
+// smm.grind.histMuseumItems.<name>; history from before that list counts as
+// still short.
 boolean dailyGrindMuseumRecent(string name) {
 	string at = get_property("smm.grind.histMuseumAt." + name);
-	return at != "" && get_property("smm.grind.histRuns." + name).to_int() - at.to_int() < dailyGrindMinDays();
+	if (at == "" || get_property("smm.grind.histRuns." + name).to_int() - at.to_int() >= dailyGrindMinDays()) return false;
+	string ids = get_property("smm.grind.histMuseumItems." + name);
+	if (ids == "") return true;
+	foreach i, id in split_string(ids, ",") {
+		item it = id.to_int().to_item();
+		if (it == $item[none]) continue;
+		SmmMuseumGoal goal = smmMuseumGoal(it);
+		if (!goal.known || smmMuseumMissing(it, goal) > 0) return true;
+	}
+	return false;
 }
 
 boolean dailyGrindMayRun(string name) {
@@ -793,11 +825,13 @@ boolean dailyGrindMayRun(string name) {
 	}
 	// history from before the sale-price valuation is cleared at the next grind, and never skips one before that
 	boolean honestHistory = get_property(kGrindValueVersionKey) == "2";
-	if (preset != "true" && honestHistory && get_property("smm.grind.histRuns." + name).to_int() >= dailyGrindMinDays() && !dailyGrindMuseumRecent(name)) {
+	int runs = get_property("smm.grind.histRuns." + name).to_int();
+	if (preset != "true" && honestHistory && runs >= min(dailyGrindEarlyDays(), dailyGrindMinDays())) {
 		int perTurn = dailyGrindReturnPerTurn(name);
-		if (perTurn >= 0 && perTurn < kTurnValue) {
-			print("dailyGrind: skipping " + name + ", it has returned " + perTurn + " Meat per turn against a turn value of " + kTurnValue
-				+ " (smm.dailyGrind." + name + "=true runs it anyway)", "orange");
+		// the Museum check reads the Display Case, so it comes last
+		string why = dailyGrindSkipReason(runs, perTurn, dailyGrindMinDays(), dailyGrindEarlyDays(), kTurnValue, false);
+		if (why != "" && !dailyGrindMuseumRecent(name)) {
+			print("dailyGrind: skipping " + name + ", " + why + " (smm.dailyGrind." + name + "=true runs it anyway)", "orange");
 			return false;
 		}
 	}
@@ -847,6 +881,7 @@ void dailyGrindEnd(string name) {
 	int meat = my_meat() - gGrindMeatMark;
 	int itemValue = 0;
 	boolean museumGain = false;
+	string museumIds = "";
 	// Only gains count: copies used up or sold along the way are not losses here.
 	foreach it, amount in dailyGrindHoldings() {
 		int gained = amount - gGrindInventoryMark[it];
@@ -854,8 +889,10 @@ void dailyGrindEnd(string name) {
 		itemValue += gained * dailyGrindItemValue(it);
 		if (!it.tradeable && is_displayable(it)) {
 			SmmMuseumGoal goal = smmMuseumGoal(it);
-			if (goal.known && smmMuseumMissing(it, goal) > 0)
+			if (goal.known && smmMuseumMissing(it, goal) > 0) {
 				museumGain = true;
+				museumIds += (museumIds == "" ? "" : ",") + it.to_int();
+			}
 		}
 	}
 	if (turns <= 0 && meat == 0 && itemValue == 0) return;
@@ -880,8 +917,10 @@ void dailyGrindEnd(string name) {
 	}
 	set_property("smm.grind.histTurns." + name, histTurns + turns);
 	set_property("smm.grind.histValue." + name, histValue + meat + itemValue);
-	if (museumGain)
+	if (museumGain) {
 		set_property("smm.grind.histMuseumAt." + name, histRuns);
+		set_property("smm.grind.histMuseumItems." + name, museumIds);
+	}
 
 	print("dailyGrind: " + name + " took " + turns + " turns, Meat " + (meat >= 0 ? "+" : "") + meat + ", items worth " + itemValue
 		+ (museumGain ? ", including an untradeable item the Museum needs" : ""), "blue");
@@ -4165,6 +4204,34 @@ int avalanchesUsed() {
 	return get_property("_mcHugeLargeAvalancheUses").to_int();
 }
 
+// Spikes and Avalanches need a fight to be cast in. Once the free fights and
+// free kills are gone, one paid Shadow Rift fight still pays for itself: the
+// noncombat it forces finishes a Rufus quest, and the lodestone gives about
+// 11 free Rift fights. smm.forcedNC.paidTurns=false turns this off.
+boolean forcedNcPaidFightAllowed() {
+	return get_property("smm.forcedNC.paidTurns") != "false" && my_adventures() > 0 && my_inebriety() <= inebriety_limit();
+}
+
+// One paid Rift fight with the given key set (the consult script casts the
+// skill and clears it), then the forced noncombat and the free Rift fights.
+// Returns false when the skill was not cast.
+boolean forcedNcPaidFight(string key, string what, int usedBefore, string usesPref) {
+	print("no free fight left: using a paid Shadow Rift fight to cast " + what, "green");
+	set_property(key, "true");
+	try {
+		grindRufusAndTheShadowRifts(1);
+	} finally {
+		set_property(key, "false");
+	}
+	if (get_property(usesPref).to_int() <= usedBefore) {
+		print("grindRufusAndTheShadowRiftsForFree: " + what + " was not cast in the paid fight, so the rest are left", "orange");
+		return false;
+	}
+	grindRufusAndTheShadowRifts(1); // should be the boss
+	grindRufusAndTheShadowRiftsForFreeHelper();
+	return true;
+}
+
 void grindRufusAndTheShadowRiftsForFree() {
 	print("grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes available and " + cinchUsed() + " cinch used with " + cinchRestsUsed() + " cinch rests used and " + total_free_rests() + " total free rests", "green");
 
@@ -4206,6 +4273,11 @@ void grindRufusAndTheShadowRiftsForFree() {
 
 	set_property("_smm.kSpikolodonNextCombat", "false");
 
+	// then paid fights
+	while (spikolodonSpikesUsed() < 5 && questStage("questRufus") == 0 && forcedNcPaidFightAllowed()) {
+		if (!forcedNcPaidFight("_smm.kSpikolodonNextCombat", "spikolodon spikes", spikolodonSpikesUsed(), "_spikolodonSpikeUses")) break;
+	}
+
 	// McHUGELARGE AVALANCHE: 3 a day, cast in a fight like the spikes, forces the next noncombat
 	boolean haveSki = available_amount($item[McHugeLarge left ski]) > 0;
 	while (haveSki && avalanchesUsed() < 3 && (freeCombatsAvailable() > 0 || instaKillsAvailable() > 0) && questStage("questRufus") == 0) {
@@ -4229,10 +4301,13 @@ void grindRufusAndTheShadowRiftsForFree() {
 		grindRufusAndTheShadowRiftsForFreeHelper();
 		assert(questStage("questRufus") == 0, "grindRufusAndTheShadowRiftsForFree: Avalanche: we haven't started the quest!");
 	}
+	while (haveSki && avalanchesUsed() < 3 && questStage("questRufus") == 0 && forcedNcPaidFightAllowed()) {
+		if (!forcedNcPaidFight(kAvalancheNextCombatKey, "McHugeLarge Avalanche", avalanchesUsed(), "_mcHugeLargeAvalancheUses")) break;
+	}
 
 	// running out of free combats and free kills before the spikes is normal; leftover spikes are a
 	// missed opportunity, not a reason to abort the rest of the free Rufus/Cincho work and the day
-	cprint(spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them", "orange");
+	cprint(spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them, and no paid fight (smm.forcedNC.paidTurns, adventures, sobriety)", "orange");
 
 
 	// CINCHO DE MAYO
