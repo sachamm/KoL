@@ -375,7 +375,9 @@ void smmDRunTask(SmmDTask t) {
 		return;
 	}
 	if (mode == "dry") {
-		if (smmDIsDryRun())
+		if (smmDIsDryRun() && smmDConfiguredMode(t) == "dry")
+			print("smmDaily (dry run): " + t.id + " is set to dry, so a real run would not run it either - " + t.about + ". To have it run: set smm.daily.task." + t.id + " = on", "blue");
+		else if (smmDIsDryRun())
 			print("smmDaily (dry run): would run " + t.id + " [" + smmDConfiguredMode(t) + "] - " + t.about, "blue");
 		else
 			print("smmDaily: " + t.id + " is set to dry, so it was not run - " + t.about + ". To run it here: set smm.daily.task." + t.id + " = on", "orange");

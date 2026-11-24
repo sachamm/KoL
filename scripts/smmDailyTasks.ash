@@ -51,7 +51,10 @@ void smmDTBootstrap() {
 	}
 	string note = "MP " + before + " to " + my_mp() + " (floor " + target + ", maximum " + my_maxmp() + "), breakfastCompleted=" + get_property("breakfastCompleted");
 	smmDLog("mp.bootstrap", "NOTE", note);
-	if (my_mp() < target) print("smmDaily: MP is " + my_mp() + ", under the floor of " + target + ", and the free restores are used up.", "orange");
+	if (!smmDMpWorthRestoring(my_maxmp()))
+		print("smmDaily: maximum MP is only " + my_maxmp() + ", so no free restore was spent. Something is holding it down: check the outfit and effects.", "orange");
+	else if (my_mp() < target)
+		print("smmDaily: MP is " + my_mp() + ", under the floor of " + target + ", and the free restores are used up.", "orange");
 }
 
 // ---------------------------------------------------------------------------

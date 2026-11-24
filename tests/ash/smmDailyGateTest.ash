@@ -143,6 +143,8 @@ void testMpSources() {
 	boolean restsListed = false;
 	foreach i, line in smmDTPools if (smmDTParsePool(line).pref == "timesRested") restsListed = true;
 	check(restsListed, "free rests are still reported in the audit");
+	check(!smmDMpWorthRestoring(100), "no free restore is spent while maximum MP is 100");
+	check(smmDMpWorthRestoring(20122), "free restores are used at a normal maximum");
 }
 
 void testAuditTable() {
