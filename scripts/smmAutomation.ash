@@ -928,6 +928,33 @@ string maximizerStringForDressup(location advLocation, string selector, string a
 
 string kDressupOutfitPrefixKey = "_smm.DressupTmp: ";
 
+// What dressup() does with the familiar when it finds a cached outfit for its max string.
+// The cache is keyed on the max string alone, and the same max string can go with different
+// familiars: the "default" selector picks by drop progress, "item" and "meat" pick by what we
+// own, and an empty selector or "-familiar" leaves whichever familiar is out. So the familiar
+// saved with the cache is only right when it is still the one chooseFamiliar() wants.
+// Restoring it blindly put the old familiar back on every other dressup(), and chooseFamiliar()
+// swapped it out again on the next one.
+string kDressupCacheLeaveFamiliar = "leave";     // restore the gear, don't touch the familiar or its equipment
+string kDressupCacheRestoreFamiliar = "restore"; // restore the gear, the familiar and its equipment
+string kDressupCacheStale = "stale";             // cached with another familiar: maximize again
+
+// maxString: the full max string, after chooseFamiliar()
+// cachedFamiliar: the familiar saved with the cached outfit
+// currentFamiliar: the familiar out now, i.e. after chooseFamiliar()
+string dressupCacheFamiliarAction(string maxString, familiar cachedFamiliar, familiar currentFamiliar) {
+	// the maximizer was told to keep its hands off the familiar, so we do too
+	if (maxString.contains_text("-familiar"))
+		return kDressupCacheLeaveFamiliar;
+	// chooseFamiliar() left the choice to the maximizer ("switch Disgeist"), so the familiar it chose last time stands
+	if (maxString.contains_text("switch "))
+		return kDressupCacheRestoreFamiliar;
+	// chooseFamiliar() chose: the cache is good only if it was made with that familiar
+	if (cachedFamiliar == currentFamiliar)
+		return kDressupCacheRestoreFamiliar;
+	return kDressupCacheStale;
+}
+
 // if selector is empty, doesn't make any changes to the max string (other than the tweak string when dressup(string tweak) calls this)
 void dressup(location advLocation, string selector, string familiarSelector, string additionalMaxString) {
     print("dressup: at location: " + advLocation + ", selector: " + selector + ", familiarSelector: " + familiarSelector + ", additionalMaxString: " + additionalMaxString, "blue");
@@ -941,18 +968,22 @@ void dressup(location advLocation, string selector, string familiarSelector, str
 	else
 		maxString = additionalMaxString;
 
-    familiar startingFamiliar = my_familiar();
-    boolean changedFamiliar = false;
 	maxString = chooseFamiliar(familiarSelector, advLocation, $monster[none], maxString);
-	if (startingFamiliar != my_familiar())
-        changedFamiliar = true;
 
 	print("after: at location: " + advLocation + ", max string: " + maxString, "blue");
 
-    // we're not forcing re-maximization and we have the exact maximize string already cached
-	if (!get_property(kForceDressupKey).to_boolean() && maxString == get_property(kDressupLastFullMaxStringKey) && haveOutfit(kDressupOutfitPrefixKey + maxString)) {
+	// we're not forcing re-maximization and we have the exact maximize string already cached
+	string cachedOutfit = kDressupOutfitPrefixKey + maxString;
+	string cacheFamiliarAction = kDressupCacheStale;
+	if (!get_property(kForceDressupKey).to_boolean() && maxString == get_property(kDressupLastFullMaxStringKey) && haveOutfit(cachedOutfit)) {
+		cacheFamiliarAction = dressupCacheFamiliarAction(maxString, get_property(kSavedFamiliarKeyPrefix + cachedOutfit).to_familiar(), my_familiar());
+		if (cacheFamiliarAction == kDressupCacheStale)
+			print("the cached dressup was made with another familiar, maximizing again", "blue");
+	}
+
+	if (cacheFamiliarAction != kDressupCacheStale) {
 		print("skipping maximize for same max string, restoring existing dressup instead", "blue");
-		restoreOutfit(!changedFamiliar, kDressupOutfitPrefixKey + maxString);
+		restoreOutfit(cacheFamiliarAction == kDressupCacheRestoreFamiliar, cachedOutfit);
 
 	} else {
 		saveAndSetProperty("logPreferenceChange", "false"); // try to avoid log spam
