@@ -60,7 +60,7 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDressupTest; do
 	out="$(mafia "$t")"
 	if grep -q "^PASS $t" <<<"$out"; then pass "$(grep "^PASS $t" <<<"$out")"
 	else
