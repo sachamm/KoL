@@ -194,6 +194,8 @@ record SmmDTask {
 	string legacy_fn;   // void fn(): today's code. "" = none
 	boolean spends_turns;
 	boolean on_is_free; // the new implementation spends no turns, though the legacy one does
+	int need;           // adventures the grind takes to finish; it does not start with fewer. 0 = no minimum
+	string need_fn;     // int f(): the same, worked out from the game state, used in place of need
 	boolean museum;     // counts against smm.daily.museumTurns
 	boolean repeatable; // runs on every 'run' (bookkeeping), never marked done
 	string mode_legacy; // default mode in the legacy profile
@@ -286,6 +288,21 @@ boolean smmDSpendsTurns(SmmDTask t) {
 	return !(t.on_is_free && t.do_fn != "" && smmDConfiguredMode(t) == "on");
 }
 
+// Adventures a turn grind must have before it starts: what it takes to finish,
+// on top of the turns held back. Today's grinds stop with an error when the
+// adventures run out halfway, so one that cannot finish is not started.
+int smmDCallInt(string fn) { return call int fn(); }
+
+int smmDTaskNeed(SmmDTask t) {
+	if (!smmDSpendsTurns(t)) return 0;
+	return max(0, t.need_fn != "" ? smmDCallInt(t.need_fn) : t.need);
+}
+
+int smmDAdventuresNeeded(SmmDTask t) {
+	int need = smmDTaskNeed(t);
+	return need == 0 ? 0 : need + max(0, smmDSettingInt("garboLeaveTurns"));
+}
+
 // Why the engine itself won't start this task now, "" when it may.
 string smmDEngineBlock(SmmDTask t) {
 	if (!smmDSpendsTurns(t)) return "";
@@ -293,6 +310,8 @@ string smmDEngineBlock(SmmDTask t) {
 	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60) return "too close to rollover";
 	if (t.phase != 4 && my_adventures() <= smmDSettingInt("garboLeaveTurns"))
 		return "only " + my_adventures() + " adventures left (" + smmDSettingInt("garboLeaveTurns") + " are held back)";
+	if (t.phase != 4 && my_adventures() < smmDAdventuresNeeded(t))
+		return "it takes about " + smmDTaskNeed(t) + " adventures and only " + my_adventures() + " are left (" + max(0, smmDSettingInt("garboLeaveTurns")) + " are held back). Eat and drink, then smmdaily run again";
 	if (t.museum && smmDMuseumTurnsUsed() >= smmDSettingInt("museumTurns"))
 		return "the Museum grinds have used " + smmDMuseumTurnsUsed() + " of " + smmDSettingInt("museumTurns") + " paid turns";
 	int reserve = smmDSettingInt("garboReserveTurns") + smmDSettingInt("garboLeaveTurns");
@@ -375,7 +394,9 @@ void smmDRunTask(SmmDTask t) {
 		return;
 	}
 	if (mode == "dry") {
-		if (smmDIsDryRun())
+		if (smmDIsDryRun() && smmDConfiguredMode(t) == "dry")
+			print("smmDaily (dry run): " + t.id + " is set to dry, so a real run would not run it either - " + t.about + ". To have it run: set smm.daily.task." + t.id + " = on", "blue");
+		else if (smmDIsDryRun())
 			print("smmDaily (dry run): would run " + t.id + " [" + smmDConfiguredMode(t) + "] - " + t.about, "blue");
 		else
 			print("smmDaily: " + t.id + " is set to dry, so it was not run - " + t.about + ". To run it here: set smm.daily.task." + t.id + " = on", "orange");

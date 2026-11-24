@@ -255,6 +255,15 @@ string smmDLFantasyRealmReady() {
 	return smmDLControls("fantasyRealm");
 }
 
+// About 6 adventures for each hour left on the G. E. M.: 30 for a fresh visit
+// (fr.ash asks before starting one with fewer). None once it is done, when
+// all that is left is depositing the reward.
+int smmDLFantasyRealmNeed() {
+	if (get_property("_fantasyRealmDone").to_boolean()) return 0;
+	int hours = get_property("_frHoursLeft").to_int();
+	return hours > 0 ? 6 * hours : 30;
+}
+
 void smmDLFantasyRealm() {
 	boolean unused;
 	boolean frAlreadyDone = get_property("_fantasyRealmDone").to_boolean();

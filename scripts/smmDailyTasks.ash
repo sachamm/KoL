@@ -51,7 +51,10 @@ void smmDTBootstrap() {
 	}
 	string note = "MP " + before + " to " + my_mp() + " (floor " + target + ", maximum " + my_maxmp() + "), breakfastCompleted=" + get_property("breakfastCompleted");
 	smmDLog("mp.bootstrap", "NOTE", note);
-	if (my_mp() < target) print("smmDaily: MP is " + my_mp() + ", under the floor of " + target + ", and the free restores are used up.", "orange");
+	if (!smmDMpWorthRestoring(my_maxmp()))
+		print("smmDaily: maximum MP is only " + my_maxmp() + ", so no free restore was spent. Something is holding it down: check the outfit and effects.", "orange");
+	else if (my_mp() < target)
+		print("smmDaily: MP is " + my_mp() + ", under the floor of " + target + ", and the free restores are used up.", "orange");
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +279,11 @@ void smmDTAdd(int phase, string id, string about, string ready_fn, string done_f
 	t.on_is_free = flags.contains_text("on-free");
 	t.museum = flags.contains_text("museum");
 	t.repeatable = flags.contains_text("repeat");
+	matcher need = create_matcher("need=([A-Za-z0-9_]+)", flags);
+	if (need.find()) {
+		if (need.group(1).is_integer()) t.need = need.group(1).to_int();
+		else t.need_fn = need.group(1);
+	}
 	t.mode_legacy = mode_legacy;
 	t.mode_plan = mode_plan;
 	smmDRegister(t);
@@ -291,25 +299,29 @@ boolean smmDTRegisterAll() {
 	// 2 free
 	smmDTAdd(2, "route", "the IoTM route (legacy: all of it; on: free actions only)", "", "smmDLRouteDone", "smmDLRouteFree", "smmDLRouteAll", "turns on-free", "legacy", "on");
 	smmDTAdd(2, "deeds", "daily deeds that cost no adventures", "", "", "", "smmDLDeeds", "", "legacy", "legacy");
-	// 3 grinds
-	smmDTAdd(3, "fishing", "sea grind on yesterday's Fishy", "smmDLFishingReady", "", "", "smmDLFishing", "turns", "legacy", "legacy");
-	smmDTAdd(3, "bounty", "bounty hunting", "", "", "", "smmDLBounty", "turns", "legacy", "legacy");
+	// 3 grinds. need=N (or need=<function>) is how many adventures the grind
+	// takes to finish, from dailyGrind's own notes and the turns each took on
+	// 2026-11-23. A grind is
+	// not started with fewer, because today's code stops with an error when the
+	// adventures run out halfway (FantasyRealm did on the first live run).
+	smmDTAdd(3, "fishing", "sea grind on yesterday's Fishy", "smmDLFishingReady", "", "", "smmDLFishing", "turns need=20", "legacy", "legacy");
+	smmDTAdd(3, "bounty", "bounty hunting", "", "", "", "smmDLBounty", "turns need=20", "legacy", "legacy");
 	smmDTAdd(3, "hold", "stop here when smm.dailyGrind.useBanishers or highItem is false", "smmDLHoldReady", "", "", "smmDLHold", "repeat", "legacy", "legacy");
-	smmDTAdd(3, "champagne", "burn the champagne bottle's charge", "smmDLChampagneReady", "", "", "smmDLChampagne", "turns", "legacy", "off");
+	smmDTAdd(3, "champagne", "burn the champagne bottle's charge", "smmDLChampagneReady", "", "", "smmDLChampagne", "turns need=11", "legacy", "off");
 	smmDTAdd(3, "science", "science grind", "", "", "", "smmDLScience", "turns", "legacy", "legacy");
 	smmDTAdd(3, "nep", "Neverending Party quest and free turns", "smmDLNepReady", "", "", "smmDLNep", "turns", "legacy", "legacy");
 	smmDTAdd(3, "pregrind", "seek birds and dress for item drop", "", "smmDLPregrindDone", "", "smmDLPregrind", "", "legacy", "legacy");
 	smmDTAdd(3, "oasis", "Oasis farming: scarab beatles or drum machines", "", "smmDLOasisDone", "", "smmDLOasis", "turns", "legacy", "off");
-	smmDTAdd(3, "beerLens", "beer lenses", "smmDLBeerLensReady", "", "", "smmDLBeerLens", "turns museum", "legacy", "legacy");
-	smmDTAdd(3, "ghostCostume", "li'l ghost costume", "smmDLGhostCostumeReady", "", "", "smmDLGhostCostume", "turns museum", "legacy", "legacy");
-	smmDTAdd(3, "spacegate", "Spacegate", "smmDLSpacegateReady", "", "", "smmDLSpacegate", "turns museum", "legacy", "legacy");
-	smmDTAdd(3, "fantasyRealm", "FantasyRealm, reward closest to Museum #1", "smmDLFantasyRealmReady", "", "", "smmDLFantasyRealm", "turns museum", "legacy", "legacy");
-	smmDTAdd(3, "pirateRealm", "PirateRealm", "smmDLPirateRealmReady", "", "", "smmDLPirateRealm", "turns museum", "legacy", "legacy");
-	smmDTAdd(3, "dailyDungeon", "Daily Dungeon", "smmDLDailyDungeonReady", "", "", "smmDLDailyDungeon", "turns museum", "legacy", "legacy");
-	smmDTAdd(3, "drip", "the Drip", "smmDLDripReady", "", "", "smmDLDrip", "turns museum", "legacy", "legacy");
+	smmDTAdd(3, "beerLens", "beer lenses", "smmDLBeerLensReady", "", "", "smmDLBeerLens", "turns museum need=9", "legacy", "legacy");
+	smmDTAdd(3, "ghostCostume", "li'l ghost costume", "smmDLGhostCostumeReady", "", "", "smmDLGhostCostume", "turns museum need=11", "legacy", "legacy");
+	smmDTAdd(3, "spacegate", "Spacegate", "smmDLSpacegateReady", "", "", "smmDLSpacegate", "turns museum need=20", "legacy", "legacy");
+	smmDTAdd(3, "fantasyRealm", "FantasyRealm, reward closest to Museum #1", "smmDLFantasyRealmReady", "", "", "smmDLFantasyRealm", "turns museum need=smmDLFantasyRealmNeed", "legacy", "legacy");
+	smmDTAdd(3, "pirateRealm", "PirateRealm", "smmDLPirateRealmReady", "", "", "smmDLPirateRealm", "turns museum need=35", "legacy", "legacy");
+	smmDTAdd(3, "dailyDungeon", "Daily Dungeon", "smmDLDailyDungeonReady", "", "", "smmDLDailyDungeon", "turns museum need=15", "legacy", "legacy");
+	smmDTAdd(3, "drip", "the Drip", "smmDLDripReady", "", "", "smmDLDrip", "turns museum need=15", "legacy", "legacy");
 	smmDTAdd(3, "dolphin", "dolphin whistle for the waiting item", "smmDLDolphinReady", "", "", "smmDLDolphin", "turns", "legacy", "legacy");
 	smmDTAdd(3, "workshed", "fuel Driving Observantly, then swap the Asdon for the model train set", "smmDLWorkshedReady", "", "", "smmDLWorkshed", "", "legacy", "legacy");
-	smmDTAdd(3, "gingerbread", "Gingerbread City items", "", "", "", "smmDLGingerbread", "turns museum", "legacy", "legacy");
+	smmDTAdd(3, "gingerbread", "Gingerbread City items", "", "", "", "smmDLGingerbread", "turns museum need=20", "legacy", "legacy");
 	smmDTAdd(3, "route.paid", "the IoTM route's paid-turn actions, after the grinds", "", "smmDLRoutePaidDone", "", "smmDLRouteAll", "turns museum", "off", "legacy");
 	// 4 garbo
 	smmDTAdd(4, "garbo", "fence, garbo -N, unfence", "smmDTGarboReady", "smmDTGarboDone", "smmDTGarbo", "", "turns", "dry", "on");

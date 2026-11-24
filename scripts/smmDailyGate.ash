@@ -196,7 +196,13 @@ void smmDUseFreeMP(string source) {
 
 // Restores MP toward target from free sources only. Never buys a restorer.
 // Returns the MP afterwards.
+// A free restore gives 1,000 MP or more. With a maximum under the low line it
+// would be spent for next to nothing, and again before every task: something
+// is holding maximum MP down, and no restore fixes that.
+boolean smmDMpWorthRestoring(int maxMp) { return maxMp >= smmDSettingInt("mpLow"); }
+
 int smmDFreeMP(int target) {
+	if (!smmDMpWorthRestoring(my_maxmp())) return my_mp();
 	int guard = 0;
 	while (my_mp() < target && guard < 30) {
 		guard += 1;
@@ -220,7 +226,8 @@ void smmDMpHook(string task) {
 		int phase = smmDTasks[smmDTaskIndex[task]].phase;
 		if (phase == 0 || phase == 5) return;
 	}
-	int low = min(smmDSettingInt("mpLow"), my_maxmp());
+	if (!smmDMpWorthRestoring(my_maxmp())) return;
+	int low = smmDSettingInt("mpLow");
 	if (my_mp() >= low) return;
 	int before = my_mp();
 	int after = smmDFreeMP(low);

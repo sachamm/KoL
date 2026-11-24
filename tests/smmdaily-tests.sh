@@ -63,7 +63,12 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 for t in smmDailyCoreTest smmDailyGateTest; do
 	out="$(mafia "$t")"
 	if grep -q "^PASS $t" <<<"$out"; then pass "$(grep "^PASS $t" <<<"$out")"
-	else fail "$t"; grep "FAIL\|Expected\|undefined\|aborted\|not an integer" <<<"$out" | head -40; fi
+	else
+		fail "$t"
+		grep "FAIL\|Expected\|undefined\|aborted\|not an integer" <<<"$out" | head -40
+		# no verdict at all means KoLmafia itself did not get through the script: show where it stopped
+		grep -q "FAIL" <<<"$out" || { echo "  last lines of KoLmafia's output:"; tail -15 <<<"$out" | sed 's/^/  /'; }
+	fi
 done
 
 # --- 3. the plan prints logged out, start to finish --------------------------
@@ -86,8 +91,8 @@ else pass "the smmDaily files never spend a free rest"; fi
 # --- 5. every function a task names exists -----------------------------------
 
 missing=0
-for fn in $(grep "smmDTAdd(" "$REPO/scripts/smmDailyTasks.ash" | grep -o '"smmD[A-Za-z]*"' | tr -d '"' | sort -u); do
-	grep -qE "^(void|string|boolean) $fn\(\)" $NEW || { fail "task function $fn is not defined"; missing=1; }
+for fn in $(grep "smmDTAdd(" "$REPO/scripts/smmDailyTasks.ash" | grep -o '"smmD[A-Za-z]*"\|need=smmD[A-Za-z]*' | tr -d '"' | sed 's/^need=//' | sort -u); do
+	grep -qE "^(void|string|boolean|int) $fn\(\)" $NEW || { fail "task function $fn is not defined"; missing=1; }
 done
 [ $missing -eq 0 ] && pass "every function named in the task list is defined"
 
