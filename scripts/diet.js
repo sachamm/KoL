@@ -2151,23 +2151,31 @@ function sausageCost(count, made, units) {
 	return Math.max(0, cost - units)
 }
 
+// How many of `count` more sausages that Meat already covers.
+function freeSausages(count, made, units) {
+	var free = 0
+	while (free < count && sausageCost(free + 1, made, units) == 0) free++
+	return free
+}
+
 function sausageEntry() {
 	var it = km.Item.get("magical sausage")
 	var left = 23 - prefInt("_sausagesEaten")
 	if (left <= 0) return null
 	var owned = Math.min(left, spareCopies(it))
-	var make = 0, makeCost = 0
+	var make = 0, makeCost = 0, free = 0
 	var grinder = km.availableAmount(km.Item.get("Kramco Sausage-o-Matic&trade;")) > 0 ||
 		km.availableAmount(km.Item.get("replica Kramco Sausage-o-Matic&trade;")) > 0
 	if (grinder) {
 		make = Math.min(left - owned, km.availableAmount(km.Item.get("magical sausage casing")))
 		makeCost = sausageCost(make, prefInt("_sausagesMade"), prefInt("sausageGrinderUnits"))
+		free = freeSausages(make, prefInt("_sausagesMade"), prefInt("sausageGrinderUnits"))
 	}
 	var n = owned + make
 	if (n <= 0) return null
 	return {"name": it.name, "advmin": 1, "advmax": 1, "pvpfights": 0, "type": "simple",
 		"size": [0, 0, 0], "limit": n, "price": Math.max(1, Math.round(makeCost / n)),
-		"owned": true, "eat": true}
+		"owned": true, "eat": true, "free": owned + free}  // free: the ones that cost no Meat
 }
 
 // smm: effects. A consumable that gives an effect (Sacramento wine: 50
@@ -3144,10 +3152,11 @@ function restrictToOwned(consumables, spareOf) {
 		var cash = cashPrice(entry) > 0
 		if (!cash && (entry.owned || !(entry.price > 0))) continue
 		var spare = entry.type && !entry.speakeasy ? spareOf(entry.name) : 0  // helpers are bought or left out
+		if (entry.free !== undefined) spare = entry.free  // sausages: made already, or covered by the grinder's Meat
 		if (spare > 0) {
 			entry.limit = Math.min(entry.limit || spare, spare)
 			entry.owned = true
-			if (cash) entry.price = 1  // the sausages already made
+			if (cash) entry.price = 1
 		} else {
 			consumables.splice(c, 1)
 		}
@@ -3605,6 +3614,8 @@ module.exports._averageRule = averageRule
 module.exports._buyCap = buyCap
 module.exports._canAfford = canAfford
 module.exports._sausageCost = sausageCost
+module.exports._freeSausages = freeSausages
+module.exports._restrictToOwned = restrictToOwned
 module.exports._planUnits = planUnits
 module.exports._planPurchaseCost = planPurchaseCost
 module.exports._fitPlan = fitPlan

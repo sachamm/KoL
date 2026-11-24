@@ -53,6 +53,19 @@ check(diet._sausageCost(3, 5, 0), 2331, 'later sausages cost more');
 check(diet._sausageCost(3, 0, 1000), 0, 'Meat already in the grinder pays for them');
 check(diet._sausageCost(3, 0, 600), 66, 'or for part of them');
 check(diet._sausageCost(0, 7, 0), 0, 'none to make costs nothing');
+check(diet._freeSausages(23, 0, 111), 1, "the grinder's Meat covers the first sausage");
+check(diet._freeSausages(23, 0, 333), 2, 'or the first two');
+check(diet._freeSausages(23, 0, 0), 0, 'an empty grinder covers none');
+check(diet._freeSausages(2, 0, 100000), 2, 'never more than can be made');
+// with nothing left in the budget, sausages are limited to the free ones
+const grind = (free) => {
+  const list = [{name: 'magical sausage', type: 'simple', price: 1332, owned: true, limit: 23, free}];
+  diet._restrictToOwned(list, () => 0);
+  return list.map((e) => [e.limit, e.price]);
+};
+check(grind(1), [[1, 1]], 'one the grinder already paid for stays in a zero-budget plan');
+check(grind(5), [[5, 1]], 'as do sausages already made');
+check(grind(0), [], 'with none free, sausages leave the plan');
 
 // --- planning under a budget -------------------------------------------------
 function settings(value) {
