@@ -83,8 +83,11 @@ string smmDTGarboReady() {
 	return "";
 }
 
+// garbo clears _garboCompleted when it starts and sets it when it finishes.
+// Few adventures left is not a sign that it ran: garbo eats and drinks the
+// day's diet first, which is where its adventures come from.
 boolean smmDTGarboDone() {
-	return get_property("_garboCompleted") != "" || my_adventures() <= smmDSettingInt("garboLeaveTurns");
+	return get_property("_garboCompleted") != "";
 }
 
 void smmDTGarbo() {
