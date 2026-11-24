@@ -10,6 +10,8 @@ The day opens at the Meat (on hand, closet and storage) held when the spending s
 
 The day's net is the Meat held now, minus the opening figure, with this script's own purchases added back. The budget is half of the net, less what has already been spent, and never more than the Meat on hand. A day that loses Meat has a budget of zero.
 
+**Other purchases.** `smmdaily` (see [daily-script.md](daily-script.md)) reads the day's session log and books every purchase this step did not make itself (the old daily code, garbo, buying by hand) as operating spend in `_smm.spend.operating`. The budget is then half of the net, less this step's purchases, less the operating spend. Until something books it the figure is 0, so `dailyGrind()` on its own behaves as before.
+
 Only Meat is counted: items gained are not valued until they sell. Anything else that moves Meat between two runs (a gift, a manual Display Case purchase) lands in the next day's net too.
 
 ## The spending step

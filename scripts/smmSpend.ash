@@ -15,6 +15,7 @@ import <smmMuseumPolicy.ash>
 string kSmmSpendStartKey = "_smm.spend.startMeat";   // cleared at rollover
 string kSmmSpendCloseKey = "smm.spend.lastClose";    // kept across days: Meat held when the spending step last finished
 string kSmmSpendSpentKey = "_smm.spend.spent";       // cleared at rollover
+string kSmmSpendOperatingKey = "_smm.spend.operating"; // cleared at rollover: Meat everything else paid for purchases today, booked by smmDaily
 string kSmmSpendBuyMapFile = "unrestricted_buy_map.txt";
 
 record SmmSpendOffer {
@@ -89,11 +90,21 @@ int smmSpendNet() {
 	return smmSpendLiquidMeat() + smmSpendSpent() - get_property(kSmmSpendStartKey).to_int();
 }
 
-// Meat still allowed to be spent today: half the day's net, less what is spent.
-// Never more than the Meat on hand, and nothing on a losing day.
+// Meat that every other purchase of the day cost: the old daily code, garbo,
+// buying by hand. smmDaily books it from the session log (smmDailyGate.ash).
+// It is 0 until then, which is how this script behaved before.
+int smmSpendOperating() { return get_property(kSmmSpendOperatingKey).to_int(); }
+
+// Rule 2 as arithmetic: this script's purchases and the day's other purchases
+// together stay within the fraction of the day's net. Nothing on a losing day.
+int smmSpendAllowance(int net, int spent, int operating, float fraction) {
+	int allowed = floor(max(0, net) * fraction);
+	return max(0, allowed - max(0, spent) - max(0, operating));
+}
+
+// Meat still allowed to be spent today. Never more than the Meat on hand.
 int smmSpendBudget() {
-	int allowed = floor(max(0, smmSpendNet()) * smmSpendFraction());
-	return max(0, min(allowed - smmSpendSpent(), my_meat()));
+	return min(smmSpendAllowance(smmSpendNet(), smmSpendSpent(), smmSpendOperating(), smmSpendFraction()), my_meat());
 }
 
 void smmSpendReport() {
@@ -102,7 +113,8 @@ void smmSpendReport() {
 		return;
 	}
 	print("Spending: opened at " + get_property(kSmmSpendStartKey) + " Meat, netted " + smmSpendNet()
-		+ ", spent " + smmSpendSpent() + ", still allowed " + smmSpendBudget(), "blue");
+		+ ", spent " + smmSpendSpent() + (smmSpendOperating() > 0 ? ", other purchases " + smmSpendOperating() : "")
+		+ ", still allowed " + smmSpendBudget(), "blue");
 }
 
 // ---------------------------------------------------------------------------
