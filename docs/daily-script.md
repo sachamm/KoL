@@ -66,9 +66,9 @@ Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's 
 | nightcap | `nightcap.before` | `beforeOverdrunkGoodNight` | legacy | legacy |
 | | `diet.turngen` | `call diet.js turngen yes` | on | on |
 | | `garbo.final` | Fence, garbo down to the diet's stop point (`_smm.diet.stopAt`, all adventures when it is 0), unfence | on | on |
-| | `diet.finish` | `call diet.js finish yes`: the rest of the diet and the nightcap drink | on | on |
+| | `diet.finish` | `call diet.js finish yes`: the rest of the diet and the nightcap drink. When finish's stop point is lower than turngen's (Sweat Out Some Booze is counted only by finish), it runs garbo down to the new one and finishes again, at most twice. | on | on |
 | | `goodnight.adv` | `good_night_adv`: the overdrunk turns | legacy | legacy |
-| | `goodnight` | `good_night` | legacy | legacy |
+| | `goodnight` | `good_night`, then the rollover check again, since its free turn generation can add adventures | legacy | legacy |
 | close | `close.unfence` | Takes back anything still fenced | on | on |
 | | `close.book` | Books the day's purchases | on | on |
 | | `close.store`, `close.spend` | `stockStore`, `smmSpendRun` | legacy | legacy |

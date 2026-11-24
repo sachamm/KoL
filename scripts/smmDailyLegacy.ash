@@ -391,8 +391,12 @@ void smmDLGoodNightAdv() {
 	good_night_adv();
 }
 
+// good_night's burnFreeTurnGen (chocolates, essential tofu, the Mayam
+// calendar, the latte refill) can add adventures after good_night_adv's
+// rollover check, so check again.
 void smmDLGoodNight() {
 	good_night();
+	burnOverdrunkExcess();
 }
 
 // ---------------------------------------------------------------------------

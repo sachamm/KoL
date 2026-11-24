@@ -218,8 +218,23 @@ boolean smmDTOverdrunk() {
 	return my_inebriety() > inebriety_limit();
 }
 
+// diet.js finish plans again with the drunkenness Sweat Out Some Booze frees,
+// which turngen leaves out, so its stop point can be lower than the one
+// garbo.final stopped at (sweat also builds while garbo runs). It then
+// refuses, having recorded the new stop point: spend down to it and finish
+// again.
 void smmDTDietFinish() {
-	boolean unused = cli_execute(smmDTDietCommand("finish"));
+	int spendDowns = 0;
+	while (true) {
+		boolean unused = cli_execute(smmDTDietCommand("finish"));
+		if (smmDTOverdrunk() || smmDStopRun != "") return;
+		int stopAt = smmDTStopPoint(get_property("_smm.diet.stopAt"));
+		if (my_adventures() <= stopAt || spendDowns >= 2) return; // refused for another reason, or not settling
+		spendDowns += 1;
+		smmDLog("diet.finish", "NOTE", "finish's stop point is " + stopAt + " with " + my_adventures() + " adventures held: garbo down to it");
+		smmDTGarboRun("diet.finish", smmDTGarboFinalCommand(stopAt, smmDSetting("garboArgs")));
+		if (smmDStopRun != "") return;
+	}
 }
 
 string smmDTOverdrunkReady() {
