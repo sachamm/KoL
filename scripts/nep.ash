@@ -270,6 +270,26 @@ void nepQuestAutomation() {
 
 
 
+// The quest can finish before the day's 10 free party turns are used (on
+// 2026-11-24 it finished on the 9th). The rest cost nothing: fight them.
+void nepFightFreeLeftovers() {
+	if (get_property("_questPartyFair") != "finished") return;
+	set_property("choiceAdventure1324", "5"); // fight
+	try {
+		while ("_neverendingPartyFreeTurns".get_property().to_int() < 10) {
+			int before = "_neverendingPartyFreeTurns".get_property().to_int();
+			print("Neverending Party: free turn " + (before + 1) + " of 10 after the quest", "green");
+			healIfRequiredWithMPRestore();
+			redirectAdventure($location[The Neverending Party], 1);
+			if ("_neverendingPartyFreeTurns".get_property().to_int() <= before) break; // not counted: stop rather than spend turns
+		}
+	} finally {
+		remove_property("choiceAdventure1324");
+	}
+}
+
+
+
 void grindNeverendingParty() {
 	boolean unused;
 	string tweakString;
@@ -293,6 +313,7 @@ void grindNeverendingParty() {
 			if (partyQuest == kNEPClearGuests && partyTurn >= 10)
 				break;
 		}
+		nepFightFreeLeftovers();
 
 	} finally {
 		remove_property("choiceAdventure1324");
@@ -327,6 +348,10 @@ void main(string arguments) {
 	// ALREADY DONE
 	string partyQuest = "_questPartyFair".get_property();
 	if (get_property("_questPartyFair") == "finished") {
+		if (count(argv) == 1 && argv[0] == "party" && "_neverendingPartyFreeTurns".get_property().to_int() < 10) {
+			nepDressup("_partyHard".get_property().to_boolean());
+			nepFightFreeLeftovers();
+		}
 		print("Neverending Party is over! Exiting...", "green");
 		return;
 	}

@@ -18,16 +18,16 @@ Each score reads the code, not a day's log, unless it says otherwise. Add a row 
 
 ## Scores
 
-| Criterion | Max | Live run 2026-11-24 (log) | main, 2026-11-24 (code) | Round 1 | Round 2 | Round 3 |
-|---|---|---|---|---|---|---|
-| 1 Whole day | 2 | 0.5 | 0.5 | 1.6 | 1.6 | 1.75 |
-| 2 Daily resources | 2 | 1.2 | 1.0 | 1.6 | 1.7 | 1.85 |
-| 3 Scarce resources | 1.5 | 0.2 | 0.25 | 1.2 | 1.2 | 1.35 |
-| 4 Paid turns | 1.5 | 0.6 | 0.5 | 1.0 | 1.0 | 1.3 |
-| 5 Spending rules | 1 | 0.8 | 0.75 | 0.75 | 0.8 | 0.8 |
-| 6 Museum | 1 | 0.9 | 0.5 | 0.5 | 0.9 | 0.9 |
-| 7 Safety and reporting | 1 | 0.6 | 0.6 | 0.8 | 0.9 | 0.9 |
-| **Total** | **10** | **4.8 (5)** | **4.1 (4)** | **7.45 (7)** | **8.1 (8)** | **8.85 (8)** |
+| Criterion | Max | Live run 2026-11-24 (log) | main, 2026-11-24 (code) | Round 1 | Round 2 | Round 3 | Round 4 |
+|---|---|---|---|---|---|---|---|
+| 1 Whole day | 2 | 0.5 | 0.5 | 1.6 | 1.6 | 1.75 | 1.8 |
+| 2 Daily resources | 2 | 1.2 | 1.0 | 1.6 | 1.7 | 1.85 | 1.9 |
+| 3 Scarce resources | 1.5 | 0.2 | 0.25 | 1.2 | 1.2 | 1.35 | 1.45 |
+| 4 Paid turns | 1.5 | 0.6 | 0.5 | 1.0 | 1.0 | 1.3 | 1.3 |
+| 5 Spending rules | 1 | 0.8 | 0.75 | 0.75 | 0.8 | 0.8 | 0.8 |
+| 6 Museum | 1 | 0.9 | 0.5 | 0.5 | 0.9 | 0.9 | 0.9 |
+| 7 Safety and reporting | 1 | 0.6 | 0.6 | 0.8 | 0.9 | 0.9 | 0.9 |
+| **Total** | **10** | **4.8 (5)** | **4.1 (4)** | **7.45 (7)** | **8.1 (8)** | **8.85 (8)** | **9.05 (9)** |
 
 The live run scored higher than main's code on the Museum and daily resources only because Sacha ran garbo, the nightcap, `good_night` and nine `dc rankup` commands by hand.
 
@@ -61,11 +61,17 @@ The live run scored higher than main's code on the Museum and daily resources on
 - Feel Envy has an owner: the consult script casts it on a monster whose uncertain drops are worth at least two turns (`smm.envy.minGain`).
 - During a run, the questions the run can reach in the shared scripts answer their default at once instead of waiting a minute.
 
+### Round 4 (9.05)
+
+- `nep` fights the free party turns left after the quest finishes. On 2026-11-24 the quest finished on the 9th and the 10th went unused.
+- Fiesta Exits can be aimed at chosen noncombats first: `smm.forcedNC.targets` lists location, choice and times a day, best first. The rest still go to the Shadow Rift.
+- `smm.daily.garboAutoConfirm` (off by default) lets garbo answer its own questions while smmdaily runs it, so an unattended run cannot hang on one.
+
 ### What keeps it from 10
 
-- garbo can still ask, and its questions have no timeout (`garbo_autoUserConfirm` is off). Winning the Gingerbread City sprinkles leaderboard is left to `gbc win` by hand.
-- Forced noncombats all go to the Shadow Rift. No target is chosen per day.
+- garbo can still ask, and its questions have no timeout, unless `smm.daily.garboAutoConfirm` is turned on (garbo calls that experimental). Winning the Gingerbread City sprinkles leaderboard is left to `gbc win` by hand.
+- Nothing chooses a forced-noncombat target by itself: they go to the Shadow Rift unless `smm.forcedNC.targets` is set by hand, and only Fiesta Exits can go to a target.
 - The turn-value test still needs 2 to 5 days of history before it can skip a grind.
 - garbo buys at its own prices (for example a Dinsey day ticket at 145,350). Its purchases are booked against the cap afterwards, not blocked before.
-- Unused for want of an owner: the last Neverending Party fight (the quest finishes on the 9th). Snojo and CyberRealm are not unlocked. The audit lists unused resources without saying which task owns each.
-- None of the round 1 to 3 code has run in the game yet.
+- Snojo and CyberRealm are not unlocked. The audit lists unused resources without saying which task owns each.
+- None of the round 1 to 4 code has run in the game yet. The scores read the code; the first live day will show what it really does.

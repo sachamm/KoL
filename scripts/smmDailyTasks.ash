@@ -154,12 +154,16 @@ boolean smmDTGarboDone() {
 void smmDTGarboRun(string task, string command) {
 	int operatingBefore = smmDBookPurchases();
 	boolean finished = false;
+	boolean autoConfirm = smmDSettingBool("garboAutoConfirm");
+	string confirmBefore = get_property("garbo_autoUserConfirm");
 	try {
+		if (autoConfirm) set_property("garbo_autoUserConfirm", "true");
 		smmDFence();
 		smmDLog(task, "NOTE", command + "; fenced " + get_property(kSmmDFencedKey));
 		finished = cli_execute(command);
 	} finally {
 		smmDUnfence();
+		if (autoConfirm) set_property("garbo_autoUserConfirm", confirmBefore);
 	}
 	int bought = smmDBookPurchases() - operatingBefore;
 	smmDLog(task, "NOTE", "garbo bought " + bought + " Meat of items; its own count: Meat " + get_property("garboResultsMeat")

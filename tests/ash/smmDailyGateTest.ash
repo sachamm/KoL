@@ -197,6 +197,17 @@ void testFeelEnvy() {
 	check(feelEnvyMinGain() > 0, "Feel Envy needs a gain worth something");
 }
 
+void testForcedNcTargets() {
+	ForcedNcTarget t = parseForcedNcTarget("The Haunted Billiards Room; choice 875 = 1 ; 2");
+	check(t.where == $location[The Haunted Billiards Room], "a target's location is read");
+	check(t.choice == 875 && t.option == 1, "a target's choice and option are read");
+	check(t.perDay == 2, "a target's times a day are read");
+	same(forcedNcTargetProblem(t), "", "a complete target is usable");
+	check(forcedNcTargetProblem(parseForcedNcTarget("Nowhere Special;choice 1=1;1")) != "", "an unknown location is refused");
+	check(forcedNcTargetProblem(parseForcedNcTarget("The Haunted Billiards Room;875;1")) != "", "a target without a choice is refused");
+	check(forcedNcTargetProblem(parseForcedNcTarget("The Haunted Billiards Room;choice 875=1")) != "", "a target without a count is refused");
+}
+
 void testMpSources() {
 	// Logged out nothing is owned, so no source is offered. What matters here
 	// is the one that must never be offered whatever is owned.
@@ -277,6 +288,7 @@ void main() {
 	testGrindValue();
 	testGrindSkip();
 	testFeelEnvy();
+	testForcedNcTargets();
 	testMpSources();
 	testAuditTable();
 	testRegistry();

@@ -56,7 +56,7 @@ Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's 
 | | `diet` | `call diet.js execute yes`: the first part of the day's diet | on | on |
 | free | `route` | The IoTM route. `legacy` runs all of it, `on` only its free actions | legacy | on |
 | | `deeds` | `dailyDeedsAdv` | legacy | legacy |
-| grinds | `fishing`, `bounty`, `science`, `nep`, `pregrind`, `dolphin`, `workshed` | As in `dailyGrind()` | legacy | legacy |
+| grinds | `fishing`, `bounty`, `science`, `nep`, `pregrind`, `dolphin`, `workshed` | As in `dailyGrind()`. `nep` also fights the free party turns left after the quest finishes (it finished on the 9th of 10 on 2026-11-24). | legacy | legacy |
 | | `hold` | Stops the run after the bounty when `smm.dailyGrind.useBanishers` is `false`, or `highItem` is `false` with the champagne bottle still usable | legacy | legacy |
 | | `champagne`, `oasis` | As in `dailyGrind()` | legacy | off |
 | | `beerLens`, `ghostCostume`, `spacegate`, `fantasyRealm`, `pirateRealm`, `dailyDungeon`, `drip`, `gingerbread` | The Museum grinds, as in `dailyGrind()` | legacy | legacy |
@@ -90,7 +90,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **Spending.** `close.book` reads the day's session log and counts every purchase that neither `smmSpend` nor `diet.js` made as operating spend. The diet has a budget of its own, `smm.diet.budget` (see [daily-spending.md](daily-spending.md#the-diets-purchases)). `smmSpendRun` then allows half of the day's net, less its own purchases, less the operating spend. The report checks the day's biggest mall purchases against their average sale price and prints what was paid above it. The line in the log is the purchase request, so the total can run slightly high, never low. Only the log on the machine you are playing on is read.
 
-**Forced noncombats.** Free rests and Cinch belong to the forced-noncombat pool, not to garbo. `forced.nc` runs before garbo and spends the spikes, the Avalanches and every Fiesta Exit the Cinch and free rests pay for (7 with 31 free rests) at the Shadow Rift, which finishes a Rufus quest. Spikes and Avalanches are cast in a fight: free fights and free kills first, then, when those are gone, one paid Shadow Rift fight each, since the Rufus quest it finishes gives about 11 free Rift fights (`smm.forcedNC.paidTurns = false` turns the paid fights off). The Cincho de Mayo is also in the fence while garbo runs, so garbo cannot rest for Cinch or cast Projectile Piñata with it: on 2026-11-24 it spent all 31 rests and 430 Cinch that way and no Fiesta Exit was cast.
+**Forced noncombats.** Free rests and Cinch belong to the forced-noncombat pool, not to garbo. `forced.nc` runs before garbo and spends the spikes, the Avalanches and every Fiesta Exit the Cinch and free rests pay for (7 with 31 free rests) at the Shadow Rift, which finishes a Rufus quest. Spikes and Avalanches are cast in a fight: free fights and free kills first, then, when those are gone, one paid Shadow Rift fight each, since the Rufus quest it finishes gives about 11 free Rift fights (`smm.forcedNC.paidTurns = false` turns the paid fights off). Fiesta Exits go first to `smm.forcedNC.targets`, when set: entries separated by `|`, best first, each `location;choice N=option;times a day`, for example `The Haunted Billiards Room;choice 875=1;1`. Each casts a Fiesta Exit and adventures there once with that choice answered; the rest go to the Rift. The Cincho de Mayo is also in the fence while garbo runs, so garbo cannot rest for Cinch or cast Projectile Piñata with it: on 2026-11-24 it spent all 31 rests and 430 Cinch that way and no Fiesta Exit was cast.
 
 **Feel Envy** (Emotion Chip, 3 a day: the monster drops every item it has) is cast by the consult script in fights the run's own scripts start (not garbo's), on a monster whose drops still left to chance are worth at least `smm.envy.minGain` (default two turns). Each drop counts its value times the chance it would not drop anyway; pickpocket-only, conditional and unknown-rate drops are left out.
 
@@ -115,6 +115,7 @@ Run `smmdaily settings` for the full list with current values.
 | `smm.daily.garboReserveTurns` | 30 | Adventures the Museum grinds leave for garbo, on top of the line above. |
 | `smm.daily.garboArgs` | | Extra arguments for garbo. |
 | `smm.daily.fenceItems` | drum machine\|Special Seasoning\|inflammable leaf\|Cincho de Mayo | Items closeted (taken off first, if worn) while garbo runs. |
+| `smm.daily.garboAutoConfirm` | false | `true` sets `garbo_autoUserConfirm` while smmdaily runs garbo, so garbo answers its own questions. garbo calls that option experimental; left off, a garbo question waits with no timeout. |
 | `smm.daily.mpFloor` | 2000 | MP restored to after breakfast. |
 | `smm.daily.mpLow` | 400 | No task starts under this while a free restore is left. |
 | `smm.daily.halt` | | Set before a run: stop after this task, then clear itself. |
@@ -137,12 +138,12 @@ These are in the plan and not in this milestone:
 - **The planner pools** for MP, banishes, paid turns and organs. The Museum turn cap is a simple counter.
 - **Free-fight adapters** for Snojo and CyberRealm, and the fixes to `burnMP` and `moodExecute` in KoLUtils.
 - **Values in the audit.** It lists the daily resources with uses left, without a value or an owner for each.
-- **Choosing where each forced noncombat goes.** `forced.nc` aims every one at the Shadow Rift. A Display Case item that only a zone's noncombat gives would be a better target, once one is chosen.
+- **Choosing where each forced noncombat goes on its own.** `forced.nc` aims them at the Shadow Rift unless `smm.forcedNC.targets` names better ones (see Forced noncombats); nothing picks a target by itself yet.
 
 Known limits of what is built:
 
 - A grind that takes more adventures than are left is held back and says so, and `smmdaily run` picks it up later.
-- "No questions": the six `dailyGrind` prompts are answered ahead of time, and during a run (`smm.daily.active` set) the questions the run can reach in the shared scripts (the magical sausage for MP, the smut orc camp, a target with no dressup) take their default answer at once instead of waiting a minute. The rest (`gbc win`'s buff cost, cancelling a platinum Guzzlr location, the Dreadsylvania gear checks, wishing for a monster) are in code no task runs. garbo can still ask its own.
+- "No questions": the six `dailyGrind` prompts are answered ahead of time, and during a run (`smm.daily.active` set) the questions the run can reach in the shared scripts (the magical sausage for MP, the smut orc camp, a target with no dressup) take their default answer at once instead of waiting a minute. The rest (`gbc win`'s buff cost, cancelling a platinum Guzzlr location, the Dreadsylvania gear checks, wishing for a monster) are in code no task runs. garbo can still ask its own, unless `smm.daily.garboAutoConfirm` is true.
 - ASH cannot catch an `abort()`. When today's code aborts, the run stops there. `smmdaily run` picks the day up.
 - The fence keeps garbo from using what is in the closet. It cannot stop garbo buying more of the same item.
 - In the `plan` profile the free route skips the Sword seed and Lucky! adventures, which cost one turn each. `route.paid` picks them up later.

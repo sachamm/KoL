@@ -67,6 +67,7 @@ boolean smmDCoreSettings =
 	&& smmDDeclare("mpLow", "400", "no task starts under this much MP while a free restore is left")
 	&& smmDDeclare("rolloverBufferMin", "10", "no turn-spending task starts this close to rollover")
 	&& smmDDeclare("fenceItems", "drum machine|Special Seasoning|inflammable leaf|Cincho de Mayo", "items closeted while garbo runs, separated by |. The Cincho de Mayo keeps garbo from spending the free rests and Cinch, which are kept for Fiesta Exits")
+	&& smmDDeclare("garboAutoConfirm", "false", "true lets garbo answer its own questions while smmdaily runs it (garbo_autoUserConfirm, which garbo calls experimental); otherwise a garbo question waits for an answer with no timeout")
 	&& smmDDeclare("maxAttempts", "2", "times a task may start in one day before it is marked failed")
 	&& smmDDeclare("halt", "", "set before a run: stop after this task, then clear this setting");
 

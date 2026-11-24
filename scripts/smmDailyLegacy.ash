@@ -148,8 +148,9 @@ void smmDLScience() {
 	grindScience(true); // useSweetSynthesis?
 }
 
+// The quest can finish before the 10 free turns are used; nep party then
+// fights the rest.
 string smmDLNepReady() {
-	if (get_property("_questPartyFair") == "finished") return "the party quest is finished";
 	if (get_property("_neverendingPartyFreeTurns").to_int() >= 10) return "the 10 free party turns are used";
 	return "";
 }

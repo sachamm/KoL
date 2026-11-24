@@ -4232,6 +4232,77 @@ boolean forcedNcPaidFight(string key, string what, int usedBefore, string usesPr
 	return true;
 }
 
+// Forced noncombats aimed somewhere better than the Shadow Rift. Set
+// smm.forcedNC.targets to entries separated by |, best first, each
+//   location;choice number=option;times a day
+// for example "The Haunted Billiards Room;choice 875=1;1". Each one casts a
+// Fiesta Exit (resting for Cinch as needed) and adventures once there with
+// that choice answered. What is left goes to the Rift.
+record ForcedNcTarget {
+	location where;
+	int choice;
+	int option;
+	int perDay;
+};
+
+// An entry's problem, "" when it is usable.
+string forcedNcTargetProblem(ForcedNcTarget t) {
+	if (t.where == $location[none]) return "unknown location";
+	if (t.choice <= 0 || t.option <= 0) return "needs 'choice N=option'";
+	if (t.perDay <= 0) return "needs a number of times a day";
+	return "";
+}
+
+string forcedNcTrim(string text) {
+	matcher m = create_matcher("^\\s*(.*?)\\s*$", text);
+	return m.find() ? m.group(1) : text;
+}
+
+ForcedNcTarget parseForcedNcTarget(string entry) {
+	ForcedNcTarget t;
+	string [int] parts = entry.split_string(";");
+	if (count(parts) < 3) return t;
+	t.where = forcedNcTrim(parts[0]).to_location();
+	matcher m = create_matcher("^\\s*choice\\s*(\\d+)\\s*=\\s*(\\d+)\\s*$", parts[1]);
+	if (m.find()) {
+		t.choice = m.group(1).to_int();
+		t.option = m.group(2).to_int();
+	}
+	string times = forcedNcTrim(parts[2]);
+	t.perDay = times.is_integer() ? times.to_int() : 0;
+	return t;
+}
+
+void forcedNcTargets() {
+	string list = get_property("smm.forcedNC.targets");
+	if (list == "") return;
+	foreach i, entry in list.split_string("\\|") {
+		if (forcedNcTrim(entry) == "") continue;
+		ForcedNcTarget t = parseForcedNcTarget(entry);
+		string problem = forcedNcTargetProblem(t);
+		if (problem != "") {
+			print("smm.forcedNC.targets: '" + entry + "' skipped: " + problem, "red");
+			continue;
+		}
+		string doneKey = "_smm.forcedNC.done." + i;
+		while (get_property(doneKey).to_int() < t.perDay && readyCinch(60)) {
+			string key = "choiceAdventure" + t.choice;
+			string before = get_property(key);
+			set_property(key, t.option.to_string());
+			try {
+				use_skill($skill[Cincho: Fiesta Exit]);
+				healIfRequiredWithMPRestore();
+				boolean unused = adv1(t.where, -1, "");
+			} finally {
+				set_property(key, before);
+			}
+			set_property(doneKey, (get_property(doneKey).to_int() + 1).to_string());
+			print("forced noncombat at " + t.where + " (choice " + t.choice + ", option " + t.option + "): last choice was " + last_choice(), "blue");
+			equip($item[Cincho de Mayo]);
+		}
+	}
+}
+
 void grindRufusAndTheShadowRiftsForFree() {
 	print("grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes available and " + cinchUsed() + " cinch used with " + cinchRestsUsed() + " cinch rests used and " + total_free_rests() + " total free rests", "green");
 
@@ -4310,7 +4381,9 @@ void grindRufusAndTheShadowRiftsForFree() {
 	cprint(spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them, and no paid fight (smm.forcedNC.paidTurns, adventures, sobriety)", "orange");
 
 
-	// CINCHO DE MAYO
+	// CINCHO DE MAYO: first the day's chosen targets, then the Rift
+	equip($item[Cincho de Mayo]);
+	forcedNcTargets();
 	equip($item[Cincho de Mayo]);
 	while (readyCinch(60) && questStage("questRufus") == 0) {
 		use_skill($skill[Cincho: Fiesta Exit]);
