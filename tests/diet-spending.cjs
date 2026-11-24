@@ -39,6 +39,14 @@ check(diet._buyCap(100000, 216771.5), 130000, 'under the average the plan and it
 check(diet._buyCap(326000, 216771.5), 216771, 'a plan above the average is still capped');
 check(diet._buyCap(1000, 0), 1300, 'unknown average: the plan and its slack');
 check(diet._buyCap(0, 216771.5), 0, 'an unplanned item is not bought');
+check(diet._buyCap(100000, 216771.5, Infinity, 2), 130000, 'no budget to mind: unchanged');
+check(diet._buyCap(100000, 216771.5, 150000, 2), 75000, 'two copies share the Meat left in the budget');
+check(diet._buyCap(100000, 216771.5, 500000, 2), 130000, 'plenty left: the plan and its slack decide');
+check(diet._buyCap(100000, 0, 99, 1), 99, 'a price that rose past the budget is not paid');
+check(diet._buyCap(100000, 216771.5, 0, 1), 0, 'nothing left: nothing bought');
+check(diet._buyCap(100000, 216771.5, -500, 1), 0, 'an overspent budget buys nothing');
+check([diet._canAfford(500, 500), diet._canAfford(500, 499), diet._canAfford(1, 0), diet._canAfford(1, Infinity)], [true, false, false, true],
+  'a store purchase or a speakeasy drink needs its price left in the budget');
 
 // --- planning under a budget -------------------------------------------------
 function settings(value) {
@@ -104,7 +112,48 @@ check([crumbs.toBuy, crumbs.over, crumbs.ownedOnly, crumbs.value], [0, false, tr
 const owned = fit(Infinity, null, (name) => (name == 'fine food' ? 2 : 0));
 check(owned.toBuy, free.toBuy - 2 * 60000, 'copies already owned cost nothing');
 const mixed = [{name: 'a', price: 100}, {name: 'b', price: 100, owned: true}, {name: 'c', price: 100, speakeasy: 1}, {name: 'd', price: 100}];
-check(diet._planPurchaseCost({a: 3, b: 3, c: 3}, mixed, none), 300, 'owned-only and speakeasy entries are not purchases, nor unplanned ones');
+check(diet._planPurchaseCost({a: 3, b: 3, c: 3}, mixed, none), 303, 'owned-only entries cost nothing, nor unplanned ones; a speakeasy drink costs its own price');
+
+// every paid resource is in the estimate, not only store purchases
+const row = (name, extra) => ({name, desc: {extra: extra || []}});
+const wish = {type: 'effect', verb: 'wish for', effect: 'Refined Palate'};
+const paid = {
+  result: {diet_items: [row('Ancestral Recall'), row('wine', [wish]), row('other wine', [wish]), row('salad', [{type: 'item', exclude: true, item: {name: 'fork'}}])]},
+  parts: [[0, 0, 10, 0, 0], [0, 2, 0, 0, 0], [0, 0, 0, 3, 0], [0, 1, 0, 1, 0]],
+};
+check(diet._planUnits(paid), {'blue mana': 10, 'wine': 2, 'other wine': 3, 'pocket wish': 1, 'salad': 2, 'fork': 2},
+  'Ancestral Recall uses blue mana, and one wish serves every drink it helps');
+const paidFor = [{name: 'blue mana', price: 10000}, {name: 'Lucky Lindy', speakeasy: 500, type: 'booze'},
+  {name: 'magical sausage', price: 1332, owned: true, type: 'simple'}, {name: 'pocket wish', price: 50000}];
+check(diet._planPurchaseCost({'blue mana': 10}, paidFor, none), 100000, 'the mana behind Ancestral Recall is a purchase');
+check(diet._planPurchaseCost({'blue mana': 10}, paidFor, () => 4), 60000, 'less the mana already owned');
+check(diet._planPurchaseCost({'Lucky Lindy': 3}, paidFor, none), 1500, 'speakeasy drinks cost Meat');
+check(diet._planPurchaseCost({'magical sausage': 23}, paidFor, () => 23), 23 * 1332, 'so does grinding sausages');
+check(diet._planPurchaseCost({'pocket wish': 1}, paidFor, none), 50000, 'and a wish');
+
+// with nothing left, the optimizer is not offered them either
+function paidMarket() {
+  return market().concat([
+    {name: 'blue mana', advmin: 0, advmax: 0, price: 10000},
+    {name: 'Lucky Lindy', advmin: 6, advmax: 6, type: 'booze', size: [0, 1, 0], speakeasy: 500},
+  ]);
+}
+function fitPaid(room) {
+  const cons = paidMarket();
+  diet._setData(cons, 30000);
+  const s = Object.assign(settings(5000), {'speakeasy': true, 'speakeasy drinks left': 3, 'semirares available': 0,
+    'ancestral recall available': true, 'ancestral recall casts left': 10});
+  const result = diet._fitPlan(diet.planDay(s, false), s, false, room, null, none);
+  return {toBuy: result.toBuy, ownedOnly: result.ownedOnly, units: diet._planUnits(result.plan)};
+}
+const rich = fitPaid(Infinity);
+assert.ok(rich.units['blue mana'] == 10 && rich.units['Lucky Lindy'] > 0, 'with room, the toy day casts Ancestral Recall and drinks at the speakeasy');
+cases++;
+for (const room of [0, 1]) {
+  const poor = fitPaid(room);
+  check([poor.toBuy, poor.units['blue mana'], poor.units['Lucky Lindy']], [0, undefined, undefined],
+    'a budget of ' + room + ' pays for no mana and no speakeasy drink');
+}
 
 // a refresh that takes an overpriced item off the list re-plans without it,
 // and that alone does not lower the value of an adventure
