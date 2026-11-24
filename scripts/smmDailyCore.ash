@@ -68,8 +68,7 @@ boolean smmDCoreSettings =
 	&& smmDDeclare("rolloverBufferMin", "10", "no turn-spending task starts this close to rollover")
 	&& smmDDeclare("fenceItems", "drum machine|Special Seasoning|inflammable leaf", "items closeted while garbo runs, separated by |")
 	&& smmDDeclare("maxAttempts", "2", "times a task may start in one day before it is marked failed")
-	&& smmDDeclare("halt", "", "stop the run after this task")
-	&& smmDDeclare("interrupt", "false", "true stops the run before the next task, then clears itself");
+	&& smmDDeclare("halt", "", "set before a run: stop after this task, then clear this setting");
 
 // ---------------------------------------------------------------------------
 // Day key. The game date is pinned to rollover, and it is the key the resource
@@ -443,12 +442,6 @@ void smmDRun(string selector) {
 		if (!dry && smmDHookRunStart != "") call void smmDHookRunStart();
 		foreach i, t in smmDTasks {
 			if (!smmDSelected(t, selector)) continue;
-			if (!dry && smmDSettingBool("interrupt")) {
-				smmDSet("smm.daily.interrupt", "false");
-				smmDLog(t.id, "STOP", "smm.daily.interrupt");
-				print("smmDaily: stopped before " + t.id + " (smm.daily.interrupt).", "orange");
-				break;
-			}
 			smmDRunTask(t);
 			if (dry) continue;
 			if (current_round() > 0 || handling_choice()) {
@@ -462,6 +455,7 @@ void smmDRun(string selector) {
 				break;
 			}
 			if (smmDSetting("halt") == t.id) {
+				smmDSet("smm.daily.halt", ""); // one stop, not one every day
 				smmDLog(t.id, "STOP", "smm.daily.halt");
 				print("smmDaily: stopped after " + t.id + " (smm.daily.halt).", "orange");
 				break;

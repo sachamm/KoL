@@ -14,7 +14,12 @@ In this milestone almost every task runs today's code, lifted block by block out
 4. On the Windows machine only: `set smm.daily.runner = true`. On any other machine `smmdaily run` stays a dry run.
 5. `smmdaily run` in place of `dailyGrind`. Then run garbo, the nightcap and `good_night` as you do now.
 
-To stop a run cleanly, `set smm.daily.interrupt = true` from another gCLI tab: it stops before the next task. Running `smmdaily run` again carries on from where the day stopped.
+**Stopping a run.** KoLmafia runs one command at a time, so nothing can be set from the gCLI while a run is going: a second command waits until the run ends.
+
+- To stop at a point you know ahead of time, `set smm.daily.halt = <task>` before the run. It stops after that task and clears itself.
+- To stop right now, press Esc, as with any script. That aborts in the middle of the current task.
+
+Either way, `smmdaily run` again carries on from where the day stopped. A task that was aborted is closed in the journal and started again from its beginning. Today's code already skips what the game says is done, as it does when you rerun `dailyGrind`. A task aborted twice in one day is marked failed and skipped. `smmdaily retry <task>` lets it run again.
 
 ## Commands
 
@@ -66,7 +71,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **Journal and resume.** `data/smm-daily-<playerid>.txt` gets a line when a task begins and another when it ends, each with turns played, adventures, Meat and MP. A finished task does not run again that day. A task that began and never ended is closed by the next run and tried once more. After two starts without finishing it is marked failed and the day moves on without it. If journal lines go missing, a `GAP` line says so. Spending totals are kept in preferences, not in the journal, so a lost journal never reads as "nothing spent".
 
-**No questions.** The new code never asks anything. The six questions today's code asks are answered ahead of time, in the shared settings and again for the length of each run. An answer of `false` to `useBanishers` or `highItem` still stops the run after the bounty, as it does in `dailyGrind()`, so the banishers and item-drop buffs can be kept for work by hand. To stop anywhere else, `set smm.daily.halt = <task>` stops the run after that task.
+**No questions.** The new code never asks anything. The six questions today's code asks are answered ahead of time, in the shared settings and again for the length of each run. An answer of `false` to `useBanishers` or `highItem` still stops the run after the bounty, as it does in `dailyGrind()`, so the banishers and item-drop buffs can be kept for work by hand. To stop anywhere else, `set smm.daily.halt = <task>` before the run.
 
 **MP.** The day used to stall at 0 MP after rollover. `mp.bootstrap` restores MP to `smm.daily.mpFloor` from free sources only: License to Chill when a lot is missing, bat-wing rests, nuns visits, free rests, the eternal car battery. If KoLmafia's breakfast did not finish its summons, it is run again. Before every later task up to and including garbo, MP under `smm.daily.mpLow` is topped up the same way. Nothing is bought to restore MP.
 
@@ -95,8 +100,7 @@ Run `smmdaily settings` for the full list with current values.
 | `smm.daily.fenceItems` | drum machine\|Special Seasoning\|inflammable leaf | Items closeted while garbo runs. |
 | `smm.daily.mpFloor` | 2000 | MP restored to after breakfast. |
 | `smm.daily.mpLow` | 400 | No task starts under this while a free restore is left. |
-| `smm.daily.halt` | | Stop after this task. |
-| `smm.daily.interrupt` | false | `true` stops before the next task, then clears itself. |
+| `smm.daily.halt` | | Set before a run: stop after this task, then clear itself. |
 
 **Day 0 settings** in `data/smm-prefs.txt`, applied by `smmPrefs apply`. They affect `dailyGrind()` too:
 
@@ -139,7 +143,7 @@ Known limits of what is built:
 `tests/smmdaily-tests.sh` runs a logged-out KoLmafia r29462 in `tests/.runtime` (downloaded on first use). Nothing logs in. It checks that:
 
 - `smmdaily.ash` and everything it imports compiles;
-- the engine behaves: modes and profiles, run once and resume, not-ready and failed tasks, halt and interrupt, dry runs, the turn limits, the journal round trip, a lost journal and an interrupted task (`tests/ash/smmDailyCoreTest.ash`);
+- the engine behaves: modes and profiles, run once and resume, not-ready and failed tasks, halt, dry runs, the turn limits, the journal round trip, a lost journal and an interrupted task (`tests/ash/smmDailyCoreTest.ash`);
 - the arithmetic is right: the allowance, the session-log parser, operating spend, overpayment, the fence record, garbo's arguments, the audit table and the task list (`tests/ash/smmDailyGateTest.ash`);
 - `smmdaily plan` prints the whole day logged out;
 - the new files never call `user_confirm`;

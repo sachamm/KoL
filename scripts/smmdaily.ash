@@ -89,7 +89,6 @@ void main(string command) {
 	case "reset":
 		if (handling_choice() || current_round() > 0) abort("Resolve the current encounter first.");
 		smmDSet("smm.daily.active", "");
-		smmDSet("smm.daily.interrupt", "false");
 		smmDLRunEnd();
 		print("smmDaily: cleared the run lock. Finished tasks, daily counters and spending were kept.");
 		break;

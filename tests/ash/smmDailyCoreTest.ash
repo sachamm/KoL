@@ -178,12 +178,8 @@ void testStops() {
 	smmDSet("smm.daily.halt", "t.a");
 	smmDRun("");
 	check(ran["a"] == 1 && ran["b"] == 0, "smm.daily.halt stops after the named task");
-	smmDSet("smm.daily.halt", "");
-
-	smmDSet("smm.daily.interrupt", "true");
-	smmDRun("");
-	check(ran["b"] == 0, "smm.daily.interrupt stops before the next task");
-	same(smmDGet("smm.daily.interrupt"), "false", "and clears itself");
+	same(smmDGet("smm.daily.halt"), "", "and clears itself");
+	check(journalCount("t.a", "STOP") == 1, "the halt is journaled");
 
 	stopAfter = "stub asked to stop";
 	smmDRun("");
