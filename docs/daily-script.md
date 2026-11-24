@@ -8,11 +8,13 @@ In this milestone almost every task runs today's code, lifted block by block out
 
 ## First use
 
-1. `git update`, then `smmPrefs apply`. This sets the Day 0 settings below.
+1. `git update`, then `smmPrefs apply`. This sets the Day 0 settings below. On the development Mac, link the five new files (`smmdaily.ash`, `smmDailyCore.ash`, `smmDailyGate.ash`, `smmDailyLegacy.ash`, `smmDailyTasks.ash`) into the KoLmafia scripts directories instead.
 2. `smmdaily plan` at any time. It changes nothing and shows every task, whether it would run now, and why not.
 3. `smmdaily dry` walks the day without doing anything.
 4. On the Windows machine only: `set smm.daily.runner = true`. On any other machine `smmdaily run` stays a dry run.
 5. `smmdaily run` in place of `dailyGrind`. Then run garbo, the nightcap and `good_night` as you do now.
+
+If `smmdaily plan` prints `Returned: aggregate location [0]`, KoLmafia has no script called `smmdaily`: the files are not installed on that machine. With no script of that name it runs the command-line namespace instead and prints the value of its last line.
 
 **Stopping a run.** KoLmafia runs one command at a time, so nothing can be set from the gCLI while a run is going: a second command waits until the run ends.
 
