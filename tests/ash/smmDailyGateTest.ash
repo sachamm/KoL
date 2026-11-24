@@ -123,6 +123,19 @@ void testGarbo() {
 	check(smmDTGarboReady() != "", "garbo is not ready with valueOfAdventure outside 3,500 to 10,000");
 }
 
+void testHold() {
+	same(smmDLHoldReason("true", "true", true), "", "both answers yes: carry on");
+	same(smmDLHoldReason("", "", true), "", "unset answers never stop the run");
+	check(smmDLHoldReason("false", "true", false) != "", "useBanishers=false stops the run");
+	check(smmDLHoldReason("false", "", true) != "", "useBanishers=false stops whatever the bottle holds");
+	check(smmDLHoldReason("true", "false", true) != "", "highItem=false stops while the champagne bottle is usable");
+	same(smmDLHoldReason("true", "false", false), "", "highItem=false does not stop once the bottle is spent, as in dailyGrind");
+	check(smmDTaskIndex["bounty"] < smmDTaskIndex["hold"] && smmDTaskIndex["hold"] < smmDTaskIndex["champagne"], "the hold sits between the bounty and the champagne bottle");
+	check(smmDTasks[smmDTaskIndex["hold"]].repeatable, "the hold applies on every run, not once a day");
+	same(smmDTasks[smmDTaskIndex["route"]].done_fn, "smmDLRouteDone", "the route is done only when it came back clean");
+	same(smmDTasks[smmDTaskIndex["route.paid"]].done_fn, "smmDLRoutePaidDone", "and so is its paid pass");
+}
+
 void testAuditTable() {
 	check(count(smmDTPools) >= 30, "the audit table is there");
 	boolean [string] labels;
@@ -176,6 +189,7 @@ void main() {
 	testBooking();
 	testFence();
 	testGarbo();
+	testHold();
 	testAuditTable();
 	testRegistry();
 	if (failures == 0) print("PASS smmDailyGateTest: " + checks + " checks");

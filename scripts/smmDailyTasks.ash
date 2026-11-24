@@ -278,11 +278,12 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(1, "mp.bootstrap", "restore MP from free sources, then repeat any breakfast summon that failed", "", "", "smmDTBootstrap", "", "", "on", "on");
 	smmDTAdd(1, "breakfast.second", "second breakfast: collections, mood, outfit, daily buffs", "", "smmDLSecondBreakfastDone", "", "smmDLSecondBreakfast", "", "legacy", "legacy");
 	// 2 free
-	smmDTAdd(2, "route", "the IoTM route (legacy: all of it; on: free actions only)", "", "", "smmDLRouteFree", "smmDLRouteAll", "turns", "legacy", "on");
+	smmDTAdd(2, "route", "the IoTM route (legacy: all of it; on: free actions only)", "", "smmDLRouteDone", "smmDLRouteFree", "smmDLRouteAll", "turns", "legacy", "on");
 	smmDTAdd(2, "deeds", "daily deeds that cost no adventures", "", "", "", "smmDLDeeds", "", "legacy", "legacy");
 	// 3 grinds
 	smmDTAdd(3, "fishing", "sea grind on yesterday's Fishy", "smmDLFishingReady", "", "", "smmDLFishing", "turns", "legacy", "legacy");
 	smmDTAdd(3, "bounty", "bounty hunting", "", "", "", "smmDLBounty", "turns", "legacy", "legacy");
+	smmDTAdd(3, "hold", "stop here when smm.dailyGrind.useBanishers or highItem is false", "smmDLHoldReady", "", "", "smmDLHold", "repeat", "legacy", "legacy");
 	smmDTAdd(3, "champagne", "burn the champagne bottle's charge", "smmDLChampagneReady", "", "", "smmDLChampagne", "turns", "legacy", "off");
 	smmDTAdd(3, "science", "science grind", "", "", "", "smmDLScience", "turns", "legacy", "legacy");
 	smmDTAdd(3, "nep", "Neverending Party quest and free turns", "smmDLNepReady", "", "", "smmDLNep", "turns", "legacy", "legacy");
@@ -298,7 +299,7 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(3, "dolphin", "dolphin whistle for the waiting item", "smmDLDolphinReady", "", "", "smmDLDolphin", "turns", "legacy", "legacy");
 	smmDTAdd(3, "workshed", "fuel Driving Observantly, then swap the Asdon for the model train set", "smmDLWorkshedReady", "", "", "smmDLWorkshed", "", "legacy", "legacy");
 	smmDTAdd(3, "gingerbread", "Gingerbread City items", "", "", "", "smmDLGingerbread", "turns museum", "legacy", "legacy");
-	smmDTAdd(3, "route.paid", "the IoTM route's paid-turn actions, after the grinds", "", "", "", "smmDLRouteAll", "turns museum", "off", "legacy");
+	smmDTAdd(3, "route.paid", "the IoTM route's paid-turn actions, after the grinds", "", "smmDLRoutePaidDone", "", "smmDLRouteAll", "turns museum", "off", "legacy");
 	// 4 garbo
 	smmDTAdd(4, "garbo", "fence, garbo -N, unfence", "smmDTGarboReady", "smmDTGarboDone", "smmDTGarbo", "", "turns", "dry", "on");
 	// 5 close

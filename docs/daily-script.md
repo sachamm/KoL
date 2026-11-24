@@ -48,6 +48,7 @@ Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's 
 | free | `route` | The IoTM route. `legacy` runs all of it, `on` only its free actions | legacy | on |
 | | `deeds` | `dailyDeedsAdv` | legacy | legacy |
 | grinds | `fishing`, `bounty`, `science`, `nep`, `pregrind`, `dolphin`, `workshed` | As in `dailyGrind()` | legacy | legacy |
+| | `hold` | Stops the run after the bounty when `smm.dailyGrind.useBanishers` is `false`, or `highItem` is `false` with the champagne bottle still usable | legacy | legacy |
 | | `champagne`, `oasis` | As in `dailyGrind()` | legacy | off |
 | | `beerLens`, `ghostCostume`, `spacegate`, `fantasyRealm`, `pirateRealm`, `dailyDungeon`, `drip`, `gingerbread` | The Museum grinds, as in `dailyGrind()` | legacy | legacy |
 | | `route.paid` | The IoTM route again, with paid turns | off | legacy |
@@ -65,7 +66,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **Journal and resume.** `data/smm-daily-<playerid>.txt` gets a line when a task begins and another when it ends, each with turns played, adventures, Meat and MP. A finished task does not run again that day. A task that began and never ended is closed by the next run and tried once more. After two starts without finishing it is marked failed and the day moves on without it. If journal lines go missing, a `GAP` line says so. Spending totals are kept in preferences, not in the journal, so a lost journal never reads as "nothing spent".
 
-**No questions.** The new code never asks anything. The six questions today's code asks are answered ahead of time, in the shared settings and again for the length of each run. To stop at a point, `set smm.daily.halt = <task>` stops the run after that task.
+**No questions.** The new code never asks anything. The six questions today's code asks are answered ahead of time, in the shared settings and again for the length of each run. An answer of `false` to `useBanishers` or `highItem` still stops the run after the bounty, as it does in `dailyGrind()`, so the banishers and item-drop buffs can be kept for work by hand. To stop anywhere else, `set smm.daily.halt = <task>` stops the run after that task.
 
 **MP.** The day used to stall at 0 MP after rollover. `mp.bootstrap` restores MP to `smm.daily.mpFloor` from free sources only: License to Chill when a lot is missing, bat-wing rests, nuns visits, free rests, the eternal car battery. If KoLmafia's breakfast did not finish its summons, it is run again. Before every later task up to and including garbo, MP under `smm.daily.mpLow` is topped up the same way. Nothing is bought to restore MP.
 
@@ -75,7 +76,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **Turns.** A task that spends turns does not start when overdrunk, within `smm.daily.rolloverBufferMin` minutes of rollover, or with `smm.daily.garboLeaveTurns` adventures or fewer left. The Museum grinds share a cap of `smm.daily.museumTurns` paid turns, and leave `smm.daily.garboReserveTurns` more for garbo while the garbo task is on. Both are checked before a grind starts, not during it.
 
-**Stops.** The run stops if a task leaves a fight or a choice open.
+**Stops.** The run stops if a task leaves a fight or a choice open. The IoTM route counts as done only when it came back clean: if it stopped in a fight, a choice or Beaten Up, or at `smm.IR.maxActions`, the next run picks it up again.
 
 ## Settings
 

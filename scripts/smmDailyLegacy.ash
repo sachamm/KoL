@@ -37,12 +37,40 @@ void smmDLSecondBreakfast() {
 	burnMP();
 }
 
+// The route returns early, with work left, when a worker ends in a fight, a
+// choice or Beaten Up, or when smm.IR.maxActions is reached. dailyGrind()
+// simply called it again on the next run. Here the route counts as done only
+// when it came back clean, so an interrupted one is picked up again.
+boolean smmDLRouteCameBackClean() {
+	if (handling_choice() || current_round() > 0 || have_effect($effect[Beaten Up]) > 0) return false;
+	string cap = get_property("smm.IR.maxActions");
+	if (cap == "") return true;
+	matcher summary = create_matcher("SUMMARY\\tactions=([0-9]+)", file_to_buffer("smm-iotm-route-last.txt").to_string());
+	return find(summary) && group(summary, 1).to_int() < max(1, cap.to_int());
+}
+
+void smmDLRoute(boolean free_only, string key) {
+	set_property(key, "");
+	smmIRDailyRoute(free_only, true);
+	if (smmDLRouteCameBackClean()) set_property(key, "true");
+	else print("smmDaily: the IoTM route stopped with work left; the next smmdaily run picks it up.", "orange");
+}
+
 void smmDLRouteAll() {
-	smmIRDailyRoute(false, true);
+	smmDLRoute(false, "_smm.daily.routeClean.all");
 }
 
 void smmDLRouteFree() {
-	smmIRDailyRoute(true, true);
+	smmDLRoute(true, "_smm.daily.routeClean.free");
+}
+
+// A whole-route pass covers the free actions too.
+boolean smmDLRouteDone() {
+	return get_property("_smm.daily.routeClean.all") == "true" || get_property("_smm.daily.routeClean.free") == "true";
+}
+
+boolean smmDLRoutePaidDone() {
+	return get_property("_smm.daily.routeClean.all") == "true";
 }
 
 void smmDLDeeds() {
@@ -70,6 +98,30 @@ void smmDLBounty() {
 
 // garbageChampagneCharge() can fold the garbage tote, so the readiness test
 // reads the same two preferences without calling it.
+// dailyGrind() stops after the bounty when smm.dailyGrind.useBanishers is
+// false, or when smm.dailyGrind.highItem is false and the champagne bottle
+// could still be used, so that the banishers and item-drop buffs are kept for
+// work done by hand. An unset answer never stops: the engine does not ask.
+// Returns why the run should stop here, "" when it should carry on.
+string smmDLHoldReason(string useBanishers, string highItem, boolean champagneUsable) {
+	if (useBanishers == "false") return "smm.dailyGrind.useBanishers is false: stopped before the banishers are used";
+	if (highItem == "false" && champagneUsable) return "smm.dailyGrind.highItem is false: stopped before the high item drop section";
+	return "";
+}
+
+string smmDLHoldNow() {
+	boolean champagneUsable = get_property("garbageChampagneCharge").to_int() > 0 || !get_property("_garbageItemChanged").to_boolean();
+	return smmDLHoldReason(get_property("smm.dailyGrind.useBanishers"), get_property("smm.dailyGrind.highItem"), champagneUsable);
+}
+
+string smmDLHoldReady() {
+	return smmDLHoldNow() != "" ? "" : "neither smm.dailyGrind.useBanishers nor smm.dailyGrind.highItem asks for a stop";
+}
+
+void smmDLHold() {
+	smmDStopRun = smmDLHoldNow();
+}
+
 string smmDLChampagneReady() {
 	if (get_property("garbageChampagneCharge").to_int() > 0 || !get_property("_garbageItemChanged").to_boolean()) return "";
 	return "the champagne bottle has no charge and the tote was already folded today";
