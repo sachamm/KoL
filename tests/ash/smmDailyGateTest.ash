@@ -75,6 +75,12 @@ void testPurchases() {
 void testBooking() {
 	check(smmDOperatingFrom(10000, 4000, 0) == 6000, "the log's total less smmSpend's own buys");
 	check(smmDOperatingFrom(10000, 0, 0) == 10000, "all of it when smmSpend bought nothing");
+	check(smmDOperatingFrom(10000, 4000 + 3500, 0) == 2500, "the diet's purchases are on its own budget, so they come off too");
+	check(smmDDietBudgetFrom("") == 500000, "the diet's budget has a default");
+	check(smmDDietBudgetFrom("250000") == 250000, "smm.diet.budget sets the diet's budget");
+	check(smmDDietBudgetFrom("0") == 0, "a budget of 0 buys nothing");
+	check(smmDDietBudgetFrom("-5") == 0, "a negative budget is 0");
+	check(smmDDietBudgetFrom("lots") == 500000, "a budget that is not a number is the default");
 	check(smmDOperatingFrom(3000, 4000, 0) == 0, "never negative");
 	check(smmDOperatingFrom(10000, 4000, 9000) == 9000, "never goes down within a day");
 	check(smmDOperatingFrom(0, 0, 0) == 0, "an empty log books nothing");

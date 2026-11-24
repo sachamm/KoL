@@ -1,9 +1,10 @@
 // smmDaily: the safeguards around today's code. See docs/daily-script.md.
 //
 //   - Booking: every purchase in today's session log that did not go through
-//     smmSpend (the old daily code, garbo, buying by hand) counts as operating
-//     spend against the half-of-net rule, and is checked against the average
-//     sale price afterwards.
+//     smmSpend or diet.js (the old daily code, garbo, buying by hand) counts
+//     as operating spend against the half-of-net rule. diet.js has a budget
+//     of its own (smm.diet.budget). Every mall purchase, the diet's too, is
+//     checked against the average sale price afterwards.
 //   - MP: restore to a floor from free daily sources, so a day that starts at
 //     0 MP does not stall.
 //   - Fence: items closeted while garbo runs.
@@ -56,10 +57,26 @@ int smmDPurchaseTotal(SmmDPurchase [int] purchases) {
 	return total;
 }
 
-// Operating spend: the log's total less what smmSpend bought itself (its
-// purchases are in the log too). It never goes down within a day.
-int smmDOperatingFrom(int logTotal, int discretionary, int alreadyBooked) {
-	return max(alreadyBooked, max(0, logTotal - max(0, discretionary)));
+// Operating spend: the log's total less what is accounted for elsewhere, which
+// is what smmSpend bought itself and what diet.js bought on its own budget
+// (their purchases are in the log too). It never goes down within a day.
+int smmDOperatingFrom(int logTotal, int accountedElsewhere, int alreadyBooked) {
+	return max(alreadyBooked, max(0, logTotal - max(0, accountedElsewhere)));
+}
+
+// Meat diet.js paid for purchases today. diet.js keeps the count as it buys.
+int smmDDietBought() { return max(0, get_property("_smm.diet.bought").to_int()); }
+
+// The diet's budget for the day. The default is diet.js's DIET_BUDGET
+// (tests/diet-spending.cjs checks that the two agree).
+int kSmmDDietBudget = 500000;
+int smmDDietBudgetFrom(string setting) {
+	return setting.is_integer() ? max(0, setting.to_int()) : kSmmDDietBudget;
+}
+
+void smmDDietReport() {
+	print("Diet: paid " + max(0, get_property("_smm.diet.spent").to_int()) + " Meat today (" + smmDDietBought() + " of it for purchases), of its own budget of "
+		+ smmDDietBudgetFrom(get_property("smm.diet.budget")) + " (smm.diet.budget).", "blue");
 }
 
 // Meat paid above the average sale price for `quantity` copies that cost
@@ -79,10 +96,10 @@ int smmDBookPurchases() {
 	smmSpendDayStart();
 	SmmDPurchase [int] purchases = smmDParsePurchases(smmDTodaysLog());
 	int total = smmDPurchaseTotal(purchases);
-	int operating = smmDOperatingFrom(total, smmSpendSpent(), smmSpendOperating());
+	int operating = smmDOperatingFrom(total, max(0, smmSpendSpent()) + smmDDietBought(), smmSpendOperating());
 	set_property(kSmmSpendOperatingKey, operating);
 	print("smmDaily: " + count(purchases) + " purchases in today's session log on this machine, " + total + " Meat. Booked as operating spend: "
-		+ operating + " (smmSpend's own buys: " + smmSpendSpent() + ").", "blue");
+		+ operating + " (smmSpend's own buys: " + smmSpendSpent() + "; the diet's, on its own budget: " + smmDDietBought() + ").", "blue");
 	return operating;
 }
 

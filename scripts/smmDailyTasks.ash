@@ -254,7 +254,7 @@ void smmDTAudit() {
 	}
 	if (open == 0) print("&nbsp;&nbsp;none");
 	smmDLog("close.report", "NOTE", open + " daily resources still have uses left; Museum grinds used " + smmDMuseumTurnsUsed() + " of "
-		+ smmDSettingInt("museumTurns") + " paid turns; operating spend " + smmSpendOperating() + ", smmSpend " + smmSpendSpent()
+		+ smmDSettingInt("museumTurns") + " paid turns; operating spend " + smmSpendOperating() + ", smmSpend " + smmSpendSpent() + ", diet " + get_property("_smm.diet.spent")
 		+ ", net " + smmSpendNet());
 }
 
@@ -262,6 +262,7 @@ void smmDTReport() {
 	smmDLLedger();
 	smmDBookPurchases();
 	smmSpendReport();
+	smmDDietReport();
 	smmDPriceCheck();
 	smmDTAudit();
 	timeToRollover();

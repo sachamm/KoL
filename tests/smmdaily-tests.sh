@@ -122,6 +122,18 @@ done
 if grep -q "^smm\.daily\.runner" "$prefs"; then fail "smm.daily.runner must not be a shared setting: only one machine runs the day"
 else pass "smm.daily.runner is not shared"; fi
 
+# --- 8. diet.js under node ---------------------------------------------------
+
+NODE="${NODE:-$(command -v node || true)}"
+if [ -z "$NODE" ]; then
+	echo "skipped: node is not installed, so tests/diet-spending.cjs and tests/nightcap-adventure-bounds.cjs did not run"
+else
+	for t in diet-spending nightcap-adventure-bounds; do
+		if out="$("$NODE" "$REPO/tests/$t.cjs" 2>&1)"; then pass "$(tail -1 <<<"$out")"
+		else fail "tests/$t.cjs"; tail -15 <<<"$out" | sed 's/^/  /'; fi
+	done
+fi
+
 rm -f "$RUNTIME"/data/smm-daily-test*.txt
 echo
 if [ $failures -eq 0 ]; then echo "PASS smmdaily-tests"; else echo "FAILED smmdaily-tests: $failures"; exit 1; fi
