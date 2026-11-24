@@ -47,6 +47,12 @@ check(diet._buyCap(100000, 216771.5, 0, 1), 0, 'nothing left: nothing bought');
 check(diet._buyCap(100000, 216771.5, -500, 1), 0, 'an overspent budget buys nothing');
 check([diet._canAfford(500, 500), diet._canAfford(500, 499), diet._canAfford(1, 0), diet._canAfford(1, Infinity)], [true, false, false, true],
   'a store purchase or a speakeasy drink needs its price left in the budget');
+check([diet._canAfford(0, 0), diet._canAfford(0, -100)], [true, true], 'what costs nothing is allowed on a spent budget');
+check(diet._sausageCost(3, 0, 0), 666, 'three sausages: 111 + 222 + 333');
+check(diet._sausageCost(3, 5, 0), 2331, 'later sausages cost more');
+check(diet._sausageCost(3, 0, 1000), 0, 'Meat already in the grinder pays for them');
+check(diet._sausageCost(3, 0, 600), 66, 'or for part of them');
+check(diet._sausageCost(0, 7, 0), 0, 'none to make costs nothing');
 
 // --- planning under a budget -------------------------------------------------
 function settings(value) {

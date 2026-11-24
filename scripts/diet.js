@@ -2143,6 +2143,14 @@ function noteDietSpend(key, paid) {
 // 111 meat times the number made today (meat already in the grinder counts).
 // Priced at the average cost of all of them, since at any sensible adventure
 // value every one is worth eating.
+// Meat the grinder asks for `count` more sausages, when `made` were made
+// today and it already holds `units` Meat.
+function sausageCost(count, made, units) {
+	var cost = 0
+	for (var j = 1; j <= count; j++) cost += 111 * (made + j)
+	return Math.max(0, cost - units)
+}
+
 function sausageEntry() {
 	var it = km.Item.get("magical sausage")
 	var left = 23 - prefInt("_sausagesEaten")
@@ -2153,9 +2161,7 @@ function sausageEntry() {
 		km.availableAmount(km.Item.get("replica Kramco Sausage-o-Matic&trade;")) > 0
 	if (grinder) {
 		make = Math.min(left - owned, km.availableAmount(km.Item.get("magical sausage casing")))
-		var made = prefInt("_sausagesMade")
-		for (var j = 1; j <= make; j++) makeCost += 111 * (made + j)
-		makeCost = Math.max(0, makeCost - prefInt("sausageGrinderUnits"))
+		makeCost = sausageCost(make, prefInt("_sausagesMade"), prefInt("sausageGrinderUnits"))
 	}
 	var n = owned + make
 	if (n <= 0) return null
@@ -3231,8 +3237,19 @@ function plannedPrice(name) {
 	return 0
 }
 
-// Whether the budget still has `cost` Meat in it.
-function canAfford(cost, left) { return left >= cost }
+// Whether the budget still has `cost` Meat in it. What costs nothing is
+// always allowed, even on a budget already passed.
+function canAfford(cost, left) { return cost <= 0 || left >= cost }
+
+// Meat that fetching `missing` more copies outside the mall will cost, where
+// it can be known: a store's price, the sausage grinder's, the Mayo Clinic's.
+// Anything else there is made from what is owned, which costs nothing.
+function fallbackCost(name, missing, npc) {
+	if (npc > 0) return npc * missing
+	if (name == "magical sausage") return sausageCost(missing, prefInt("_sausagesMade"), prefInt("sausageGrinderUnits"))
+	if (name == "Mayoflex" || name == "Mayodiol") return plannedPrice(name) * missing
+	return 0
+}
 
 // Make sure n of an item are in inventory, buying at most PRICE_SLACK over plan.
 function acquire(name, n) {
@@ -3257,7 +3274,7 @@ function acquire(name, n) {
 		noteDietSpend("_smm.diet.bought", meatBefore - km.myMeat())
 	}
 	var missing = n - km.availableAmount(it)
-	if (missing > 0 && canAfford(npc > 0 ? npc * missing : 1, budgetLeftNow())) {
+	if (missing > 0 && canAfford(fallbackCost(name, missing, npc), budgetLeftNow())) {
 		// NPC stores, Mayo Clinic, crafting. Not the mall: KoLmafia's own mall
 		// buying (autoSatisfyWithMall) knows neither cap.
 		var mallOn = prefBool("autoSatisfyWithMall"), meatThen = km.myMeat()
@@ -3587,6 +3604,7 @@ module.exports._parseAverage = parseAverage  // for tests
 module.exports._averageRule = averageRule
 module.exports._buyCap = buyCap
 module.exports._canAfford = canAfford
+module.exports._sausageCost = sausageCost
 module.exports._planUnits = planUnits
 module.exports._planPurchaseCost = planPurchaseCost
 module.exports._fitPlan = fitPlan
