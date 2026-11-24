@@ -73,10 +73,11 @@
 //   noRefresh      don't re-check live mall prices of the chosen items (and
 //                  don't look up their average sale prices: buying is still
 //                  capped at the average, so an overpriced item stops the run)
-//   budget=N       meat the diet may spend on purchases today (default:
-//                  smm.diet.budget, else 500,000). What earlier runs spent
-//                  today counts (_smm.diet.spent). A plan that would pass it
-//                  is re-planned at a lower value per adventure until it fits
+//   budget=N       meat the diet may pay today (default: smm.diet.budget,
+//                  else 500,000). What earlier runs paid today counts
+//                  (_smm.diet.spent). A plan that would pass it is re-planned
+//                  at a lower value per adventure until it fits, and no
+//                  purchase is made that the Meat left does not cover
 //   exclude=a|b|c  item names to leave out
 //   yes            answer "yes" to the question before buying (for smmdaily,
 //                  which runs unattended); budgets and price caps still apply
@@ -2051,10 +2052,13 @@ function averageRule(price, average, spare) {
 }
 
 // The most the diet may pay for one copy: the planned price with its slack,
-// and never more than the average sale price when that is known.
-function buyCap(planned, average) {
+// never more than the average sale price when that is known, and never more
+// than an equal share of the Meat left in the budget (`left`, for `count`
+// copies) -- prices can rise between the plan and the purchase.
+function buyCap(planned, average, left, count) {
 	var cap = Math.ceil(planned * PRICE_SLACK)
 	if (average > 0) cap = Math.min(cap, Math.floor(average))
+	if (count > 0 && left < Infinity) cap = Math.min(cap, Math.floor(left / count))
 	return Math.max(0, cap)
 }
 
@@ -2071,37 +2075,66 @@ function dietBudget(opts) {
 	return isNaN(n) ? DIET_BUDGET : Math.max(0, n)
 }
 
-// How many of each item a plan uses over the whole day (consumables and the
-// helpers consumed with them).
+// The item a plan row uses up, when that is not the row's own name.
+var ROW_ITEM = {"Ancestral Recall": "blue mana"}  // one per cast
+
+// How many of each item a plan uses over the whole day: consumables, the
+// helpers consumed with them, the mana behind Ancestral Recall, and one
+// pocket wish for each effect the plan wishes for (a wish lasts for all the
+// drinks it helps).
 function planUnits(plan) {
-	var units = {}
+	var units = {}, wished = {}, wishes = 0
 	var rows = plan.result.diet_items
 	for (var i = 0; i < rows.length; i++) {
 		var n = 0
 		for (var ph = 1; ph <= LAST_PHASE; ph++) n += plan.parts[i][ph] || 0
 		if (!n) continue
-		units[rows[i].name] = (units[rows[i].name] || 0) + n
-		var extra = rows[i].desc.extra
+		var uses = ROW_ITEM[rows[i].name] || rows[i].name
+		units[uses] = (units[uses] || 0) + n
+		var extra = (rows[i].desc && rows[i].desc.extra) || []
 		for (var j = 0; j < extra.length; j++) {
 			if (extra[j].type == "item" && extra[j].exclude)
 				units[extra[j].item.name] = (units[extra[j].item.name] || 0) + n
+			if (extra[j].type == "effect" && extra[j].verb == "wish for" && !wished[extra[j].effect]) {
+				wished[extra[j].effect] = true
+				wishes++
+			}
 		}
 	}
+	if (wishes > (units["pocket wish"] || 0)) units["pocket wish"] = wishes
 	return units
 }
 
-// Meat a plan still has to pay for purchases: the copies beyond the spare
-// ones already owned, at the planned price. Owned-only and speakeasy entries
-// are not purchases.
+// Meat one unit of an entry costs in cash even though nothing is bought in a
+// store: a speakeasy drink, or a sausage ground from casings (the entry's
+// price is the grinder's cost averaged over the day's sausages).
+function cashPrice(entry) {
+	if (entry.speakeasy) return entry.speakeasy
+	if (entry.name == "magical sausage") return entry.price > 1 ? entry.price : 0
+	return 0
+}
+
+// Meat a plan still has to pay: the copies beyond the spare ones already
+// owned, at the planned price, plus what speakeasy drinks and sausage
+// grinding cost. Other owned-only entries cost nothing.
 function planPurchaseCost(units, consumables, spareOf) {
 	var cost = 0
 	for (var c = 0; c < consumables.length; c++) {
 		var entry = consumables[c]
 		var n = units[entry.name] || 0
-		if (!n || entry.speakeasy || entry.owned || !(entry.price > 0)) continue
-		cost += Math.max(0, n - spareOf(entry.name)) * entry.price
+		if (!n) continue
+		if (cashPrice(entry) > 0) cost += n * cashPrice(entry)
+		else if (!entry.owned && entry.price > 0) cost += Math.max(0, n - spareOf(entry.name)) * entry.price
 	}
 	return cost
+}
+
+// The Meat an execution may still pay: what was left of the budget when it
+// started, less what it has paid since.
+var budget_room = Infinity  // set by main before a plan is carried out
+var meat_at_start = 0
+function budgetLeftNow() {
+	return budget_room == Infinity ? Infinity : budget_room - (meat_at_start - km.myMeat())
 }
 
 function noteDietSpend(key, paid) {
@@ -2113,25 +2146,39 @@ function noteDietSpend(key, paid) {
 // 111 meat times the number made today (meat already in the grinder counts).
 // Priced at the average cost of all of them, since at any sensible adventure
 // value every one is worth eating.
+// Meat the grinder asks for `count` more sausages, when `made` were made
+// today and it already holds `units` Meat.
+function sausageCost(count, made, units) {
+	var cost = 0
+	for (var j = 1; j <= count; j++) cost += 111 * (made + j)
+	return Math.max(0, cost - units)
+}
+
+// How many of `count` more sausages that Meat already covers.
+function freeSausages(count, made, units) {
+	var free = 0
+	while (free < count && sausageCost(free + 1, made, units) == 0) free++
+	return free
+}
+
 function sausageEntry() {
 	var it = km.Item.get("magical sausage")
 	var left = 23 - prefInt("_sausagesEaten")
 	if (left <= 0) return null
 	var owned = Math.min(left, spareCopies(it))
-	var make = 0, makeCost = 0
+	var make = 0, makeCost = 0, free = 0
 	var grinder = km.availableAmount(km.Item.get("Kramco Sausage-o-Matic&trade;")) > 0 ||
 		km.availableAmount(km.Item.get("replica Kramco Sausage-o-Matic&trade;")) > 0
 	if (grinder) {
 		make = Math.min(left - owned, km.availableAmount(km.Item.get("magical sausage casing")))
-		var made = prefInt("_sausagesMade")
-		for (var j = 1; j <= make; j++) makeCost += 111 * (made + j)
-		makeCost = Math.max(0, makeCost - prefInt("sausageGrinderUnits"))
+		makeCost = sausageCost(make, prefInt("_sausagesMade"), prefInt("sausageGrinderUnits"))
+		free = freeSausages(make, prefInt("_sausagesMade"), prefInt("sausageGrinderUnits"))
 	}
 	var n = owned + make
 	if (n <= 0) return null
 	return {"name": it.name, "advmin": 1, "advmax": 1, "pvpfights": 0, "type": "simple",
 		"size": [0, 0, 0], "limit": n, "price": Math.max(1, Math.round(makeCost / n)),
-		"owned": true, "eat": true}
+		"owned": true, "eat": true, "free": owned + free}  // free: the ones that cost no Meat
 }
 
 // smm: effects. A consumable that gives an effect (Sacramento wine: 50
@@ -2530,7 +2577,7 @@ function planItemNames(result) {
 	var names = {}
 	for (var i = 0; i < result.diet_items.length; i++) {
 		var row = result.diet_items[i]
-		names[row.name] = true
+		names[ROW_ITEM[row.name] || row.name] = true
 		var extra = row.desc.extra
 		for (var j = 0; j < extra.length; j++) {
 			if (extra[j].type == "item" && extra[j].exclude) names[extra[j].item.name] = true
@@ -3099,16 +3146,20 @@ function fitPlan(plan, settings, finish, room, refresh, spareOf) {
 	return {plan: plan, toBuy: toBuy, over: toBuy > room, ownedOnly: ownedOnly}
 }
 
-// Takes every purchase off the list: an entry with spare owned copies is
-// limited to them, any other priced entry is removed.
+// Takes everything that costs Meat off the list: an entry with spare owned
+// copies is limited to them, and any other priced entry is removed, as are
+// speakeasy drinks and sausages that would have to be ground.
 function restrictToOwned(consumables, spareOf) {
 	for (var c = consumables.length - 1; c >= 0; c--) {
 		var entry = consumables[c]
-		if (entry.speakeasy || entry.owned || !(entry.price > 0)) continue
-		var spare = entry.type ? spareOf(entry.name) : 0  // helpers are bought or left out
+		var cash = cashPrice(entry) > 0
+		if (!cash && (entry.owned || !(entry.price > 0))) continue
+		var spare = entry.type && !entry.speakeasy ? spareOf(entry.name) : 0  // helpers are bought or left out
+		if (entry.free !== undefined) spare = entry.free  // sausages: made already, or covered by the grinder's Meat
 		if (spare > 0) {
 			entry.limit = Math.min(entry.limit || spare, spare)
 			entry.owned = true
+			if (cash) entry.price = 1
 		} else {
 			consumables.splice(c, 1)
 		}
@@ -3169,6 +3220,7 @@ function main(argString) {
 			fmt(budget) + " (smm.diet.budget, or budget=N)." + (opts.finish || opts.turngen || opts.execute ? " Nothing is bought or consumed." : ""), "red")
 		return
 	}
+	budget_room = Math.max(0, budget - spentToday)
 	if (opts.finish) executePlan(plan.result, settings, plan.parts, LAST_PHASE)
 	else if (opts.turngen) executePlan(plan.result, settings, plan.parts, 2)
 	else if (opts.execute) executePlan(plan.result, settings, plan.parts, 1)
@@ -3200,6 +3252,20 @@ function plannedPrice(name) {
 	return 0
 }
 
+// Whether the budget still has `cost` Meat in it. What costs nothing is
+// always allowed, even on a budget already passed.
+function canAfford(cost, left) { return cost <= 0 || left >= cost }
+
+// Meat that fetching `missing` more copies outside the mall will cost, where
+// it can be known: a store's price, the sausage grinder's, the Mayo Clinic's.
+// Anything else there is made from what is owned, which costs nothing.
+function fallbackCost(name, missing, npc) {
+	if (npc > 0) return npc * missing
+	if (name == "magical sausage") return sausageCost(missing, prefInt("_sausagesMade"), prefInt("sausageGrinderUnits"))
+	if (name == "Mayoflex" || name == "Mayodiol") return plannedPrice(name) * missing
+	return 0
+}
+
 // Make sure n of an item are in inventory, buying at most PRICE_SLACK over plan.
 function acquire(name, n) {
 	var it = km.Item.get(name)
@@ -3216,12 +3282,14 @@ function acquire(name, n) {
 	if (it.tradeable && km.canInteract()) {
 		// smm: never above the average sale price, whatever the plan says
 		var planned = plannedPrice(name)
-		var cap = buyCap(planned, npc > 0 && npc <= planned ? 0 : averageSalePrice(it))
+		var cap = buyCap(planned, npc > 0 && npc <= planned ? 0 : averageSalePrice(it), budgetLeftNow(), n - have)
 		var meatBefore = km.myMeat()
 		if (cap > 0) km.buy(n - have, it, cap)
+		else if (planned > 0) km.print("Not buying " + name + ": the diet's budget for today has " + fmt(Math.max(0, budgetLeftNow())) + " meat left.", "orange")
 		noteDietSpend("_smm.diet.bought", meatBefore - km.myMeat())
 	}
-	if (km.availableAmount(it) < n) {
+	var missing = n - km.availableAmount(it)
+	if (missing > 0 && canAfford(fallbackCost(name, missing, npc), budgetLeftNow())) {
 		// NPC stores, Mayo Clinic, crafting. Not the mall: KoLmafia's own mall
 		// buying (autoSatisfyWithMall) knows neither cap.
 		var mallOn = prefBool("autoSatisfyWithMall"), meatThen = km.myMeat()
@@ -3315,6 +3383,7 @@ function consumeUnit(step, log) {
 	}
 	var it = km.Item.get(name)
 	if (spec.item.speakeasy) {
+		if (!canAfford(spec.item.speakeasy, budgetLeftNow())) return "no Meat left in the diet's budget for " + name
 		return km.cliExecute("drinksilent 1 [" + km.toInt(it) + "]") ? "" : "speakeasy drink failed"
 	}
 	if (!acquire(name, 1)) return "cannot get " + name
@@ -3486,6 +3555,7 @@ function executePlan(result, settings, parts, lastPhase) {
 	}
 
 	var startMeat = km.myMeat(), startAdv = km.myAdventures()
+	meat_at_start = startMeat
 	var log = [], error = "", left = [], wore = false, lateDone = false
 	var familiar = km.myFamiliar()
 	km.cliExecute("checkpoint")
@@ -3550,6 +3620,10 @@ module.exports.effectOf = effectOf
 module.exports._parseAverage = parseAverage  // for tests
 module.exports._averageRule = averageRule
 module.exports._buyCap = buyCap
+module.exports._canAfford = canAfford
+module.exports._sausageCost = sausageCost
+module.exports._freeSausages = freeSausages
+module.exports._restrictToOwned = restrictToOwned
 module.exports._planUnits = planUnits
 module.exports._planPurchaseCost = planPurchaseCost
 module.exports._fitPlan = fitPlan
