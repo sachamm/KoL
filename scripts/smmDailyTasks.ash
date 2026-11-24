@@ -234,6 +234,11 @@ void smmDTDietFinish() {
 		if (smmDTOverdrunk() || smmDStopRun != "") return;
 		int stopAt = smmDTStopPoint(get_property("_smm.diet.stopAt"));
 		if (my_adventures() <= stopAt || spendDowns >= 2) return; // refused for another reason, or not settling
+		// the engine's turn gate, which garbo.final passed and this task does not go through
+		if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60) {
+			smmDLog("diet.finish", "NOTE", "finish wants garbo down to " + stopAt + ", but rollover is too close: left for the next run");
+			return;
+		}
 		spendDowns += 1;
 		smmDLog("diet.finish", "NOTE", "finish's stop point is " + stopAt + " with " + my_adventures() + " adventures held: garbo down to it");
 		smmDTGarboRun("diet.finish", smmDTGarboFinalCommand(stopAt, smmDSetting("garboArgs")));
