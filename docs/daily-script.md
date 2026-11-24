@@ -69,7 +69,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 ## Safeguards
 
-**Journal and resume.** `data/smm-daily-<playerid>.txt` gets a line when a task begins and another when it ends, each with turns played, adventures, Meat and MP. A finished task does not run again that day. A task that began and never ended is closed by the next run and tried once more. After two starts without finishing it is marked failed and the day moves on without it. If journal lines go missing, a `GAP` line says so. Spending totals are kept in preferences, not in the journal, so a lost journal never reads as "nothing spent".
+**Journal and resume.** `data/smm-daily-<playerid>.txt` gets a line when a task begins and another when it ends, each with turns played, adventures, Meat and MP. A finished task does not run again that day. A task that began and never ended is closed by the next run and tried once more. After two starts without finishing it is marked failed and the day moves on without it. A grind that used turns and came back with no adventures left is not counted as finished or as failed: it runs again once there are adventures. If journal lines go missing, a `GAP` line says so. Spending totals are kept in preferences, not in the journal, so a lost journal never reads as "nothing spent".
 
 **No questions.** The new code never asks anything. The six questions today's code asks are answered ahead of time, in the shared settings and again for the length of each run. An answer of `false` to `useBanishers` or `highItem` still stops the run after the bounty, as it does in `dailyGrind()`, so the banishers and item-drop buffs can be kept for work by hand. To stop anywhere else, `set smm.daily.halt = <task>` before the run.
 

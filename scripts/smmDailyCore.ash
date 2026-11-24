@@ -301,6 +301,13 @@ string smmDEngineBlock(SmmDTask t) {
 	return "";
 }
 
+// A grind with no done-test of its own that used turns and came back with no
+// adventures left stopped because the turns ran out, not because the work was
+// finished. It stays open, so a later run with more adventures carries on.
+boolean smmDRanOutOfAdventures(SmmDTask t, int turnsUsed, int adventuresLeft) {
+	return t.done_fn == "" && !t.repeatable && smmDSpendsTurns(t) && turnsUsed > 0 && adventuresLeft <= 0;
+}
+
 // 'call' takes a plain variable, not a record field, hence these.
 boolean smmDCallBool(string fn) { return call boolean fn(); }
 string smmDCallString(string fn) { return call string fn(); }
@@ -397,10 +404,14 @@ void smmDRunTask(SmmDTask t) {
 	string note = "turns " + turns + ", Meat " + (meat >= 0 ? "+" : "") + meat;
 	boolean finished = t.done_fn == "" || smmDCallBool(t.done_fn);
 	if (!finished) note += "; done-test still false";
+	boolean ranOut = smmDRanOutOfAdventures(t, turns, my_adventures());
+	if (ranOut) note += "; out of adventures, so it stays open";
 	smmDLog(t.id, "END", note);
 	if (t.museum && turns > 0) smmDSet("_smm.daily.museumTurnsUsed", smmDMuseumTurnsUsed() + turns);
-	if (finished && !t.repeatable) smmDSet("_smm.daily.done." + t.id, smmDEpoch());
+	if (finished && !ranOut && !t.repeatable) smmDSet("_smm.daily.done." + t.id, smmDEpoch());
 	if (t.repeatable) smmDSet("_smm.daily.tries." + t.id, 0);
+	// running out of turns is not a failed attempt
+	if (ranOut) smmDSet("_smm.daily.tries." + t.id, tries);
 }
 
 // A task that began and never ended (an abort, a crash, a closed window) is

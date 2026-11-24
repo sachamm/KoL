@@ -262,6 +262,17 @@ void testTurnLimits() {
 	check(ran["g.new"] == 1 && ran["g.old"] == 0, "so that one still runs with too few adventures");
 }
 
+void testRanOutOfAdventures() {
+	fresh();
+	SmmDTask grind = smmDTasks[smmDTaskIndex["t.e"]];
+	check(smmDSpendsTurns(grind) && grind.done_fn == "", "t.e is a turn grind with no done-test");
+	check(smmDRanOutOfAdventures(grind, 11, 0), "a grind that used turns and has none left stays open");
+	check(!smmDRanOutOfAdventures(grind, 11, 3), "a grind that came back with adventures left is finished");
+	check(!smmDRanOutOfAdventures(grind, 0, 0), "a grind that used no turns is finished");
+	check(!smmDRanOutOfAdventures(smmDTasks[smmDTaskIndex["t.a"]], 5, 0), "a task that spends no turns is finished");
+	check(!smmDRanOutOfAdventures(smmDTasks[smmDTaskIndex["t.c"]], 5, 0), "a task with its own done-test is judged by that");
+}
+
 void testJournal() {
 	fresh();
 	smmDLog("x", "BEGIN", "one\twith a tab");
@@ -339,6 +350,7 @@ void main() {
 	testDryRun();
 	testSelectors();
 	testTurnLimits();
+	testRanOutOfAdventures();
 	testJournal();
 
 	fresh(); // leave an empty test journal behind
