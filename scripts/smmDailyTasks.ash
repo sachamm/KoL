@@ -263,6 +263,7 @@ void smmDTAdd(int phase, string id, string about, string ready_fn, string done_f
 	t.do_fn = do_fn;
 	t.legacy_fn = legacy_fn;
 	t.spends_turns = flags.contains_text("turns");
+	t.on_is_free = flags.contains_text("on-free");
 	t.museum = flags.contains_text("museum");
 	t.repeatable = flags.contains_text("repeat");
 	t.mode_legacy = mode_legacy;
@@ -278,7 +279,7 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(1, "mp.bootstrap", "restore MP from free sources, then repeat any breakfast summon that failed", "", "", "smmDTBootstrap", "", "", "on", "on");
 	smmDTAdd(1, "breakfast.second", "second breakfast: collections, mood, outfit, daily buffs", "", "smmDLSecondBreakfastDone", "", "smmDLSecondBreakfast", "", "legacy", "legacy");
 	// 2 free
-	smmDTAdd(2, "route", "the IoTM route (legacy: all of it; on: free actions only)", "", "smmDLRouteDone", "smmDLRouteFree", "smmDLRouteAll", "turns", "legacy", "on");
+	smmDTAdd(2, "route", "the IoTM route (legacy: all of it; on: free actions only)", "", "smmDLRouteDone", "smmDLRouteFree", "smmDLRouteAll", "turns on-free", "legacy", "on");
 	smmDTAdd(2, "deeds", "daily deeds that cost no adventures", "", "", "", "smmDLDeeds", "", "legacy", "legacy");
 	// 3 grinds
 	smmDTAdd(3, "fishing", "sea grind on yesterday's Fishy", "smmDLFishingReady", "", "", "smmDLFishing", "turns", "legacy", "legacy");

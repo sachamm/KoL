@@ -38,6 +38,8 @@ void stubGarbo() { ran["garbo"] += 1; }
 void stubR() { ran["r"] += 1; }
 boolean stubAlready() { return true; }
 void stubF() { ran["f"] += 1; }
+void stubFreeNew() { ran["g.new"] += 1; }
+void stubPaidOld() { ran["g.old"] += 1; }
 
 void addStub(int phase, string id, string ready_fn, string done_fn, string do_fn, string legacy_fn, string flags, string mode_legacy, string mode_plan) {
 	SmmDTask t = smmDNewTask(id, phase, "stub " + id);
@@ -46,6 +48,7 @@ void addStub(int phase, string id, string ready_fn, string done_fn, string do_fn
 	t.do_fn = do_fn;
 	t.legacy_fn = legacy_fn;
 	t.spends_turns = flags.contains_text("turns");
+	t.on_is_free = flags.contains_text("on-free");
 	t.museum = flags.contains_text("museum");
 	t.repeatable = flags.contains_text("repeat");
 	t.mode_legacy = mode_legacy;
@@ -252,6 +255,15 @@ void testTurnLimits() {
 	smmDRun("");
 	check(ran["e"] == 0 && ran["m"] == 0, "turn tasks do not start with too few adventures");
 	check(ran["a"] == 1 && ran["r"] == 1, "tasks that spend no turns still run");
+	check(ran["g.old"] == 0 && ran["g.new"] == 0, "a task whose legacy code spends turns is held back too");
+	check(smmDSpendsTurns(smmDTasks[smmDTaskIndex["t.g"]]), "it spends turns in legacy mode");
+
+	fresh();
+	smmDSet("smm.daily.garboLeaveTurns", "10");
+	smmDSet("smm.daily.profile", "plan");
+	check(!smmDSpendsTurns(smmDTasks[smmDTaskIndex["t.g"]]), "its new implementation spends none");
+	smmDRun("free");
+	check(ran["g.new"] == 1 && ran["g.old"] == 0, "so that one still runs with too few adventures");
 }
 
 void testJournal() {
@@ -316,6 +328,7 @@ void main() {
 	addStub(1, "t.c", "", "stubCDone", "stubC", "", "", "on", "on");
 	addStub(2, "t.d", "stubDReady", "", "stubD", "", "", "on", "on");
 	addStub(2, "t.f", "", "stubAlready", "stubF", "", "", "on", "on");
+	addStub(2, "t.g", "", "", "stubFreeNew", "stubPaidOld", "turns on-free", "legacy", "on");
 	addStub(3, "t.m", "", "", "stubM", "", "turns museum", "on", "on");
 	addStub(3, "t.e", "", "", "stubE", "", "turns", "on", "on");
 	addStub(4, "garbo", "", "", "stubGarbo", "", "turns", "dry", "on");

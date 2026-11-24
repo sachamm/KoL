@@ -194,6 +194,7 @@ record SmmDTask {
 	string do_fn;       // void fn(): the new implementation. "" = none yet
 	string legacy_fn;   // void fn(): today's code. "" = none
 	boolean spends_turns;
+	boolean on_is_free; // the new implementation spends no turns, though the legacy one does
 	boolean museum;     // counts against smm.daily.museumTurns
 	boolean repeatable; // runs on every 'run' (bookkeeping), never marked done
 	string mode_legacy; // default mode in the legacy profile
@@ -280,9 +281,15 @@ int smmDSecondsToRollover() {
 	return at - (now_to_int() / 1000);
 }
 
+// Whether the implementation this task is set to run spends turns.
+boolean smmDSpendsTurns(SmmDTask t) {
+	if (!t.spends_turns) return false;
+	return !(t.on_is_free && t.do_fn != "" && smmDConfiguredMode(t) == "on");
+}
+
 // Why the engine itself won't start this task now, "" when it may.
 string smmDEngineBlock(SmmDTask t) {
-	if (!t.spends_turns) return "";
+	if (!smmDSpendsTurns(t)) return "";
 	if (my_inebriety() > inebriety_limit()) return "overdrunk";
 	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60) return "too close to rollover";
 	if (t.phase != 4 && my_adventures() <= smmDSettingInt("garboLeaveTurns"))

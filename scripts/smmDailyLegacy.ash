@@ -80,15 +80,21 @@ void smmDLDeeds() {
 // ---------------------------------------------------------------------------
 // The grinds, in dailyGrind's order
 
+// dailyGrind() decides this first thing, before breakfast and the route can
+// spend turns of the Fishy left from yesterday's pipe. The start of every run
+// does the same here (smmDLRunStart), so the test below sees the answer.
+void smmDLNoteFishy() {
+	if (have_effect($effect[Fishy]) >= 8)
+		set_property(gDailyFishingGrindKey, "true");
+}
+
 string smmDLFishingReady() {
-	// the Fishy buff from yesterday's pipe
 	if (have_effect($effect[Fishy]) >= 8 || get_property(gDailyFishingGrindKey).to_boolean()) return "";
 	return "no Fishy left over from yesterday";
 }
 
 void smmDLFishing() {
-	if (have_effect($effect[Fishy]) >= 8)
-		set_property(gDailyFishingGrindKey, "true");
+	smmDLNoteFishy();
 	dailyFishingGrind(endGameTurnsSpent(), smmDLMaxPerTurnCost()); // 20 turns, burns item buffs
 }
 
@@ -372,6 +378,7 @@ string [string] smmDLPromptAnswers = {
 boolean [string] smmDLPromptsSet;
 
 void smmDLRunStart() {
+	smmDLNoteFishy();
 	foreach name, answer in smmDLPromptAnswers {
 		if (get_property("smm.dailyGrind." + name) != "") continue;
 		set_property("smm.dailyGrind." + name, answer);
