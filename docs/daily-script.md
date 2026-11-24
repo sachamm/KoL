@@ -81,7 +81,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **garbo.** The `garbo` task refuses to start unless `valueOfAdventure` is between 3,500 and 10,000. It always passes an explicit negative turn count, and refuses `ascend`, `workshed=`, `quick` and a turn count in `smm.daily.garboArgs`. While garbo runs, the items in `smm.daily.fenceItems` sit in the closet, recorded in `smm.daily.fenced`, and come back out afterwards even if garbo aborts.
 
-**Turns.** A task that spends turns does not start when overdrunk, within `smm.daily.rolloverBufferMin` minutes of rollover, or with `smm.daily.garboLeaveTurns` adventures or fewer left. The Museum grinds share a cap of `smm.daily.museumTurns` paid turns, and leave `smm.daily.garboReserveTurns` more for garbo while the garbo task is on. Both are checked before a grind starts, not during it.
+**Turns.** A task that spends turns does not start when overdrunk, within `smm.daily.rolloverBufferMin` minutes of rollover, or with `smm.daily.garboLeaveTurns` adventures or fewer left. A grind also needs enough adventures to finish, on top of those held back: 30 for a fresh FantasyRealm, 35 for PirateRealm, 20 for the Spacegate, Gingerbread City, the bounty and fishing, 15 for the Daily Dungeon and the Drip, 11 for the ghost costume and the champagne bottle, 9 for beer lenses. Today's code stops with an error when the adventures run out halfway, so a grind that cannot finish is not started. The Museum grinds share a cap of `smm.daily.museumTurns` paid turns, and leave `smm.daily.garboReserveTurns` more for garbo while the garbo task is on. Both are checked before a grind starts, not during it.
 
 **Stops.** The run stops if a task leaves a fight or a choice open. The IoTM route counts as done only when it came back clean: if it stopped in a fight, a choice or Beaten Up, or at `smm.IR.maxActions`, the next run picks it up again.
 
@@ -126,6 +126,8 @@ These are in the plan and not in this milestone:
 
 Known limits of what is built:
 
+- The `legacy` profile never eats or drinks. Fill up as you do before `dailyGrind`. A grind that takes more adventures than are left is held back and says so, and `smmdaily run` picks it up after the diet.
+- "No questions" covers the six `dailyGrind` prompts only. Today's code can still ask elsewhere, usually with a 60-second timeout: the Gingerbread City buff cost (`gbc.ash`), cancelling a platinum bounty location, the Dreadsylvania gear checks, and wishing for a monster.
 - ASH cannot catch an `abort()`. When today's code aborts, the run stops there. `smmdaily run` picks the day up.
 - The fence keeps garbo from using what is in the closet. It cannot stop garbo buying more of the same item.
 - In the `plan` profile the free route skips the Sword seed and Lucky! adventures, which cost one turn each. `route.paid` picks them up later.

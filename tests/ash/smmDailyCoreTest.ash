@@ -273,6 +273,27 @@ void testRanOutOfAdventures() {
 	check(!smmDRanOutOfAdventures(smmDTasks[smmDTaskIndex["t.c"]], 5, 0), "a task with its own done-test is judged by that");
 }
 
+int stubNeed() { return 12; }
+
+void testAdventuresNeeded() {
+	fresh();
+	SmmDTask grind = smmDTasks[smmDTaskIndex["t.e"]];
+	check(smmDAdventuresNeeded(grind) == 0, "a grind with no minimum needs none");
+	grind.need = 30;
+	check(smmDAdventuresNeeded(grind) == 30, "a grind's minimum is what it takes to finish");
+	smmDSet("smm.daily.garboLeaveTurns", "10");
+	check(smmDAdventuresNeeded(grind) == 40, "plus the adventures held back");
+	check(smmDEngineBlock(grind) != "", "it does not start without them");
+	grind.need_fn = "stubNeed";
+	check(smmDAdventuresNeeded(grind) == 22, "a need function replaces the fixed number");
+	grind.need = 0;
+	grind.need_fn = "";
+	SmmDTask freeTask = smmDTasks[smmDTaskIndex["t.a"]];
+	freeTask.need = 30;
+	check(smmDAdventuresNeeded(freeTask) == 0, "a task that spends no turns needs none");
+	freeTask.need = 0;
+}
+
 void testJournal() {
 	fresh();
 	smmDLog("x", "BEGIN", "one\twith a tab");
@@ -351,6 +372,7 @@ void main() {
 	testSelectors();
 	testTurnLimits();
 	testRanOutOfAdventures();
+	testAdventuresNeeded();
 	testJournal();
 
 	fresh(); // leave an empty test journal behind
