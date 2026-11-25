@@ -450,7 +450,8 @@ void smmSpendMuseumRanks() {
 			smmSpendDeposit(gap.it);
 		}
 	}
-	set_property(kSmmSpendRankMissKey, smmSpendRankMissString(misses, today, retryDays));
+	// a dry run buys nothing, so what it looked at is not a miss
+	if (!smmSpendDryRun()) set_property(kSmmSpendRankMissKey, smmSpendRankMissString(misses, today, retryDays));
 }
 
 // The whole step. Can run any number of times a day: each run spends only what
