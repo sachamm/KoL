@@ -239,6 +239,12 @@ void smmDTDietFinish() {
 			smmDLog("diet.finish", "NOTE", "finish wants garbo down to " + stopAt + ", but rollover is too close: left for the next run");
 			return;
 		}
+		// and garbo.final's own checks (garbo's arguments, valueOfAdventure)
+		string garboWhy = smmDTGarboReady();
+		if (garboWhy != "") {
+			smmDLog("diet.finish", "NOTE", "finish wants garbo down to " + stopAt + ", but garbo is not ready: " + garboWhy);
+			return;
+		}
 		spendDowns += 1;
 		smmDLog("diet.finish", "NOTE", "finish's stop point is " + stopAt + " with " + my_adventures() + " adventures held: garbo down to it");
 		smmDTGarboRun("diet.finish", smmDTGarboFinalCommand(stopAt, smmDSetting("garboArgs")));
