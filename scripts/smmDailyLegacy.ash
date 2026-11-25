@@ -148,8 +148,9 @@ void smmDLScience() {
 	grindScience(true); // useSweetSynthesis?
 }
 
+// The quest can finish before the 10 free turns are used; nep party then
+// fights the rest.
 string smmDLNepReady() {
-	if (get_property("_questPartyFair") == "finished") return "the party quest is finished";
 	if (get_property("_neverendingPartyFreeTurns").to_int() >= 10) return "the 10 free party turns are used";
 	return "";
 }
@@ -314,6 +315,17 @@ void smmDLDrip() {
 	dailyGrindEnd("drip");
 }
 
+// The Drip's turns come from the drippy nugget and glass of drippy wine, which
+// need organ space, so they go in before the diet fills the organs.
+string smmDLDripPrepReady() {
+	if (!dripConsumePending()) return "no drippy nugget or glass of drippy wine to use today";
+	return smmDLControls("drip");
+}
+
+void smmDLDripPrep() {
+	dripConsume();
+}
+
 string smmDLDolphinReady() {
 	return get_property("dolphinItem") != "" ? "" : "no dolphin item is waiting";
 }
@@ -356,6 +368,40 @@ void smmDLGingerbread() {
 			dailyGrindEnd("gingerbread");
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Forced noncombats: spikolodon spikes, McHugeLarge Avalanche and Fiesta
+// Exits (with the free rests that refill Cinch), aimed at the Shadow Rift
+// choice that finishes a Rufus quest. They run before garbo, which otherwise
+// spends the rests and Cinch on Projectile Pinatas (2026-11-24: 31 rests and
+// 430 Cinch, no Fiesta Exit).
+
+void smmDLForcedNoncombats() {
+	grindRufusAndTheShadowRiftsForFree();
+}
+
+// ---------------------------------------------------------------------------
+// The nightcap, as run by hand until 2026-11-24
+
+void smmDLBeforeOverdrunk() {
+	beforeOverdrunkGoodNight();
+}
+
+void smmDLGoodNightAdv() {
+	good_night_adv();
+}
+
+// good_night's burnFreeTurnGen (chocolates, essential tofu, the Mayam
+// calendar, the latte refill) can add adventures after good_night_adv's
+// rollover check, so check again.
+void smmDLGoodNight() {
+	good_night();
+	// spending the excess takes turns: not inside the rollover buffer
+	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60)
+		print("goodnight: too close to rollover to spend the adventures that would pass the cap", "orange");
+	else
+		burnOverdrunkExcess();
 }
 
 // ---------------------------------------------------------------------------

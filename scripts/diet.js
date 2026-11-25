@@ -79,10 +79,13 @@
 //                  at a lower value per adventure until it fits, and no
 //                  purchase is made that the Meat left does not cover
 //   exclude=a|b|c  item names to leave out
+//   yes            answer "yes" to the question before buying (for smmdaily,
+//                  which runs unattended); budgets and price caps still apply
 //   (execute, turngen and finish handle helpers, effects, Ode to Booze and gear, then
 //   restore your outfit and familiar)
 
 var semirare_value = 0  // smm: set from the 11-leaf clover price before running
+var auto_yes = false  // smm: the yes option answers the confirmation (smmdaily runs unattended)
 var diet_consumables = []  // smm: built from KoLmafia data before running
 
 // TODO: distention pill value
@@ -2458,7 +2461,7 @@ function castSweatOutBooze(n, log) {
 
 function parseArgs(argString) {
 	var opts = {}
-	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|turngen\b|finish\b|nightcap\b)/)
+	var parts = (argString || "").split(/\s+(?=\w+=|noRefresh\b|execute\b|turngen\b|finish\b|nightcap\b|yes\b)/)
 	for (var i = 0; i < parts.length; i++) {
 		var p = parts[i].replace(/^\s+|\s+$/g, "")
 		if (!p) continue
@@ -3166,6 +3169,7 @@ function restrictToOwned(consumables, spareOf) {
 function main(argString) {
 	if (!km) throw "diet.js must be run inside KoLmafia"
 	var opts = parseArgs(argString)
+	auto_yes = !!opts.yes
 	var settings = buildSettings(opts)
 	semirare_value = km.mallPrice(km.Item.get("11-leaf clover"))
 	price_cache = {}
@@ -3192,6 +3196,8 @@ function main(argString) {
 		" meat instead of " + fmt(fullValue) + ".", "orange")
 
 	printPlan(plan, settings, !!opts.finish)
+	// smm: smmdaily's garbo.final stops at this many adventures before the nightcap
+	km.setProperty("_smm.diet.stopAt", String(Math.max(0, plan.stopAt || 0)))
 	if (opts.finish) {
 		var excess = plan.held - plan.stopAt
 		if (excess > 0) {
@@ -3541,7 +3547,9 @@ function executePlan(result, settings, parts, lastPhase) {
 	var sweatCasts = finish ? settings["sweat casts"] || 0 : 0
 	if (sweatCasts) what = "cast Sweat Out Some Booze " + sweatCasts + "x, then buy and consume " + what
 	else what = "buy and consume " + what
-	if (!km.userConfirm(what.charAt(0).toUpperCase() + what.substring(1) + " (about " + fmt(cost) + " meat)?", 60000, false)) {
+	var question = what.charAt(0).toUpperCase() + what.substring(1) + " (about " + fmt(cost) + " meat)?"
+	if (auto_yes) km.print(question + " Yes (the yes option).", "blue")
+	else if (!km.userConfirm(question, 60000, false)) {
 		km.print("Diet not executed.", "blue")
 		return
 	}

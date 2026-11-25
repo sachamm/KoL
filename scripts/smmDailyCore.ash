@@ -66,7 +66,8 @@ boolean smmDCoreSettings =
 	&& smmDDeclare("mpFloor", "2000", "MP to restore to after breakfast, from free sources only")
 	&& smmDDeclare("mpLow", "400", "no task starts under this much MP while a free restore is left")
 	&& smmDDeclare("rolloverBufferMin", "10", "no turn-spending task starts this close to rollover")
-	&& smmDDeclare("fenceItems", "drum machine|Special Seasoning|inflammable leaf", "items closeted while garbo runs, separated by |")
+	&& smmDDeclare("fenceItems", "drum machine|Special Seasoning|inflammable leaf|Cincho de Mayo", "items closeted while garbo runs, separated by |. The Cincho de Mayo keeps garbo from spending the free rests and Cinch, which are kept for Fiesta Exits")
+	&& smmDDeclare("garboAutoConfirm", "false", "true lets garbo answer its own questions while smmdaily runs it (garbo_autoUserConfirm, which garbo calls experimental); otherwise a garbo question waits for an answer with no timeout")
 	&& smmDDeclare("maxAttempts", "2", "times a task may start in one day before it is marked failed")
 	&& smmDDeclare("halt", "", "set before a run: stop after this task, then clear this setting");
 
@@ -204,7 +205,10 @@ record SmmDTask {
 SmmDTask [int] smmDTasks;
 int [string] smmDTaskIndex;
 
-string [int] smmDPhaseNames = {0: "preflight", 1: "breakfast", 2: "free", 3: "grinds", 4: "garbo", 5: "close"};
+string [int] smmDPhaseNames = {0: "preflight", 1: "breakfast", 2: "free", 3: "grinds", 4: "garbo", 5: "nightcap", 6: "close"};
+// From this phase on, tasks spend the adventures held back for the end of the
+// day: garbo, then the nightcap.
+int kSmmDPhaseGarbo = 4;
 
 SmmDTask smmDNewTask(string id, int phase, string about) {
 	SmmDTask t;
@@ -308,9 +312,9 @@ string smmDEngineBlock(SmmDTask t) {
 	if (!smmDSpendsTurns(t)) return "";
 	if (my_inebriety() > inebriety_limit()) return "overdrunk";
 	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60) return "too close to rollover";
-	if (t.phase != 4 && my_adventures() <= smmDSettingInt("garboLeaveTurns"))
+	if (t.phase < kSmmDPhaseGarbo && my_adventures() <= smmDSettingInt("garboLeaveTurns"))
 		return "only " + my_adventures() + " adventures left (" + smmDSettingInt("garboLeaveTurns") + " are held back)";
-	if (t.phase != 4 && my_adventures() < smmDAdventuresNeeded(t))
+	if (t.phase < kSmmDPhaseGarbo && my_adventures() < smmDAdventuresNeeded(t))
 		return "it takes about " + smmDTaskNeed(t) + " adventures and only " + my_adventures() + " are left (" + max(0, smmDSettingInt("garboLeaveTurns")) + " are held back). Eat and drink, then smmdaily run again";
 	if (t.museum && smmDMuseumTurnsUsed() >= smmDSettingInt("museumTurns"))
 		return "the Museum grinds have used " + smmDMuseumTurnsUsed() + " of " + smmDSettingInt("museumTurns") + " paid turns";

@@ -18,6 +18,36 @@ using smmConsult.ash
 
 string kNostalgiaNextCombatKey = "_smm.NostalgiaNextCombat";
 string kSpikolodonNextCombatKey = "_smm.kSpikolodonNextCombat";
+// set before a fight to cast McHugeLarge Avalanche in it (forces the next noncombat); needs the left ski on
+string kAvalancheNextCombatKey = "_smm.kAvalancheNextCombat";
+
+// FEEL ENVY (Emotion Chip, 3 a day): the monster drops every item it has.
+// It is worth what the drops still left to chance are worth: for each item,
+// its value times the chance it would not drop anyway. Pickpocket-only,
+// conditional and bounty drops are left out, and so are drops of unknown rate.
+// type "" scales with item drop, "n" and "f" do not.
+int feelEnvyMissingValue(float rate, string type, float itemDrop, int value) {
+	if (rate <= 0 || value <= 0) return 0;
+	if (type != "" && type != "n" && type != "f") return 0;
+	float chance = type == "" ? rate * (1.0 + itemDrop / 100.0) : rate;
+	if (chance >= 100.0) return 0;
+	return floor(value * (100.0 - chance) / 100.0);
+}
+
+int feelEnvyGain(monster foe) {
+	int gain = 0;
+	foreach i, drop in item_drops_array(foe) {
+		if (!drop.drop.tradeable) continue; // an untradeable drop has no price to weigh
+		gain += feelEnvyMissingValue(drop.rate, drop.type, item_drop_modifier(), historical_price(drop.drop));
+	}
+	return gain;
+}
+
+// The least a cast must be worth: smm.envy.minGain, by default two turns.
+int feelEnvyMinGain() {
+	string explicit = get_property("smm.envy.minGain");
+	return explicit == "" ? kTurnValue * 2 : explicit.to_int();
+}
 
 record AbortRecord {
 	int missed;
@@ -1387,6 +1417,15 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 		}
 	}
 
+	// FEEL ENVY: on a monster whose uncertain drops are worth at least feelEnvyMinGain()
+	if (have_skill($skill[Feel Envy]) && get_property("_feelEnvyUsed").to_int() < 3) {
+		int envyGain = feelEnvyGain(foe);
+		if (envyGain >= feelEnvyMinGain()) {
+			print("feeling envy for " + foe + ": its uncertain drops are worth " + envyGain, "blue");
+			scriptString += "skill Feel Envy;";
+		}
+	}
+
     // ASCENSION STUFF
 
     // DISPOSABLE INSTANT CAMERA
@@ -1400,6 +1439,13 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 	if (kSpikolodonNextCombatKey.get_property().to_boolean()) {
 		scriptString += "skill Launch spikolodon spikes;";
 		kSpikolodonNextCombatKey.set_property("false");
+	}
+
+	// MCHUGELARGE AVALANCHE: forces the next noncombat, like the spikes
+	if (kAvalancheNextCombatKey.get_property().to_boolean()) {
+		if (have_equipped($item[McHugeLarge left ski]))
+			scriptString += "skill McHugeLarge Avalanche;";
+		kAvalancheNextCombatKey.set_property("false");
 	}
 
 	// SING ALONG

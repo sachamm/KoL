@@ -241,7 +241,7 @@ void smmDMpHook(string task) {
 	// opening and closing the day casts nothing, so it restores nothing
 	if (smmDTaskIndex contains task) {
 		int phase = smmDTasks[smmDTaskIndex[task]].phase;
-		if (phase == 0 || phase == 5) return;
+		if (phase == 0 || phase == count(smmDPhaseNames) - 1) return;
 	}
 	if (!smmDMpWorthRestoring(my_maxmp())) return;
 	int low = smmDSettingInt("mpLow");
@@ -293,6 +293,16 @@ boolean [item] smmDFenceItems() {
 	return items;
 }
 
+// Takes an item off wherever it is worn, so it can go into the closet.
+void smmDTakeOff(item it) {
+	if (equipped_amount(it) <= 0) return;
+	foreach sl in $slots[hat, back, shirt, weapon, off-hand, pants, acc1, acc2, acc3, familiar] {
+		if (equipped_item(sl) != it) continue;
+		boolean off = equip(sl, $item[none]);
+		if (!off) print("smmDaily: could not take " + it + " off.", "orange");
+	}
+}
+
 // Closets every copy in inventory of the fenced items. The record is written
 // after each move, so an interruption never loses track of a closeted copy.
 void smmDFence() {
@@ -300,6 +310,7 @@ void smmDFence() {
 		print("smmDaily: autoSatisfyWithCloset is true, so the closet does not protect anything from garbo.", "red");
 	int [item] fenced = smmDParseFenced(get_property(kSmmDFencedKey));
 	foreach it in smmDFenceItems() {
+		smmDTakeOff(it); // garbo can wear what is equipped
 		int amount = item_amount(it);
 		if (amount <= 0) continue;
 		if (put_closet(amount, it)) {

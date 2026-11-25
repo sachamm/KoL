@@ -107,8 +107,9 @@ void testFence() {
 	check(smmDParseFenced(drum + ":2|" + drum + ":3")[$item[drum machine]] == 5, "repeated items add up");
 
 	boolean [item] items = smmDFenceItems();
-	check(count(items) == 3, "the default fence list names three real items, got " + count(items));
+	check(count(items) == 4, "the default fence list names four real items, got " + count(items));
 	check(items[$item[drum machine]] && items[$item[Special Seasoning]] && items[$item[inflammable leaf]], "the default fence list");
+	check(items[$item[Cincho de Mayo]], "the Cincho de Mayo is fenced, so garbo cannot spend the free rests and Cinch kept for Fiesta Exits");
 }
 
 void testGarbo() {
@@ -127,6 +128,29 @@ void testGarbo() {
 	check(smmDTGarboArgsProblem("turns=3") != "", "turns= is refused");
 	// logged out valueOfAdventure reads 0, which is outside the allowed range
 	check(smmDTGarboReady() != "", "garbo is not ready with valueOfAdventure outside 3,500 to 10,000");
+
+	// the second garbo run stops at the diet's stop point
+	check(smmDTStopPoint("") == 0 && smmDTStopPoint("x") == 0 && smmDTStopPoint("-3") == 0, "no usable stop point holds nothing back");
+	check(smmDTStopPoint("17") == 17, "the stop point diet.js recorded");
+	same(smmDTGarboFinalCommand(0, ""), "garbo", "with nothing to hold, the last garbo run spends every adventure");
+	same(smmDTGarboFinalCommand(17, ""), "garbo -17", "otherwise it leaves the stop point");
+	same(smmDTGarboFinalCommand(17, "nobarf"), "garbo -17 nobarf", "extra arguments follow");
+	same(smmDTDietCommand("execute"), "call diet.js execute yes", "diet.js is told yes: smmdaily never waits on a question");
+}
+
+void testForcedNoncombats() {
+	// Cinch: 100 to start, a rest refills 30 for each of the first five, then 25, 20, 15, 10, then 5
+	check(smmDTCinchRestore(0) == 30 && smmDTCinchRestore(4) == 30, "the first five rests refill 30");
+	check(smmDTCinchRestore(5) == 25 && smmDTCinchRestore(8) == 10 && smmDTCinchRestore(9) == 5 && smmDTCinchRestore(30) == 5, "then 25, 20, 15, 10, then 5");
+	check(smmDTFiestaExitsLeft(0, 0, 0) == 1, "1 Fiesta Exit with no rests");
+	check(smmDTFiestaExitsLeft(0, 0, 1) == 2, "2 with 1 rest");
+	check(smmDTFiestaExitsLeft(0, 0, 3) == 3 && smmDTFiestaExitsLeft(0, 0, 5) == 4 && smmDTFiestaExitsLeft(0, 0, 8) == 5, "3 with 3, 4 with 5, 5 with 8");
+	check(smmDTFiestaExitsLeft(0, 0, 17) == 6, "6 with 17");
+	check(smmDTFiestaExitsLeft(0, 0, 31) == 7, "Tquilla's 31 free rests pay for 7 (430 Cinch)");
+	check(smmDTFiestaExitsLeft(100, 31, 0) == 0, "none once garbo has rested 31 times and spent the Cinch");
+	check(smmDTFiestaExitsLeft(60, 0, 0) == 0, "40 Cinch and no rests is not an exit");
+	check(smmDTaskIndex["forced.nc"] < smmDTaskIndex["garbo"], "the forced noncombats are spent before garbo can take the rests and Cinch");
+	same(smmDTasks[smmDTaskIndex["forced.nc"]].mode_legacy, "legacy", "and they run in the legacy profile");
 }
 
 void testHold() {
@@ -140,6 +164,58 @@ void testHold() {
 	check(smmDTasks[smmDTaskIndex["hold"]].repeatable, "the hold applies on every run, not once a day");
 	same(smmDTasks[smmDTaskIndex["route"]].done_fn, "smmDLRouteDone", "the route is done only when it came back clean");
 	same(smmDTasks[smmDTaskIndex["route.paid"]].done_fn, "smmDLRoutePaidDone", "and so is its paid pass");
+}
+
+void testGrindValue() {
+	// tradeable, listed at, average sale price, autosell
+	check(dailyGrindItemValueFrom(true, 4969, 4700.0, 20) == 4700, "a grind's loot is valued at what it sells for");
+	check(dailyGrindItemValueFrom(true, 3000, 3234.0, 20) == 3000, "never above the lowest listing");
+	check(dailyGrindItemValueFrom(true, 999999, 0.0, 15) == 15, "an item with no recent sales is worth its autosell price, not its asking price");
+	check(dailyGrindItemValueFrom(true, 0, 812.0, 15) == 812, "an item with no listing is worth its sale price");
+	check(dailyGrindItemValueFrom(false, 0, 0.0, 40) == 40, "an untradeable item is worth its autosell price");
+}
+
+void testGrindSkip() {
+	// runs, return per turn, minDays, earlyDays, turn value, Museum item still short
+	same(dailyGrindSkipReason(0, -1, 5, 2, 4500, false), "", "a grind with no history runs");
+	same(dailyGrindSkipReason(1, 100, 5, 2, 4500, false), "", "one day is not enough to drop a grind");
+	check(dailyGrindSkipReason(2, 2000, 5, 2, 4500, false) != "", "after 2 days a grind under half the turn value is dropped");
+	same(dailyGrindSkipReason(2, 3000, 5, 2, 4500, false), "", "after 2 days a grind over half the turn value still runs");
+	check(dailyGrindSkipReason(5, 3000, 5, 2, 4500, false) != "", "after 5 days a grind under the turn value is dropped");
+	same(dailyGrindSkipReason(5, 4500, 5, 2, 4500, false), "", "a grind at the turn value runs");
+	same(dailyGrindSkipReason(9, 100, 5, 2, 4500, true), "", "a grind whose Museum item is still short runs");
+}
+
+void testFeelEnvy() {
+	// rate, type, item drop %, value
+	check(feelEnvyMissingValue(10.0, "", 0.0, 10000) == 9000, "a 10% drop: Feel Envy adds 90% of its value");
+	check(feelEnvyMissingValue(10.0, "", 900.0, 10000) == 0, "item drop that already makes it certain: nothing added");
+	check(feelEnvyMissingValue(10.0, "n", 900.0, 10000) == 9000, "a drop item drop does not touch: still 90%");
+	check(feelEnvyMissingValue(10.0, "p", 0.0, 10000) == 0, "a pickpocket-only drop is left out");
+	check(feelEnvyMissingValue(10.0, "c", 0.0, 10000) == 0, "a conditional drop is left out");
+	check(feelEnvyMissingValue(0.0, "", 0.0, 10000) == 0, "a drop of unknown rate is left out");
+	check(feelEnvyMinGain() > 0, "Feel Envy needs a gain worth something");
+}
+
+void testForcedNcTargets() {
+	ForcedNcTarget t = parseForcedNcTarget("The Haunted Billiards Room; choice 875 = 1 ; 2");
+	check(t.where == $location[The Haunted Billiards Room], "a target's location is read");
+	check(t.choice == 875 && t.option == 1, "a target's choice and option are read");
+	check(t.perDay == 2, "a target's times a day are read");
+	same(forcedNcTargetProblem(t), "", "a complete target is usable");
+	check(forcedNcTargetProblem(parseForcedNcTarget("Nowhere Special;choice 1=1;1")) != "", "an unknown location is refused");
+	check(forcedNcTargetProblem(parseForcedNcTarget("The Haunted Billiards Room;875;1")) != "", "a target without a choice is refused");
+	check(forcedNcTargetProblem(parseForcedNcTarget("The Haunted Billiards Room;choice 875=1")) != "", "a target without a count is refused");
+}
+
+void testRankRetry() {
+	check(smmSpendRankDue(0, 20000, 3), "a gap never looked at is due");
+	check(!smmSpendRankDue(19999, 20000, 3), "a gap that came to nothing yesterday waits");
+	check(smmSpendRankDue(19997, 20000, 3), "after the retry days it is looked at again");
+	int [int] misses = smmSpendRankMisses("123:19999,456:19990,bad");
+	check(count(misses) == 2 && misses[123] == 19999, "misses are read back");
+	same(smmSpendRankMissString(misses, 20000, 3), "123:19999", "misses past the retry window are dropped");
+	check(smmDTasks[smmDTaskIndex["nightcap.before"]].spends_turns, "nightcap.before goes through the engine's turn gate");
 }
 
 void testMpSources() {
@@ -184,14 +260,25 @@ void testRegistry() {
 		check(smmDValidMode(t.mode_legacy) && smmDValidMode(t.mode_plan), t.id + " has valid default modes");
 		check(t.do_fn != "" || t.legacy_fn != "", t.id + " has something to run");
 		check(!t.museum || t.spends_turns, t.id + ": a Museum grind spends turns");
-		check(!(smmDPhaseNames[0] == t.id || smmDPhaseNames[1] == t.id || smmDPhaseNames[2] == t.id || smmDPhaseNames[3] == t.id || smmDPhaseNames[5] == t.id),
-			t.id + " does not share a name with a phase");
+		boolean phaseName = false;
+		foreach p, name in smmDPhaseNames if (name == t.id && t.id != "garbo") phaseName = true; // the garbo task is its phase
+		check(!phaseName, t.id + " does not share a name with a phase");
 	}
-	// in the legacy profile nothing the old dailyGrind did not do runs by itself
-	same(smmDTasks[smmDTaskIndex["garbo"]].mode_legacy, "dry", "garbo is announced, not run, in the legacy profile");
+	// since 2026-11-24 the legacy profile runs the whole day: garbo and the nightcap too
+	same(smmDTasks[smmDTaskIndex["garbo"]].mode_legacy, "on", "garbo runs in the legacy profile");
+	foreach id in $strings[diet, forced.nc, nightcap.before, diet.turngen, garbo.final, diet.finish, goodnight.adv, goodnight]
+		check(smmDTaskWanted(id), id + " runs in the legacy profile");
+	check(smmDTaskIndex["drip.prep"] < smmDTaskIndex["diet"], "the drippy nugget and wine go in before the diet fills the organs");
+	check(smmDTaskIndex["garbo"] < smmDTaskIndex["nightcap.before"] && smmDTaskIndex["nightcap.before"] < smmDTaskIndex["diet.turngen"]
+		&& smmDTaskIndex["diet.turngen"] < smmDTaskIndex["garbo.final"] && smmDTaskIndex["garbo.final"] < smmDTaskIndex["diet.finish"]
+		&& smmDTaskIndex["diet.finish"] < smmDTaskIndex["goodnight.adv"] && smmDTaskIndex["goodnight.adv"] < smmDTaskIndex["goodnight"],
+		"the nightcap runs in the order it was run by hand");
+	check(smmDTaskIndex["goodnight"] < smmDTaskIndex["close.report"], "the report comes after good_night, so its unused list is the day's real one");
+	check(smmDTasks[smmDTaskIndex["garbo.final"]].spends_turns && !smmDTasks[smmDTaskIndex["goodnight.adv"]].spends_turns,
+		"the last garbo run spends turns; the overdrunk turns are not blocked as turns");
 	same(smmDTasks[smmDTaskIndex["route.paid"]].mode_legacy, "off", "the route runs once in the legacy profile");
 	same(smmDTasks[smmDTaskIndex["oasis"]].mode_plan, "off", "the plan profile leaves the Oasis turns to garbo");
-	check(smmDTasks[smmDTaskIndex["close.book"]].phase == 5 && smmDTaskIndex["close.book"] < smmDTaskIndex["close.spend"], "purchases are booked before the spending step");
+	check(smmDPhaseNames[smmDTasks[smmDTaskIndex["close.book"]].phase] == "close" && smmDTaskIndex["close.book"] < smmDTaskIndex["close.spend"], "purchases are booked before the spending step");
 	check(smmDTaskIndex["mp.bootstrap"] < smmDTaskIndex["breakfast.second"], "MP is restored before second breakfast");
 	check(smmDTaskIndex["day.open"] == 0, "the day opens first");
 	same(smmDHookBeforeTask, "smmDMpHook", "the MP check runs before each task");
@@ -207,6 +294,12 @@ void main() {
 	testFence();
 	testGarbo();
 	testHold();
+	testForcedNoncombats();
+	testGrindValue();
+	testGrindSkip();
+	testFeelEnvy();
+	testForcedNcTargets();
+	testRankRetry();
 	testMpSources();
 	testAuditTable();
 	testRegistry();

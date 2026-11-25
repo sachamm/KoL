@@ -1,8 +1,8 @@
 # smmdaily: the daily run
 
-`smmdaily` runs the day as a list of tasks, in order, with a journal, no questions, and safeguards around spending, MP and garbo. It is built from [daily-script-plan.md](daily-script-plan.md). The goal it serves is in [aftercore-goals.md](aftercore-goals.md).
+`smmdaily` runs the day as a list of tasks, in order, with a journal, no questions, and safeguards around spending, MP and garbo. It is built from [daily-script-plan.md](daily-script-plan.md). The goal it serves is in [aftercore-goals.md](aftercore-goals.md). How close it gets is scored in [daily-script-scorecard.md](daily-script-scorecard.md).
 
-**Status: first milestone (the plan's stages A and B). It has not yet been run in the game.** It compiles in KoLmafia r29462 and passes its offline tests, which run logged out. Today's `dailyGrind()` still works and is unchanged. Use one or the other on a given day, not both: `smmdaily` skips what the game says is done, but `dailyGrind()` does not know what `smmdaily` did.
+**Status: first milestone (the plan's stages A and B), run in the game on 2026-11-24, plus the whole-day changes made after that run (diet, forced noncombats, garbo, the nightcap and `good_night` in the run), which have not yet been run in the game.** It compiles in KoLmafia r29462 and passes its offline tests, which run logged out. Today's `dailyGrind()` still works and is unchanged. Use one or the other on a given day, not both: `smmdaily` skips what the game says is done, but `dailyGrind()` does not know what `smmdaily` did.
 
 In this milestone almost every task runs today's code, lifted block by block out of `dailyGrind()`. What is new is the engine around it. Later milestones replace the blocks one at a time.
 
@@ -12,7 +12,7 @@ In this milestone almost every task runs today's code, lifted block by block out
 2. `smmdaily plan` at any time. It changes nothing and shows every task, whether it would run now, and why not.
 3. `smmdaily dry` walks the day without doing anything.
 4. On the Windows machine only: `set smm.daily.runner = true`. On any other machine `smmdaily run` stays a dry run.
-5. `smmdaily run` in place of `dailyGrind`. Then run garbo, the nightcap and `good_night` as you do now.
+5. `smmdaily run` in place of `dailyGrind`. Since 2026-11-24 it runs the whole day: the diet, the grinds, the forced noncombats, garbo, the nightcap and `good_night`, then the close. Do not run garbo, `diet.js` or `good_night` by hand as well.
 
 If `smmdaily plan` prints `Returned: aggregate location [0]`, KoLmafia has no script called `smmdaily`: the files are not installed on that machine. With no script of that name it runs the command-line namespace instead and prints the value of its last line.
 
@@ -43,29 +43,40 @@ Either way, `smmdaily run` again carries on from where the day stopped. A task t
 
 Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's code) or `on` (the new code, where there is some). `set smm.daily.task.<id> = <mode>` sets one task. Otherwise the mode comes from the profile, `smm.daily.profile`:
 
-- **`legacy`** (the default) is what `dailyGrind()` does today, in the same order, plus the new safeguards. garbo is announced and not run, so you run it yourself as now.
+- **`legacy`** (the default) is what `dailyGrind()` does today, in the same order, plus the new safeguards, followed by what used to be run by hand after it: `diet.js`, garbo, the nightcap steps and `good_night`.
 - **`plan`** is the plan's target under its recommended decisions: garbo is the Meat engine. The Oasis and the champagne bottle are off, because garbo uses those turns and the bottle. The IoTM route runs its free actions early and its paid ones after the Museum grinds. `smmdaily` runs `garbo` itself.
 
 | Phase | Task | What it runs | legacy | plan |
 |---|---|---|---|---|
-| preflight | `day.open` | Records the opening Meat, warns about settings, runs `smmPrefs check` | on | on |
+| preflight | `day.open` | Records the opening Meat, warns about settings, runs `smmPrefs apply` | on | on |
 | | `store.open` | `stockStore` | legacy | legacy |
 | breakfast | `mp.bootstrap` | Restores MP from free sources, then repeats breakfast if a summon failed | on | on |
 | | `breakfast.second` | `secondBreakfast`, `burnHP`, `burnMP` | legacy | legacy |
+| | `drip.prep` | Eats the drippy nugget and drinks the drippy wine, which give the Drip its turns, before the diet fills the organs | legacy | legacy |
+| | `diet` | `call diet.js execute yes`: the first part of the day's diet | on | on |
 | free | `route` | The IoTM route. `legacy` runs all of it, `on` only its free actions | legacy | on |
 | | `deeds` | `dailyDeedsAdv` | legacy | legacy |
-| grinds | `fishing`, `bounty`, `science`, `nep`, `pregrind`, `dolphin`, `workshed` | As in `dailyGrind()` | legacy | legacy |
+| grinds | `fishing`, `bounty`, `science`, `nep`, `pregrind`, `dolphin`, `workshed` | As in `dailyGrind()`. `nep` also fights the free party turns left after the quest finishes (it finished on the 9th of 10 on 2026-11-24). | legacy | legacy |
 | | `hold` | Stops the run after the bounty when `smm.dailyGrind.useBanishers` is `false`, or `highItem` is `false` with the champagne bottle still usable | legacy | legacy |
 | | `champagne`, `oasis` | As in `dailyGrind()` | legacy | off |
 | | `beerLens`, `ghostCostume`, `spacegate`, `fantasyRealm`, `pirateRealm`, `dailyDungeon`, `drip`, `gingerbread` | The Museum grinds, as in `dailyGrind()` | legacy | legacy |
 | | `route.paid` | The IoTM route again, with paid turns | off | legacy |
-| garbo | `garbo` | Fence, `garbo -N`, unfence | dry | on |
+| garbo | `forced.nc` | `grindRufusAndTheShadowRiftsForFree`: spikolodon spikes, McHugeLarge Avalanches and Fiesta Exits (resting for Cinch) at the Shadow Rift, before garbo can spend the rests and Cinch | legacy | legacy |
+| | `garbo` | Fence, `garbo -N`, unfence | on | on |
+| nightcap | `nightcap.before` | `beforeOverdrunkGoodNight` | legacy | legacy |
+| | `diet.turngen` | `call diet.js turngen yes` | on | on |
+| | `garbo.final` | Fence, garbo down to the diet's stop point (`_smm.diet.stopAt`, all adventures when it is 0), unfence | on | on |
+| | `diet.finish` | `call diet.js finish yes`: the rest of the diet and the nightcap drink. When finish's stop point is lower than turngen's (Sweat Out Some Booze is counted only by finish), it runs garbo down to the new one and finishes again, at most twice. | on | on |
+| | `goodnight.adv` | `good_night_adv`: the overdrunk turns | legacy | legacy |
+| | `goodnight` | `good_night`, then the rollover check again, since its free turn generation can add adventures | legacy | legacy |
 | close | `close.unfence` | Takes back anything still fenced | on | on |
 | | `close.book` | Books the day's purchases | on | on |
 | | `close.store`, `close.spend` | `stockStore`, `smmSpendRun` | legacy | legacy |
 | | `close.report` | Grind ledger, spending ledger, price check, unused daily resources | on | on |
 
-The `close` tasks run on every `smmdaily run`, so `smmdaily run close` after garbo brings the books up to date.
+The `close` tasks run on every `smmdaily run`, and come after `good_night`, so the report's list of unused daily resources is the day's real one. If the nightcap is not in when the report runs, it says so first.
+
+The nightcap tasks wait for garbo to have finished today, so with `smm.daily.task.garbo = dry` you can still run garbo by hand and then `smmdaily run` again for the rest. `goodnight.adv` and `goodnight` wait for the nightcap drink.
 
 The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn-value test in [daily-spending.md](daily-spending.md) still apply to the grinds, because the tasks call the same code.
 
@@ -79,9 +90,13 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **Spending.** `close.book` reads the day's session log and counts every purchase that neither `smmSpend` nor `diet.js` made as operating spend. The diet has a budget of its own, `smm.diet.budget` (see [daily-spending.md](daily-spending.md#the-diets-purchases)). `smmSpendRun` then allows half of the day's net, less its own purchases, less the operating spend. The report checks the day's biggest mall purchases against their average sale price and prints what was paid above it. The line in the log is the purchase request, so the total can run slightly high, never low. Only the log on the machine you are playing on is read.
 
+**Forced noncombats.** Free rests and Cinch belong to the forced-noncombat pool, not to garbo. `forced.nc` runs before garbo and spends the spikes, the Avalanches and every Fiesta Exit the Cinch and free rests pay for (7 with 31 free rests) at the Shadow Rift, which finishes a Rufus quest. Spikes and Avalanches are cast in a fight: free fights and free kills first, then, when those are gone, one paid Shadow Rift fight each, since the Rufus quest it finishes gives about 11 free Rift fights (`smm.forcedNC.paidTurns = false` turns the paid fights off). Fiesta Exits go first to `smm.forcedNC.targets`, when set: entries separated by `|`, best first, each `location;choice N=option;times a day`, for example `The Haunted Billiards Room;choice 875=1;1`. Each casts a Fiesta Exit and adventures there once with that choice answered; the rest go to the Rift. The Cincho de Mayo is also in the fence while garbo runs, so garbo cannot rest for Cinch or cast Projectile Piñata with it: on 2026-11-24 it spent all 31 rests and 430 Cinch that way and no Fiesta Exit was cast.
+
+**Feel Envy** (Emotion Chip, 3 a day: the monster drops every item it has) is cast by the consult script in fights the run's own scripts start (not garbo's), on a monster whose drops still left to chance are worth at least `smm.envy.minGain` (default two turns). Each drop counts its value times the chance it would not drop anyway; pickpocket-only, conditional and unknown-rate drops are left out.
+
 **garbo.** The `garbo` task refuses to start unless `valueOfAdventure` is between 3,500 and 10,000. It always passes an explicit negative turn count, and refuses `ascend`, `workshed=`, `quick` and a turn count in `smm.daily.garboArgs`. While garbo runs, the items in `smm.daily.fenceItems` sit in the closet, recorded in `smm.daily.fenced`, and come back out afterwards even if garbo aborts.
 
-**Turns.** A task that spends turns does not start when overdrunk, within `smm.daily.rolloverBufferMin` minutes of rollover, or with `smm.daily.garboLeaveTurns` adventures or fewer left. A grind also needs enough adventures to finish, on top of those held back: 30 for a fresh FantasyRealm, 35 for PirateRealm, 20 for the Spacegate, Gingerbread City, the bounty and fishing, 15 for the Daily Dungeon and the Drip, 11 for the ghost costume and the champagne bottle, 9 for beer lenses. Today's code stops with an error when the adventures run out halfway, so a grind that cannot finish is not started. The Museum grinds share a cap of `smm.daily.museumTurns` paid turns, and leave `smm.daily.garboReserveTurns` more for garbo while the garbo task is on. Both are checked before a grind starts, not during it.
+**Turns.** The overdrunk nightcap steps check the rollover buffer themselves: `goodnight.adv` waits for the next run, `goodnight` still runs but leaves the adventures over the cap unspent, and `diet.finish` does not start its garbo spend-down. A task that spends turns does not start when overdrunk, within `smm.daily.rolloverBufferMin` minutes of rollover, or with `smm.daily.garboLeaveTurns` adventures or fewer left. A grind also needs enough adventures to finish, on top of those held back: 30 for a fresh FantasyRealm, 35 for PirateRealm, 20 for the Spacegate, Gingerbread City, the bounty and fishing, 15 for the Daily Dungeon and the Drip, 11 for the ghost costume and the champagne bottle, 9 for beer lenses. Today's code stops with an error when the adventures run out halfway, so a grind that cannot finish is not started. The Museum grinds share a cap of `smm.daily.museumTurns` paid turns, and leave `smm.daily.garboReserveTurns` more for garbo while the garbo task is on. Both are checked before a grind starts, not during it.
 
 **Stops.** The run stops if a task leaves a fight or a choice open. The IoTM route counts as done only when it came back clean: if it stopped in a fight, a choice or Beaten Up, or at `smm.IR.maxActions`, the next run picks it up again.
 
@@ -99,10 +114,12 @@ Run `smmdaily settings` for the full list with current values.
 | `smm.daily.garboLeaveTurns` | 10 | Adventures garbo leaves, and the fewest a turn-spending task may start with. |
 | `smm.daily.garboReserveTurns` | 30 | Adventures the Museum grinds leave for garbo, on top of the line above. |
 | `smm.daily.garboArgs` | | Extra arguments for garbo. |
-| `smm.daily.fenceItems` | drum machine\|Special Seasoning\|inflammable leaf | Items closeted while garbo runs. |
+| `smm.daily.fenceItems` | drum machine\|Special Seasoning\|inflammable leaf\|Cincho de Mayo | Items closeted (taken off first, if worn) while garbo runs. |
+| `smm.daily.garboAutoConfirm` | false | `true` sets `garbo_autoUserConfirm` while smmdaily runs garbo, so garbo answers its own questions. garbo calls that option experimental; left off, a garbo question waits with no timeout. |
 | `smm.daily.mpFloor` | 2000 | MP restored to after breakfast. |
 | `smm.daily.mpLow` | 400 | No task starts under this while a free restore is left. |
 | `smm.daily.halt` | | Set before a run: stop after this task, then clear itself. |
+| `smm.daily.applyPrefs` | true | `day.open` runs `smmPrefs apply`, so settings that `git update` brought in apply the same day. `false` only checks. |
 
 **Day 0 settings** in `data/smm-prefs.txt`, applied by `smmPrefs apply`. They affect `dailyGrind()` too:
 
@@ -116,18 +133,17 @@ Run `smmdaily settings` for the full list with current values.
 These are in the plan and not in this milestone:
 
 - **Blocking a purchase before it happens.** Today's code and garbo still buy through KoLmafia's automatic buying. Their purchases are booked and price-checked afterwards.
-- **The nightcap and the end of the day.** `diet.js`, `good_night_adv` and `good_night` are still run by hand.
 - **New implementations of the tasks.** Only `day.open`, `mp.bootstrap`, `garbo` and the close tasks are new code.
 - **Museum valuation** (the Meat price of a Museum place), liquidity values and garbo's price overrides file.
 - **The planner pools** for MP, banishes, paid turns and organs. The Museum turn cap is a simple counter.
 - **Free-fight adapters** for Snojo and CyberRealm, and the fixes to `burnMP` and `moodExecute` in KoLUtils.
 - **Values in the audit.** It lists the daily resources with uses left, without a value or an owner for each.
-- **An owner for forced noncombats.** The audit lists what is left of each source (Cinch, spikolodon spikes, Avalanche, the Apriling tuba, Allied Radio, Clara's bell, the free Sneakisol). Today only the Shadow Rift work before the nightcap spends any, on spikes and Cinch. Choosing the best noncombat for each is not built.
+- **Choosing where each forced noncombat goes on its own.** `forced.nc` aims them at the Shadow Rift unless `smm.forcedNC.targets` names better ones (see Forced noncombats); nothing picks a target by itself yet.
 
 Known limits of what is built:
 
-- The `legacy` profile never eats or drinks. Fill up as you do before `dailyGrind`. A grind that takes more adventures than are left is held back and says so, and `smmdaily run` picks it up after the diet.
-- "No questions" covers the six `dailyGrind` prompts only. Today's code can still ask elsewhere, usually with a 60-second timeout: the Gingerbread City buff cost (`gbc.ash`), cancelling a platinum bounty location, the Dreadsylvania gear checks, and wishing for a monster.
+- A grind that takes more adventures than are left is held back and says so, and `smmdaily run` picks it up later.
+- "No questions": the six `dailyGrind` prompts are answered ahead of time, and during a run (`smm.daily.active` set) the questions the run can reach in the shared scripts (the magical sausage for MP, the smut orc camp, a target with no dressup) take their default answer at once instead of waiting a minute. The rest (`gbc win`'s buff cost, cancelling a platinum Guzzlr location, the Dreadsylvania gear checks, wishing for a monster) are in code no task runs. garbo can still ask its own, unless `smm.daily.garboAutoConfirm` is true.
 - ASH cannot catch an `abort()`. When today's code aborts, the run stops there. `smmdaily run` picks the day up.
 - The fence keeps garbo from using what is in the closet. It cannot stop garbo buying more of the same item.
 - In the `plan` profile the free route skips the Sword seed and Lucky! adventures, which cost one turn each. `route.paid` picks them up later.
@@ -149,7 +165,7 @@ Known limits of what is built:
 
 - `smmdaily.ash` and everything it imports compiles;
 - the engine behaves: modes and profiles, run once and resume, not-ready and failed tasks, halt, dry runs, the turn limits, the journal round trip, a lost journal and an interrupted task (`tests/ash/smmDailyCoreTest.ash`);
-- the arithmetic is right: the allowance, the session-log parser, operating spend, overpayment, the fence record, garbo's arguments, the audit table and the task list (`tests/ash/smmDailyGateTest.ash`);
+- the arithmetic is right: the Fiesta Exits the Cinch and free rests pay for, the grind loot valued at its sale price, the last garbo run's command, the allowance, the session-log parser, operating spend, overpayment, the fence record, garbo's arguments, the audit table and the task list (`tests/ash/smmDailyGateTest.ash`);
 - `smmdaily plan` prints the whole day logged out;
 - the new files never call `user_confirm`;
 - every function a task names exists, and every KoLmafia preference the new files read exists in r29462;

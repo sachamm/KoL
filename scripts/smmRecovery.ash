@@ -19,7 +19,9 @@ boolean main(string type, int amount) {
         if (amount == 0) {
         } else {}
 
-        while (my_mp() < amount && smmMuseumMaySpend($item[magical sausage], 1) && user_confirm("Wasn't able to recover mp to " + amount + ". Use magical sausage to recover 999 mp?", 60000, true)) {
+        while (my_mp() < amount && smmMuseumMaySpend($item[magical sausage], 1)
+            // during an smmdaily run (smm.daily.active) nobody is there to answer: take the default at once
+            && (get_property("smm.daily.active") != "" || user_confirm("Wasn't able to recover mp to " + amount + ". Use magical sausage to recover 999 mp?", 60000, true))) {
             eat(1, $item[magical sausage]);
         }
         return my_mp() >= amount;
