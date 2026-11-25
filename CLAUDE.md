@@ -8,6 +8,7 @@ Further documents in `docs/`:
 
 - [collection-objective.md](docs/collection-objective.md): Museum ranking policy, protected copies and item values.
 - [target-register.md](docs/target-register.md): unbuyable Display Case items and where they come from.
+- [resource-ledger.md](docs/resource-ledger.md): Tquilla's net-positive resources with a best use for each, plus bottlenecks and surpluses.
 - [iotm-route.md](docs/iotm-route.md): the daily IoTM route.
 - [resource-planner.md](docs/resource-planner.md): the shared resource planner.
 - [shared-settings.md](docs/shared-settings.md): preferences, combat script and moods shared between machines.
