@@ -10,7 +10,7 @@ The day opens at the Meat (on hand, closet and storage) held when the spending s
 
 The day's net is the Meat held now, minus the opening figure, with this script's own purchases added back. The budget is half of the net, less what has already been spent, and never more than the Meat on hand. A day that loses Meat has a budget of zero.
 
-**Other purchases.** `smmdaily` (see [daily-script.md](daily-script.md)) reads the day's session log and books every purchase that neither this step nor `diet.js` made (the old daily code, garbo, buying by hand) as operating spend in `_smm.spend.operating`. The diet has a budget of its own, described below. The budget is then half of the net, less this step's purchases, less the operating spend. Until something books it the figure is 0, so `dailyGrind()` on its own behaves as before.
+**Other purchases.** `smmdaily` (see [daily-script.md](daily-script.md)) reads the day's session log and books every purchase that neither this step nor `diet.ash` made (the old daily code, garbo, buying by hand) as operating spend in `_smm.spend.operating`. The diet has a budget of its own, described below. The budget is then half of the net, less this step's purchases, less the operating spend. Until something books it the figure is 0, so `dailyGrind()` on its own behaves as before.
 
 Only Meat is counted: items gained are not valued until they sell. Anything else that moves Meat between two runs (a gift, a manual Display Case purchase) lands in the next day's net too.
 
@@ -41,7 +41,7 @@ This replaces the old trigger in `secondBreakfast()` that ran `buyMallSpecials()
 
 ## The diet's purchases
 
-`diet.js` follows the same price rule and has its own budget, apart from the half-of-net rule.
+`diet.ash` follows the same price rule and has its own budget, apart from the half-of-net rule.
 
 **Never above the average sale price.** Before it settles on a plan, the diet looks up the average sale price (Pricegun) of every item the plan would buy in the mall. An item listed above its average is not bought: the plan is limited to the spare copies already owned, or made without the item, and a line says so. When it buys, the most it pays per copy is the planned price plus 30%, and never more than the average. Pricegun having no sales for an item, or not answering, counts as "unknown", and then the current listing is the price, as in the spending step. Items an NPC store sells for no more than the mall are not checked. KoLmafia's own mall buying (`autoSatisfyWithMall`) is switched off while the diet fetches an item it could not buy under its cap, because that path knows neither cap.
 
@@ -51,7 +51,7 @@ The estimate counts everything the plan pays Meat for: store and mall purchases,
 
 `smmdaily` leaves the diet's purchases (`_smm.diet.bought`) out of the operating spend, so they are no longer taken off the spending step's allowance. They still lower the day's net like any other cost, because the net is the Meat actually held: a day that brings in 1,000,000 and pays 200,000 for the diet has netted 800,000, and the spending step may spend 400,000. The report prints the diet's figures on a line of their own, and the price check still covers every mall purchase, the diet's included. Food and drink bought any other way (garbo's own diet, `tquillaFillUp`, by hand) are still operating spend.
 
-`tests/diet-spending.cjs` checks the price rule and the budget under node (`node tests/diet-spending.cjs`); `tests/smmdaily-tests.sh` runs it when node is installed.
+`tests/ash/smmDietTest.ash` checks the price rule and the budget; `tests/smmdaily-tests.sh` runs it.
 
 ## Grind controls
 

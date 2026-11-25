@@ -62,11 +62,11 @@ void smmDTBootstrap() {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 1: the diet. diet.js plans the whole day; each run buys and consumes
+// Phase 1: the diet. diet.ash plans the whole day; each run buys and consumes
 // one part of it. "yes" answers its question (it asks before buying).
 
 string smmDTDietCommand(string part) {
-	return "call diet.js " + part + " yes";
+	return "call diet.ash " + part + " yes";
 }
 
 boolean smmDTOrgansFull() {
@@ -193,7 +193,7 @@ void smmDTDietTurngen() {
 	boolean unused = cli_execute(smmDTDietCommand("turngen"));
 }
 
-// diet.js records the stop point of its last plan in _smm.diet.stopAt: the
+// diet.ash records the stop point of its last plan in _smm.diet.stopAt: the
 // adventures to hold for after the nightcap. With none to hold, garbo spends
 // them all ("garbo" with no number).
 int smmDTStopPoint(string stored) {
@@ -222,7 +222,7 @@ boolean smmDTOverdrunk() {
 	return my_inebriety() > inebriety_limit();
 }
 
-// diet.js finish plans again with the drunkenness Sweat Out Some Booze frees,
+// diet.ash finish plans again with the drunkenness Sweat Out Some Booze frees,
 // which turngen leaves out, so its stop point can be lower than the one
 // garbo.final stopped at (sweat also builds while garbo runs). It then
 // refuses, having recorded the new stop point: spend down to it and finish
@@ -417,7 +417,7 @@ void smmDTAudit() {
 		+ ", net " + smmSpendNet());
 }
 
-// The day is over only when the nightcap is in. A diet.js finish that refused
+// The day is over only when the nightcap is in. A diet.ash finish that refused
 // (more adventures held than its stop point) leaves the day open: say so.
 string smmDTDayEndProblem() {
 	if (!smmDTGarboDone()) return "garbo has not finished today";
@@ -470,7 +470,7 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(1, "mp.bootstrap", "restore MP from free sources, then repeat any breakfast summon that failed", "", "", "smmDTBootstrap", "", "", "on", "on");
 	smmDTAdd(1, "breakfast.second", "second breakfast: collections, mood, outfit, daily buffs", "", "smmDLSecondBreakfastDone", "", "smmDLSecondBreakfast", "", "legacy", "legacy");
 	smmDTAdd(1, "drip.prep", "drippy nugget and drippy wine, before the diet fills the organs", "smmDLDripPrepReady", "", "", "smmDLDripPrep", "", "legacy", "legacy");
-	smmDTAdd(1, "diet", "diet.js: buy and consume the first part of the day's diet", "smmDTDietReady", "", "smmDTDiet", "", "", "on", "on");
+	smmDTAdd(1, "diet", "diet.ash: buy and consume the first part of the day's diet", "smmDTDietReady", "", "smmDTDiet", "", "", "on", "on");
 	// 2 free
 	smmDTAdd(2, "route", "the IoTM route (legacy: all of it; on: free actions only)", "", "smmDLRouteDone", "smmDLRouteFree", "smmDLRouteAll", "turns on-free", "legacy", "on");
 	smmDTAdd(2, "deeds", "daily deeds that cost no adventures", "", "", "", "smmDLDeeds", "", "legacy", "legacy");
@@ -503,9 +503,9 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(4, "garbo", "fence, garbo -N, unfence", "smmDTGarboReady", "smmDTGarboDone", "smmDTGarbo", "", "turns", "on", "on");
 	// 5 nightcap
 	smmDTAdd(5, "nightcap.before", "beforeOverdrunkGoodNight: store, route, Oliver's Place, Shadow Rifts", "smmDTSoberAfterGarboReady", "", "", "smmDLBeforeOverdrunk", "turns", "legacy", "legacy");
-	smmDTAdd(5, "diet.turngen", "diet.js: chocolates, sausages and other turn generation", "smmDTSoberAfterGarboReady", "", "smmDTDietTurngen", "", "", "on", "on");
+	smmDTAdd(5, "diet.turngen", "diet.ash: chocolates, sausages and other turn generation", "smmDTSoberAfterGarboReady", "", "smmDTDietTurngen", "", "", "on", "on");
 	smmDTAdd(5, "garbo.final", "fence, garbo down to the diet's stop point, unfence", "smmDTGarboFinalReady", "", "smmDTGarboFinal", "", "turns", "on", "on");
-	smmDTAdd(5, "diet.finish", "diet.js: the rest of the diet and the nightcap drink", "smmDTSoberAfterGarboReady", "smmDTOverdrunk", "smmDTDietFinish", "", "", "on", "on");
+	smmDTAdd(5, "diet.finish", "diet.ash: the rest of the diet and the nightcap drink", "smmDTSoberAfterGarboReady", "smmDTOverdrunk", "smmDTDietFinish", "", "", "on", "on");
 	smmDTAdd(5, "goodnight.adv", "good_night_adv: the overdrunk turns", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightAdv", "", "legacy", "legacy");
 	smmDTAdd(5, "goodnight", "good_night: rollover gear, free uses, budgeted buying", "smmDTOverdrunkReady", "", "", "smmDLGoodNight", "", "legacy", "legacy");
 	// 6 close

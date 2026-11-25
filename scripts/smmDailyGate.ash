@@ -1,8 +1,8 @@
 // smmDaily: the safeguards around today's code. See docs/daily-script.md.
 //
 //   - Booking: every purchase in today's session log that did not go through
-//     smmSpend or diet.js (the old daily code, garbo, buying by hand) counts
-//     as operating spend against the half-of-net rule. diet.js has a budget
+//     smmSpend or diet.ash (the old daily code, garbo, buying by hand) counts
+//     as operating spend against the half-of-net rule. diet.ash has a budget
 //     of its own (smm.diet.budget). Every mall purchase, the diet's too, is
 //     checked against the average sale price afterwards.
 //   - MP: restore to a floor from free daily sources, so a day that starts at
@@ -58,17 +58,17 @@ int smmDPurchaseTotal(SmmDPurchase [int] purchases) {
 }
 
 // Operating spend: the log's total less what is accounted for elsewhere, which
-// is what smmSpend bought itself and what diet.js bought on its own budget
+// is what smmSpend bought itself and what diet.ash bought on its own budget
 // (their purchases are in the log too). It never goes down within a day.
 int smmDOperatingFrom(int logTotal, int accountedElsewhere, int alreadyBooked) {
 	return max(alreadyBooked, max(0, logTotal - max(0, accountedElsewhere)));
 }
 
-// Meat diet.js paid for purchases today. diet.js keeps the count as it buys.
+// Meat diet.ash paid for purchases today. diet.ash keeps the count as it buys.
 int smmDDietBought() { return max(0, get_property("_smm.diet.bought").to_int()); }
 
-// The diet's budget for the day. The default is diet.js's DIET_BUDGET
-// (tests/diet-spending.cjs checks that the two agree).
+// The diet's budget for the day. The default is kSmmDietBudget in smmDiet.ash
+// (tests/smmdaily-tests.sh checks that the two agree).
 int kSmmDDietBudget = 500000;
 int smmDDietBudgetFrom(string setting) {
 	return setting.is_integer() ? max(0, setting.to_int()) : kSmmDDietBudget;

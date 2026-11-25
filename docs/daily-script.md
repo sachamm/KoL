@@ -12,7 +12,7 @@ In this milestone almost every task runs today's code, lifted block by block out
 2. `smmdaily plan` at any time. It changes nothing and shows every task, whether it would run now, and why not.
 3. `smmdaily dry` walks the day without doing anything.
 4. On the Windows machine only: `set smm.daily.runner = true`. On any other machine `smmdaily run` stays a dry run.
-5. `smmdaily run` in place of `dailyGrind`. Since 2026-11-24 it runs the whole day: the diet, the grinds, the forced noncombats, garbo, the nightcap and `good_night`, then the close. Do not run garbo, `diet.js` or `good_night` by hand as well.
+5. `smmdaily run` in place of `dailyGrind`. Since 2026-11-24 it runs the whole day: the diet, the grinds, the forced noncombats, garbo, the nightcap and `good_night`, then the close. Do not run garbo, `diet.ash` or `good_night` by hand as well.
 
 If `smmdaily plan` prints `Returned: aggregate location [0]`, KoLmafia has no script called `smmdaily`: the files are not installed on that machine. With no script of that name it runs the command-line namespace instead and prints the value of its last line.
 
@@ -43,7 +43,7 @@ Either way, `smmdaily run` again carries on from where the day stopped. A task t
 
 Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's code) or `on` (the new code, where there is some). `set smm.daily.task.<id> = <mode>` sets one task. Otherwise the mode comes from the profile, `smm.daily.profile`:
 
-- **`legacy`** (the default) is what `dailyGrind()` does today, in the same order, plus the new safeguards, followed by what used to be run by hand after it: `diet.js`, garbo, the nightcap steps and `good_night`.
+- **`legacy`** (the default) is what `dailyGrind()` does today, in the same order, plus the new safeguards, followed by what used to be run by hand after it: `diet.ash` (see [diet.md](diet.md)), garbo, the nightcap steps and `good_night`.
 - **`plan`** is the plan's target under its recommended decisions: garbo is the Meat engine. The Oasis and the champagne bottle are off, because garbo uses those turns and the bottle. The IoTM route runs its free actions early and its paid ones after the Museum grinds. `smmdaily` runs `garbo` itself.
 
 | Phase | Task | What it runs | legacy | plan |
@@ -53,7 +53,7 @@ Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's 
 | breakfast | `mp.bootstrap` | Restores MP from free sources, then repeats breakfast if a summon failed | on | on |
 | | `breakfast.second` | `secondBreakfast`, `burnHP`, `burnMP` | legacy | legacy |
 | | `drip.prep` | Eats the drippy nugget and drinks the drippy wine, which give the Drip its turns, before the diet fills the organs | legacy | legacy |
-| | `diet` | `call diet.js execute yes`: the first part of the day's diet | on | on |
+| | `diet` | `call diet.ash execute yes`: the first part of the day's diet | on | on |
 | free | `route` | The IoTM route. `legacy` runs all of it, `on` only its free actions | legacy | on |
 | | `deeds` | `dailyDeedsAdv` | legacy | legacy |
 | grinds | `fishing`, `bounty`, `science`, `nep`, `pregrind`, `dolphin`, `workshed` | As in `dailyGrind()`. `nep` also fights the free party turns left after the quest finishes (it finished on the 9th of 10 on 2026-11-24). | legacy | legacy |
@@ -64,9 +64,9 @@ Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's 
 | garbo | `forced.nc` | `grindRufusAndTheShadowRiftsForFree`: spikolodon spikes, McHugeLarge Avalanches and Fiesta Exits (resting for Cinch) at the Shadow Rift, before garbo can spend the rests and Cinch | legacy | legacy |
 | | `garbo` | Fence, `garbo -N`, unfence | on | on |
 | nightcap | `nightcap.before` | `beforeOverdrunkGoodNight` | legacy | legacy |
-| | `diet.turngen` | `call diet.js turngen yes` | on | on |
+| | `diet.turngen` | `call diet.ash turngen yes` | on | on |
 | | `garbo.final` | Fence, garbo down to the diet's stop point (`_smm.diet.stopAt`, all adventures when it is 0), unfence | on | on |
-| | `diet.finish` | `call diet.js finish yes`: the rest of the diet and the nightcap drink. When finish's stop point is lower than turngen's (Sweat Out Some Booze is counted only by finish), it runs garbo down to the new one and finishes again, at most twice. | on | on |
+| | `diet.finish` | `call diet.ash finish yes`: the rest of the diet and the nightcap drink. When finish's stop point is lower than turngen's (Sweat Out Some Booze is counted only by finish), it runs garbo down to the new one and finishes again, at most twice. | on | on |
 | | `goodnight.adv` | `good_night_adv`: the overdrunk turns | legacy | legacy |
 | | `goodnight` | `good_night`, then the rollover check again, since its free turn generation can add adventures | legacy | legacy |
 | close | `close.unfence` | Takes back anything still fenced | on | on |
@@ -88,7 +88,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **MP.** The day used to stall at 0 MP after rollover. `mp.bootstrap` restores MP to `smm.daily.mpFloor` from free sources only: License to Chill when a lot is missing, bat-wing rests, nuns visits, the eternal car battery. Free rests are never used for MP. Each one refills Cinch on the Cincho de Mayo, and 60 Cinch forces a noncombat (`grindRufusAndTheShadowRiftsForFree` spends them that way before the nightcap). If KoLmafia's breakfast did not finish its summons, it is run again. Before every later task up to and including garbo, MP under `smm.daily.mpLow` is topped up the same way. Nothing is bought to restore MP. While maximum MP is under `smm.daily.mpLow` no free restore is spent at all: each gives 1,000 MP or more, and a small maximum means the outfit or an effect is the problem.
 
-**Spending.** `close.book` reads the day's session log and counts every purchase that neither `smmSpend` nor `diet.js` made as operating spend. The diet has a budget of its own, `smm.diet.budget` (see [daily-spending.md](daily-spending.md#the-diets-purchases)). `smmSpendRun` then allows half of the day's net, less its own purchases, less the operating spend. The report checks the day's biggest mall purchases against their average sale price and prints what was paid above it. The line in the log is the purchase request, so the total can run slightly high, never low. Only the log on the machine you are playing on is read.
+**Spending.** `close.book` reads the day's session log and counts every purchase that neither `smmSpend` nor `diet.ash` made as operating spend. The diet has a budget of its own, `smm.diet.budget` (see [daily-spending.md](daily-spending.md#the-diets-purchases)). `smmSpendRun` then allows half of the day's net, less its own purchases, less the operating spend. The report checks the day's biggest mall purchases against their average sale price and prints what was paid above it. The line in the log is the purchase request, so the total can run slightly high, never low. Only the log on the machine you are playing on is read.
 
 **Forced noncombats.** Free rests and Cinch belong to the forced-noncombat pool, not to garbo. `forced.nc` runs before garbo and spends the spikes, the Avalanches and every Fiesta Exit the Cinch and free rests pay for (7 with 31 free rests) at the Shadow Rift, which finishes a Rufus quest. Spikes and Avalanches are cast in a fight: free fights and free kills first, then, when those are gone, one paid Shadow Rift fight each, since the Rufus quest it finishes gives about 11 free Rift fights (`smm.forcedNC.paidTurns = false` turns the paid fights off). Fiesta Exits go first to `smm.forcedNC.targets`, when set: entries separated by `|`, best first, each `location;choice N=option;times a day`, for example `The Haunted Billiards Room;choice 875=1;1`. Each casts a Fiesta Exit and adventures there once with that choice answered; the rest go to the Rift. The Cincho de Mayo is also in the fence while garbo runs, so garbo cannot rest for Cinch or cast Projectile Piñata with it: on 2026-11-24 it spent all 31 rests and 430 Cinch that way and no Fiesta Exit was cast.
 
@@ -170,6 +170,6 @@ Known limits of what is built:
 - the new files never call `user_confirm`;
 - every function a task names exists, and every KoLmafia preference the new files read exists in r29462;
 - the Day 0 settings are in `data/smm-prefs.txt` and `smm.daily.runner` is not.
-- when node is installed, `diet.js` keeps its price rule and budget (`tests/diet-spending.cjs`) and its adventure bounds (`tests/nightcap-adventure-bounds.cjs`).
+- `diet.ash` compiles, plans a day logged out, keeps its price rule, budget and adventure bounds (`tests/ash/smmDietTest.ash`), and has the same default budget as `smmDailyGate.ash`.
 
 The tests cannot log in, so nothing that touches the game is exercised by them: the free MP restores, the fence moves, garbo and every legacy task are untested until the first live run. Start with `smmdaily plan` and `smmdaily dry`.

@@ -60,7 +60,7 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDressupTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDressupTest smmDietTest; do
 	out="$(mafia "$t")"
 	if grep -q "^PASS $t" <<<"$out"; then pass "$(grep "^PASS $t" <<<"$out")"
 	else
@@ -122,17 +122,18 @@ done
 if grep -q "^smm\.daily\.runner" "$prefs"; then fail "smm.daily.runner must not be a shared setting: only one machine runs the day"
 else pass "smm.daily.runner is not shared"; fi
 
-# --- 8. diet.js under node ---------------------------------------------------
+# --- 8. diet.ash -------------------------------------------------------------
 
-NODE="${NODE:-$(command -v node || true)}"
-if [ -z "$NODE" ]; then
-	echo "skipped: node is not installed, so tests/diet-spending.cjs and tests/nightcap-adventure-bounds.cjs did not run"
-else
-	for t in diet-spending nightcap-adventure-bounds; do
-		if out="$("$NODE" "$REPO/tests/$t.cjs" 2>&1)"; then pass "$(tail -1 <<<"$out")"
-		else fail "tests/$t.cjs"; tail -15 <<<"$out" | sed 's/^/  /'; fi
-	done
-fi
+out="$(mafia "verify diet.ash")"
+if grep -q "Script verification complete" <<<"$out"; then pass "diet.ash and everything it imports compiles"
+else fail "diet.ash does not compile"; grep -n "smmDiet\|diet.ash" <<<"$out" | head -20; fi
+dietBudget="$(sed -n 's/^int kSmmDietBudget = \([0-9]*\);.*/\1/p' "$REPO/scripts/smmDiet.ash")"
+gateBudget="$(sed -n 's/^int kSmmDDietBudget = \([0-9]*\);.*/\1/p' "$REPO/scripts/smmDailyGate.ash")"
+if [ -n "$dietBudget" ] && [ "$dietBudget" = "$gateBudget" ]; then pass "smmDiet.ash and smmDailyGate.ash have the same default diet budget ($dietBudget)"
+else fail "the default diet budget differs: smmDiet.ash '$dietBudget', smmDailyGate.ash '$gateBudget'"; fi
+out="$(mafia "call diet.ash rollover=40 overdrunk=0 sinkvalue=0 noRefresh")"
+if grep -q "^Stop point:" <<<"$out" && ! grep -qi "aborted\|bad item\|undefined\|exception" <<<"$out"; then pass "diet.ash plans a day logged out"
+else fail "diet.ash did not plan a day logged out"; tail -15 <<<"$out" | sed 's/^/  /'; fi
 
 rm -f "$RUNTIME"/data/smm-daily-test*.txt
 echo
