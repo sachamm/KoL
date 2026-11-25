@@ -13,4 +13,5 @@ Further documents in `docs/`:
 - [resource-planner.md](docs/resource-planner.md): the shared resource planner.
 - [shared-settings.md](docs/shared-settings.md): preferences, combat script and moods shared between machines.
 - [daily-script.md](docs/daily-script.md): `smmdaily`, the daily run: commands, settings, tasks, what is built and what is not, and its offline tests.
+- [diet.md](docs/diet.md): `diet.ash`, the daily diet (a port of tehtmi's calculator that replaced `diet.js`): files, credit, changes and checks.
 - [daily-script-plan.md](docs/daily-script-plan.md): the plan `smmdaily` is built from, with its council papers in `docs/daily-script-council/`.

@@ -4427,7 +4427,7 @@ void beforeOverdrunkGoodNight() {
 
 // Adventures that would still pass the rollover cap go to the best way of spending them while
 // overdrunk (smmUtils' overdrunkSinks: trick-or-treating on Hallowe'en, garbo with Drunkula's
-// wineglass, the Beach Comb). Rollover is counted with the best adventure gear, as diet.js does.
+// wineglass, the Beach Comb). Rollover is counted with the best adventure gear, as diet.ash does.
 void burnOverdrunkExcess() {
 	if (my_inebriety() <= inebriety_limit()) return; // only after the nightcap
 	int excess = my_adventures() + adventureGainAtRollover(true) - 200;
@@ -4452,7 +4452,7 @@ void burnOverdrunkExcess() {
 // Every turn-costing fight that can be started while overdrunk (from an item or skill, not
 // a zone), plus Boxing Daycare scavenging, then any adventures that would still pass the
 // rollover cap. Run it after the nightcap: the adventures it needs are held back for it
-// (diet.js plans the stop point with goodNightAdvTurns in smmUtils, which must count exactly
+// (diet.ash plans the stop point with goodNightAdvTurns in smmUtils, which must count exactly
 // what the fixed part spends). Each part is skipped when already used today, so it is safe
 // to run again.
 void good_night_adv() {

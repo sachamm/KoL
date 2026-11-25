@@ -131,11 +131,11 @@ void testGarbo() {
 
 	// the second garbo run stops at the diet's stop point
 	check(smmDTStopPoint("") == 0 && smmDTStopPoint("x") == 0 && smmDTStopPoint("-3") == 0, "no usable stop point holds nothing back");
-	check(smmDTStopPoint("17") == 17, "the stop point diet.js recorded");
+	check(smmDTStopPoint("17") == 17, "the stop point diet.ash recorded");
 	same(smmDTGarboFinalCommand(0, ""), "garbo", "with nothing to hold, the last garbo run spends every adventure");
 	same(smmDTGarboFinalCommand(17, ""), "garbo -17", "otherwise it leaves the stop point");
 	same(smmDTGarboFinalCommand(17, "nobarf"), "garbo -17 nobarf", "extra arguments follow");
-	same(smmDTDietCommand("execute"), "call diet.js execute yes", "diet.js is told yes: smmdaily never waits on a question");
+	same(smmDTDietCommand("execute"), "call diet.ash execute yes", "diet.ash is told yes: smmdaily never waits on a question");
 }
 
 void testForcedNoncombats() {

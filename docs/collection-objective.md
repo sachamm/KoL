@@ -21,7 +21,7 @@ Owned copies are never free while the Museum still needs them. `smmMuseumSpareCo
 
 Making a new copy always costs its inputs, even after #1: `smmItemValue` prices an item that can't be bought by what it is made from (FantasyRealm mead = 100 Rubees x the value of a Rubee).
 
-`diet.js` follows this: owned untradeable food, drink and spleen items are limited to spare copies, and a bought item is bought fresh instead of eating a reserved copy.
+`diet.ash` follows this: owned untradeable food, drink and spleen items are limited to spare copies, and a bought item is bought fresh instead of eating a reserved copy.
 
 Scripts outside the route spend items through the `museumSafeEat/Drink/Overdrink/Chew/Use/Create` wrappers in `smmUtils.ash` (and `consume()`, which checks the same rule). They behave like the built-ins but refuse to spend copies the Museum still needs; for tradeable items they first get fresh copies with `retrieve_item`. Crafting checks every ingredient, and `fullAcquire` only folds when every other owned form has a spare copy. Reusable items are not checked. A blocked spend prints why and names `smm.IR.museumSpend.<item ID>=true`, the per-item override.
 
