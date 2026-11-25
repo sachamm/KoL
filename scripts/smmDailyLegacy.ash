@@ -397,7 +397,11 @@ void smmDLGoodNightAdv() {
 // rollover check, so check again.
 void smmDLGoodNight() {
 	good_night();
-	burnOverdrunkExcess();
+	// spending the excess takes turns: not inside the rollover buffer
+	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60)
+		print("goodnight: too close to rollover to spend the adventures that would pass the cap", "orange");
+	else
+		burnOverdrunkExcess();
 }
 
 // ---------------------------------------------------------------------------

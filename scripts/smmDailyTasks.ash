@@ -250,6 +250,16 @@ string smmDTOverdrunkReady() {
 	return smmDTOverdrunk() ? "" : "the nightcap is not in yet";
 }
 
+// The engine's rollover gate is for sober turn-spending tasks (it refuses
+// any overdrunk). good_night_adv spends overdrunk turns, so it checks the
+// rollover buffer itself and waits for the next run.
+string smmDTOverdrunkTurnsReady() {
+	string why = smmDTOverdrunkReady();
+	if (why != "") return why;
+	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60) return "too close to rollover to spend turns";
+	return "";
+}
+
 // ---------------------------------------------------------------------------
 // Phase 5: close
 
@@ -486,11 +496,11 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(4, "forced.nc", "spikes, Avalanches and Fiesta Exits at the Shadow Rift, before garbo (a paid Rift fight when no free fight is left)", "smmDTForcedReady", "", "", "smmDLForcedNoncombats", "turns", "legacy", "legacy");
 	smmDTAdd(4, "garbo", "fence, garbo -N, unfence", "smmDTGarboReady", "smmDTGarboDone", "smmDTGarbo", "", "turns", "on", "on");
 	// 5 nightcap
-	smmDTAdd(5, "nightcap.before", "beforeOverdrunkGoodNight: store, route, Oliver's Place, Shadow Rifts", "smmDTSoberAfterGarboReady", "", "", "smmDLBeforeOverdrunk", "", "legacy", "legacy");
+	smmDTAdd(5, "nightcap.before", "beforeOverdrunkGoodNight: store, route, Oliver's Place, Shadow Rifts", "smmDTSoberAfterGarboReady", "", "", "smmDLBeforeOverdrunk", "turns", "legacy", "legacy");
 	smmDTAdd(5, "diet.turngen", "diet.js: chocolates, sausages and other turn generation", "smmDTSoberAfterGarboReady", "", "smmDTDietTurngen", "", "", "on", "on");
 	smmDTAdd(5, "garbo.final", "fence, garbo down to the diet's stop point, unfence", "smmDTGarboFinalReady", "", "smmDTGarboFinal", "", "turns", "on", "on");
 	smmDTAdd(5, "diet.finish", "diet.js: the rest of the diet and the nightcap drink", "smmDTSoberAfterGarboReady", "smmDTOverdrunk", "smmDTDietFinish", "", "", "on", "on");
-	smmDTAdd(5, "goodnight.adv", "good_night_adv: the overdrunk turns", "smmDTOverdrunkReady", "", "", "smmDLGoodNightAdv", "", "legacy", "legacy");
+	smmDTAdd(5, "goodnight.adv", "good_night_adv: the overdrunk turns", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightAdv", "", "legacy", "legacy");
 	smmDTAdd(5, "goodnight", "good_night: rollover gear, free uses, budgeted buying", "smmDTOverdrunkReady", "", "", "smmDLGoodNight", "", "legacy", "legacy");
 	// 6 close
 	smmDTAdd(6, "close.unfence", "take back anything still closeted from a garbo run", "", "smmDTUnfenceDone", "smmDTUnfence", "", "repeat", "on", "on");

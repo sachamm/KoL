@@ -4317,7 +4317,9 @@ void grindRufusAndTheShadowRiftsForFree() {
 
 	// SPIKOLODON SPIKES
 	// trigger spikes on free combats
-	while (spikolodonSpikesUsed() < 5 && freeCombatsAvailable() > 0 && questStage("questRufus") == 0) {
+	// the spikes need the Jurassic Parka: without one, the dressup would stop the run
+	boolean ownParka = available_amount($item[Jurassic Parka]) > 0;
+	while (ownParka && spikolodonSpikesUsed() < 5 && freeCombatsAvailable() > 0 && questStage("questRufus") == 0) {
 		set_property("_smm.kSpikolodonNextCombat", "true");
 		AdventureRecord ar = chooseFreeCombat();
 		print("using free combat " + ar.toString() + " to trigger spikolodon spikes", "green");
@@ -4332,7 +4334,7 @@ void grindRufusAndTheShadowRiftsForFree() {
 	}
 
 	// trigger any remaining spikes on instakills
-	while (spikolodonSpikesUsed() < 5 && instaKillsAvailable() > 0 && questStage("questRufus") == 0) {
+	while (ownParka && spikolodonSpikesUsed() < 5 && instaKillsAvailable() > 0 && questStage("questRufus") == 0) {
 		set_property("_smm.kSpikolodonNextCombat", "true");
 		print("using instakill to trigger spikolodon spikes", "green");
 		burnInstaKill();
@@ -4345,7 +4347,7 @@ void grindRufusAndTheShadowRiftsForFree() {
 	set_property("_smm.kSpikolodonNextCombat", "false");
 
 	// then paid fights
-	while (spikolodonSpikesUsed() < 5 && questStage("questRufus") == 0 && forcedNcPaidFightAllowed()) {
+	while (ownParka && spikolodonSpikesUsed() < 5 && questStage("questRufus") == 0 && forcedNcPaidFightAllowed()) {
 		if (!forcedNcPaidFight("_smm.kSpikolodonNextCombat", "spikolodon spikes", spikolodonSpikesUsed(), "_spikolodonSpikeUses")) break;
 	}
 
@@ -4378,7 +4380,7 @@ void grindRufusAndTheShadowRiftsForFree() {
 
 	// running out of free combats and free kills before the spikes is normal; leftover spikes are a
 	// missed opportunity, not a reason to abort the rest of the free Rufus/Cincho work and the day
-	cprint(spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them, and no paid fight (smm.forcedNC.paidTurns, adventures, sobriety)", "orange");
+	cprint(ownParka && spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them, and no paid fight (smm.forcedNC.paidTurns, adventures, sobriety)", "orange");
 
 
 	// CINCHO DE MAYO: first the day's chosen targets, then the Rift

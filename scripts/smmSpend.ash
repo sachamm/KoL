@@ -362,6 +362,44 @@ int smmSpendGapOrder(boolean toTen, int estimate) {
 	return (toTen ? 0 : 1000000000000) + max(0, estimate);
 }
 
+// A gap whose lookup came to nothing (no sales history, too few sales, nothing
+// listed at or under the average) is left for smm.spend.rankRetryDays days
+// (default 3), so the same cheap gaps cannot use up every lookup each day
+// and keep the rest from ever being looked at. Kept in smm.spend.rankMiss as
+// id:day pairs, day counted from the epoch.
+string kSmmSpendRankMissKey = "smm.spend.rankMiss";
+
+int smmSpendToday() { return now_to_int() / 86400000; }
+
+int smmSpendRankRetryDays() {
+	string explicit = get_property("smm.spend.rankRetryDays");
+	return explicit == "" ? 3 : max(1, explicit.to_int());
+}
+
+boolean smmSpendRankDue(int missDay, int today, int retryDays) {
+	return missDay <= 0 || today - missDay >= retryDays;
+}
+
+int [int] smmSpendRankMisses(string stored) {
+	int [int] misses;
+	foreach i, pair in stored.split_string(",") {
+		string [int] parts = pair.split_string(":");
+		if (count(parts) == 2 && parts[0].is_integer() && parts[1].is_integer())
+			misses[parts[0].to_int()] = parts[1].to_int();
+	}
+	return misses;
+}
+
+// Only misses still inside the retry window are kept.
+string smmSpendRankMissString(int [int] misses, int today, int retryDays) {
+	string out = "";
+	foreach id, day in misses {
+		if (smmSpendRankDue(day, today, retryDays)) continue;
+		out += (out == "" ? "" : ",") + id + ":" + day;
+	}
+	return out;
+}
+
 void smmSpendMuseumRanks() {
 	if (!smmSpendRankPassOn() || !smmMuseumEnabled() || !have_display()) return;
 	SmmSpendGap [int] gaps;
@@ -384,12 +422,18 @@ void smmSpendMuseumRanks() {
 	sort gaps by smmSpendGapOrder(value.toTen, value.estimate);
 	print("Spending: " + count(gaps) + " Display Case gaps to price at their average sale price, cheapest first", "blue");
 
+	int today = smmSpendToday();
+	int retryDays = smmSpendRankRetryDays();
+	int [int] misses = smmSpendRankMisses(get_property(kSmmSpendRankMissKey));
 	int lookups = 0;
 	foreach i, gap in gaps {
 		int budget = smmSpendBudget();
 		if (budget < 1 || lookups >= smmSpendMaxLookups()) break;
 		if (gap.estimate > budget) continue; // cannot close this gap today
+		int id = gap.it.to_int();
+		if (!smmSpendRankDue(misses[id], today, retryDays)) continue; // looked at lately, came to nothing
 		lookups += 1;
+		misses[id] = today; // cleared below when it buys
 		float average = smmSpendAveragePrice(gap.it);
 		if (average <= 0 || smmSpendSalesVolume(gap.it) < smmSpendMinSales()) continue;
 		SmmSpendOffer offer;
@@ -397,10 +441,16 @@ void smmSpendMuseumRanks() {
 		offer.average = floor(average);
 		offer.limit = floor(average); // rule 3: never above the average sale price
 		offer.quantity = gap.quantity;
-		if (offer.limit < 1 || offer.quantity * offer.limit > budget) continue;
-		if (smmSpendBuy(offer, (gap.toTen ? "to the top ten" : "to first place") + " at no more than its average sale price") > 0)
+		if (offer.limit < 1 || offer.quantity * offer.limit > budget) {
+			remove misses[id]; // affordable on another day, not a dead end
+			continue;
+		}
+		if (smmSpendBuy(offer, (gap.toTen ? "to the top ten" : "to first place") + " at no more than its average sale price") > 0) {
+			remove misses[id];
 			smmSpendDeposit(gap.it);
+		}
 	}
+	set_property(kSmmSpendRankMissKey, smmSpendRankMissString(misses, today, retryDays));
 }
 
 // The whole step. Can run any number of times a day: each run spends only what

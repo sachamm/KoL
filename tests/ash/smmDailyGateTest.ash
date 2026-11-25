@@ -208,6 +208,16 @@ void testForcedNcTargets() {
 	check(forcedNcTargetProblem(parseForcedNcTarget("The Haunted Billiards Room;choice 875=1")) != "", "a target without a count is refused");
 }
 
+void testRankRetry() {
+	check(smmSpendRankDue(0, 20000, 3), "a gap never looked at is due");
+	check(!smmSpendRankDue(19999, 20000, 3), "a gap that came to nothing yesterday waits");
+	check(smmSpendRankDue(19997, 20000, 3), "after the retry days it is looked at again");
+	int [int] misses = smmSpendRankMisses("123:19999,456:19990,bad");
+	check(count(misses) == 2 && misses[123] == 19999, "misses are read back");
+	same(smmSpendRankMissString(misses, 20000, 3), "123:19999", "misses past the retry window are dropped");
+	check(smmDTasks[smmDTaskIndex["nightcap.before"]].spends_turns, "nightcap.before goes through the engine's turn gate");
+}
+
 void testMpSources() {
 	// Logged out nothing is owned, so no source is offered. What matters here
 	// is the one that must never be offered whatever is owned.
@@ -289,6 +299,7 @@ void main() {
 	testGrindSkip();
 	testFeelEnvy();
 	testForcedNcTargets();
+	testRankRetry();
 	testMpSources();
 	testAuditTable();
 	testRegistry();
