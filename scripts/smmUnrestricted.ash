@@ -4285,20 +4285,28 @@ void forcedNcTargets() {
 			continue;
 		}
 		string doneKey = "_smm.forcedNC.done." + i;
-		while (get_property(doneKey).to_int() < t.perDay && readyCinch(60)) {
+		string missKey = "_smm.forcedNC.missed." + i; // the target gave another choice today: no more Cinch on it
+		while (get_property(doneKey).to_int() < t.perDay && !get_property(missKey).to_boolean() && readyCinch(60)) {
 			string key = "choiceAdventure" + t.choice;
 			string before = get_property(key);
+			boolean adventured = false;
 			set_property(key, t.option.to_string());
 			try {
 				use_skill($skill[Cincho: Fiesta Exit]);
 				healIfRequiredWithMPRestore();
-				boolean unused = adv1(t.where, -1, "");
+				adventured = adv1(t.where, -1, "");
 			} finally {
 				set_property(key, before);
 			}
-			set_property(doneKey, (get_property(doneKey).to_int() + 1).to_string());
-			print("forced noncombat at " + t.where + " (choice " + t.choice + ", option " + t.option + "): last choice was " + last_choice(), "blue");
 			equip($item[Cincho de Mayo]);
+			if (adventured && last_choice() == t.choice) {
+				set_property(doneKey, (get_property(doneKey).to_int() + 1).to_string());
+				print("forced noncombat at " + t.where + ": choice " + t.choice + ", option " + t.option, "blue");
+			} else {
+				set_property(missKey, "true");
+				print("smm.forcedNC.targets: " + t.where + " gave choice " + last_choice() + ", not " + t.choice + (adventured ? "" : " (the adventure failed)")
+					+ ": no more Fiesta Exits go there today", "orange");
+			}
 		}
 	}
 }

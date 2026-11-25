@@ -445,8 +445,14 @@ void smmSpendMuseumRanks() {
 			remove misses[id]; // affordable on another day, not a dead end
 			continue;
 		}
+		// KoLmafia has no ASH call for how many copies are listed under a price, so
+		// a gap can be bought only in part. Those copies still go in the case and
+		// shrink the gap; the rest waits the retry window, so it cannot take the
+		// budget day after day.
+		int held = item_amount(gap.it);
 		if (smmSpendBuy(offer, (gap.toTen ? "to the top ten" : "to first place") + " at no more than its average sale price") > 0) {
-			remove misses[id];
+			if (item_amount(gap.it) - held >= gap.quantity) remove misses[id];
+			else print("Spending: only " + (item_amount(gap.it) - held) + " of " + gap.quantity + " " + gap.it + " were listed at or under " + offer.limit + "; the rest waits " + retryDays + " days", "orange");
 			smmSpendDeposit(gap.it);
 		}
 	}
