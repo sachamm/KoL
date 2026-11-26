@@ -2,7 +2,7 @@
 
 `smmdaily` runs the day as a list of tasks, in order, with a journal, no questions, and safeguards around spending, MP and garbo. It is built from [daily-script-plan.md](daily-script-plan.md). The goal it serves is in [aftercore-goals.md](aftercore-goals.md). How close it gets is scored in [daily-script-scorecard.md](daily-script-scorecard.md).
 
-**Status: first milestone (the plan's stages A and B), run in the game on 2026-11-24, plus the whole-day changes made after that run (diet, forced noncombats, garbo, the nightcap and `good_night` in the run), which have not yet been run in the game.** It compiles in KoLmafia r29462 and passes its offline tests, which run logged out. Today's `dailyGrind()` still works and is unchanged. Use one or the other on a given day, not both: `smmdaily` skips what the game says is done, but `dailyGrind()` does not know what `smmdaily` did.
+**Status (2026-11-26): November 25–26 live logs reviewed; reliability, accounting, allocation and reporting corrections implemented and tested offline. Five consecutive unattended live completions remain the acceptance milestone.**
 
 In this milestone almost every task runs today's code, lifted block by block out of `dailyGrind()`. What is new is the engine around it. Later milestones replace the blocks one at a time.
 
@@ -43,8 +43,8 @@ Either way, `smmdaily run` again carries on from where the day stopped. A task t
 
 Each task has a mode: `off`, `dry` (announce it, do nothing), `legacy` (today's code) or `on` (the new code, where there is some). `set smm.daily.task.<id> = <mode>` sets one task. Otherwise the mode comes from the profile, `smm.daily.profile`:
 
-- **`legacy`** (the default) is what `dailyGrind()` does today, in the same order, plus the new safeguards, followed by what used to be run by hand after it: `diet.ash` (see [diet.md](diet.md)), garbo, the nightcap steps and `good_night`.
-- **`plan`** is the plan's target under its recommended decisions: garbo is the Meat engine. The Oasis and the champagne bottle are off, because garbo uses those turns and the bottle. The IoTM route runs its free actions early and its paid ones after the Museum grinds. `smmdaily` runs `garbo` itself.
+- **`legacy`** (opt-in) is what `dailyGrind()` does today, in the same order, plus the new safeguards, followed by what used to be run by hand after it: `diet.ash` (see [diet.md](diet.md)), garbo, the nightcap steps and `good_night`.
+- **`plan`** (the default) is the plan's target under its recommended decisions: garbo is the Meat engine. The Oasis and the champagne bottle are off, because garbo uses those turns and the bottle. The IoTM route runs its free actions early and its paid ones after the Museum grinds. `smmdaily` runs `garbo` itself.
 
 | Phase | Task | What it runs | legacy | plan |
 |---|---|---|---|---|
@@ -107,7 +107,7 @@ Run `smmdaily settings` for the full list with current values.
 | Setting | Default | Meaning |
 |---|---|---|
 | `smm.daily.runner` | false | `true` on the one machine that runs the day. Set by hand. Never shared. |
-| `smm.daily.profile` | legacy | `legacy` or `plan`. |
+| `smm.daily.profile` | plan | `legacy` or `plan`. |
 | `smm.daily.task.<id>` | | `off`, `dry`, `legacy` or `on` for one task. |
 | `smm.daily.dryRun` | false | `true` makes every run a dry run. |
 | `smm.daily.museumTurns` | 100 | Paid-turn cap shared by the Museum grinds. |
@@ -148,7 +148,21 @@ Known limits of what is built:
 - The fence keeps garbo from using what is in the closet. It cannot stop garbo buying more of the same item.
 - In the `plan` profile the free route skips the Sword seed and Lucky! adventures, which cost one turn each. `route.paid` picks them up later.
 
-## Files
+## November 26 operational corrections
+
+- The default profile is **plan**. An explicitly chosen profile is respected. It leaves Oasis and champagne adventures to garbo. Explicit task overrides still apply. Keep both adventure values at the provisional 4,500 until ordinary farming samples support a change; whole-day loot estimates and short-run NaNs are not calibration data.
+- Combat preparation runs after dressing in the automation/redirection path and in `smmPreAdventure`. It uses free MP recovery and HP skills, preserving campsite rests. Overdrunk fights can buy fresh Doc Galaktik tonic at no more than a verified average price, within both `smm.daily.combatMpBudget` (5,000 Meat/day; 0 disables purchases) and the spending allowance. The consult checks rocket inventory and uses an affordable spell plan while overdrunk. It stops safely if none exists.
+- `goodnight.adv` now runs the route pass, followed by separately journaled `goodnight.adv.fax`, `goodnight.adv.spinner`, `goodnight.adv.locket`, `goodnight.adv.daycare` and `goodnight.adv.excess`. Selecting the old group name selects its children; retrying a child affects only that child. An old completed parent does not mark the new children complete; their workers check actual usage counters.
+- A collection exemption requires a **named unbuyable output, known cached rank gap and funded adventures**. Defaults name the ghost costume, Spacegate Research, selected FantasyRealm reward, Red Roger's reliquary and fat loot token. `smm.dailyGrind.target.<name>` overrides the item; `smm.dailyGrind.targetTurns.<name>` overrides its maximum funded paid adventures. Unknown ranks and incidental untradeable drops grant no exemption. Readiness does not fetch missing ranks.
+- `smm.dailyGrind.collectionLossBudget` defaults to 450,000 Meat of forgone farming income. A collection task reserves its maximum turn cost before starting, checks remaining paid turns before the next automated fight, and settles against observed results. Interrupted work retains its reservation and original start. External/manual turns during an interruption are conservatively charged. Third-party actions bypassing both automation and the configured pre-adventure hook cannot be intercepted.
+- Grind history migrates to version 3. Physical snapshots include inventory, closet, storage, shop, all equipment slots and inactive familiar equipment. Signed changes charge consumed owned inputs at opportunity value. Reusable returns are excluded unless an observed native drop establishes production. Session transactions distinguish purchase requests and acquisitions. Per-item evidence is written to `data/smm-grind-<player>-<date>-<grind>-<starting-turn>.txt`. The report separates native retained loot estimates from the complete signed inventory estimate. Neither is realized sales.
+- The close report compares actual case counts with the saved opening counts. It prints confirmed added copies and threshold crossings against cached competitor rankings, without claiming fresh ranks. Resource rows include an owner and used, blocked, deliberately retained, unspent or missed outcomes. A Party attempt without counter advancement is recorded as blocked.
+- A nightcap and successful garbo are insufficient for completion. Required nightcap children and `goodnight` must finish, and enabled failed tasks keep the result incomplete. Only the end of a successful closing report prints `SMM_DAILY_RESULT COMPLETE`. A run clears its previous completion marker first.
+- `tools/Invoke-KolDaily.ps1` is the versioned Windows runner. Install `tools/KolDailyDiagnostics.ps1` beside any copied runner. Diagnostics ignore macro definitions but retain actual macro failures; a live run requires the explicit completion marker. `tests/kol-daily-diagnostics-tests.ps1` checks this without starting Mafia.
+
+The added `smmDailyReviewTest` covers combat policies, signed item changes, transaction classification, price ceilings, child selection, incomplete days and collection budgets. Offline success does not establish live unattended completion or market liquidity.
+
+## Implementation files
 
 | File | Contents |
 |---|---|

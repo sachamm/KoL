@@ -3,6 +3,8 @@ import "smmAutomation.ash";
 import "VotingBooth.ash";
 import <smmIotmRoute.ash>
 import <smmSpend.ash>
+import <smmDailyReceipts.ash>
+import <smmFantasyTargets.ash>
 string __unrestricted_version = "0.9";
 
 /*
@@ -749,20 +751,28 @@ string kGrindTurnsTotalKey = "_smm.grind.turnsTotal";
 int gGrindTurnMark;
 int gGrindMeatMark;
 int [item] gGrindInventoryMark;
+int gGrindLogMark;
+int gGrindCollectionLossMark;
 
-// The grind history before 2026-11-25 was valued at listing prices (above).
-// It is cleared once, so the turn-value test starts again from honest figures.
+string dailyGrindSessionLog() {
+ string [int] logs = session_logs(1);
+ return count(logs) > 0 ? logs[0] : "";
+}
+
+// Version 3 replaces listing-only and positive-holdings histories. Clear
+// their estimates once before selecting future farming.
 string kGrindValueVersionKey = "smm.grind.valueVersion";
 boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread];
 
 void dailyGrindMigrateHistory() {
-	if (get_property(kGrindValueVersionKey) == "2") return;
+	if (get_property(kGrindValueVersionKey) == "3") return;
 	foreach name in kDailyGrindNames {
 		foreach key in $strings[histTurns, histValue, histRuns, histMuseumAt, histMuseumItems]
 			set_property("smm.grind." + key + "." + name, "");
+  set_property("_smm.grind.counted." + name, "");
 	}
-	set_property(kGrindValueVersionKey, "2");
-	print("dailyGrind: cleared the grind history, which valued items at their listing price instead of their sale price", "orange");
+	set_property(kGrindValueVersionKey, "3");
+	print("dailyGrind: cleared the grind history, which counted equipment moves and omitted consumed inputs", "orange");
 }
 
 int dailyGrindMinDays() {
@@ -794,22 +804,59 @@ int dailyGrindReturnPerTurn(string name) {
 	return get_property("smm.grind.histValue." + name).to_int() / turns;
 }
 
-// True while the grind brought in, within the last minDays logged days, an
-// untradeable item the Display Case is still short of. The items are kept in
-// smm.grind.histMuseumItems.<name>; history from before that list counts as
-// still short.
-boolean dailyGrindMuseumRecent(string name) {
-	string at = get_property("smm.grind.histMuseumAt." + name);
-	if (at == "" || get_property("smm.grind.histRuns." + name).to_int() - at.to_int() >= dailyGrindMinDays()) return false;
-	string ids = get_property("smm.grind.histMuseumItems." + name);
-	if (ids == "") return true;
-	foreach i, id in split_string(ids, ",") {
-		item it = id.to_int().to_item();
-		if (it == $item[none]) continue;
-		SmmMuseumGoal goal = smmMuseumGoal(it);
-		if (!goal.known || smmMuseumMissing(it, goal) > 0) return true;
-	}
-	return false;
+// Compatibility name for the report: only a current named and funded target
+// exempts a collection grind. Incidental drops never grant an exemption.
+boolean dailyGrindCollectionFunded(string name);
+boolean dailyGrindMuseumRecent(string name) { return dailyGrindCollectionFunded(name); }
+
+// Collection exemptions name an intended output, never incidental gear.
+item dailyGrindCollectionTarget(string name) {
+ string configured = get_property("smm.dailyGrind.target." + name);
+ if (configured != "") return configured.to_item();
+ switch (name) {
+ case "ghostCostume": return $item[li'l ghost costume];
+ case "spacegate": return $item[Spacegate Research];
+ case "fantasyRealm":
+  item remembered = get_property("_smm.frTarget").to_item();
+  return remembered != $item[none] ? remembered : frChooseTarget(false);
+ case "pirateRealm": return $item[Red Roger's reliquary];
+ case "dailyDungeon": return $item[fat loot token];
+ }
+ return $item[none];
+}
+
+int dailyGrindCollectionTurns(string name) {
+ string explicit = get_property("smm.dailyGrind.targetTurns." + name);
+ if (explicit != "") return max(1, explicit.to_int());
+ switch (name) {
+ case "ghostCostume": return 11;
+ case "spacegate": return 20;
+ case "fantasyRealm": return 30;
+ case "pirateRealm": return 35;
+ case "dailyDungeon": return 15;
+ case "drip": return 15;
+ }
+ return 20;
+}
+
+int dailyGrindCollectionBudget() {
+ string setting = get_property("smm.dailyGrind.collectionLossBudget");
+ return setting == "" ? 450000 : max(0, setting.to_int());
+}
+
+boolean dailyGrindCollectionNeeded(string name) {
+ item target = dailyGrindCollectionTarget(name);
+ if (target == $item[none] || target.tradeable || !is_displayable(target)) return false;
+ if (!smmMuseumStored(target)) return false; // readiness never fetches a missing rank
+ SmmMuseumGoal goal = smmMuseumGoal(target);
+ if (!goal.known) return false;
+ return smmDailyCollectionEligible(!target.tradeable, is_displayable(target), goal.known, smmMuseumMissing(target, goal));
+}
+
+boolean dailyGrindCollectionFunded(string name) {
+ return dailyGrindCollectionNeeded(name)
+  && smmDailyCollectionCanFund(get_property("_smm.grind.collectionCommitted").to_int(), get_property("_smm.grind.reserved." + name).to_int(),
+   dailyGrindCollectionTurns(name), kTurnValue, dailyGrindCollectionBudget());
 }
 
 boolean dailyGrindMayRun(string name) {
@@ -818,19 +865,28 @@ boolean dailyGrindMayRun(string name) {
 		print("dailyGrind: skipping " + name + " (smm.dailyGrind." + name + "=false)", "blue");
 		return false;
 	}
+ if (dailyGrindCollectionNeeded(name) && !dailyGrindCollectionFunded(name)) {
+  print("dailyGrind: holding " + name + ": its named Museum target exceeds the remaining funded loss budget", "orange");
+  return false;
+ }
+ if (get_property("_smm.grind.reserved." + name).to_int() > 0
+  && total_turns_played() - get_property("_smm.grind.start." + name).to_int() >= get_property("_smm.grind.limit." + name).to_int()) {
+  print("dailyGrind: holding " + name + ": its funded paid-turn limit was reached", "orange");
+  return false;
+ }
 	string limit = get_property("smm.dailyGrind.maxPaidTurns");
 	if (limit != "" && get_property(kGrindTurnsTotalKey).to_int() >= limit.to_int()) {
 		print("dailyGrind: skipping " + name + ", the day's paid-turn budget of " + limit + " is used up", "blue");
 		return false;
 	}
 	// history from before the sale-price valuation is cleared at the next grind, and never skips one before that
-	boolean honestHistory = get_property(kGrindValueVersionKey) == "2";
+	boolean honestHistory = get_property(kGrindValueVersionKey) == "3";
 	int runs = get_property("smm.grind.histRuns." + name).to_int();
 	if (preset != "true" && honestHistory && runs >= min(dailyGrindEarlyDays(), dailyGrindMinDays())) {
 		int perTurn = dailyGrindReturnPerTurn(name);
 		// the Museum check reads the Display Case, so it comes last
 		string why = dailyGrindSkipReason(runs, perTurn, dailyGrindMinDays(), dailyGrindEarlyDays(), kTurnValue, false);
-		if (why != "" && !dailyGrindMuseumRecent(name)) {
+		if (why != "" && !dailyGrindCollectionFunded(name)) {
 			print("dailyGrind: skipping " + name + ", " + why + " (smm.dailyGrind." + name + "=true runs it anyway)", "orange");
 			return false;
 		}
@@ -838,22 +894,55 @@ boolean dailyGrindMayRun(string name) {
 	return true;
 }
 
-// Copies held in inventory, closet and Display Case together. The grinds move
-// what they farm between the three (the Spacegate closets its samples, dc top10
-// fills the case), so gains are measured over all of them.
+// All physical ownership locations, including inactive familiar equipment.
+// Moving a copy between these places cannot manufacture income.
 int [item] dailyGrindHoldings() {
-	int [item] held;
-	foreach it, amount in get_inventory() held[it] += amount;
-	foreach it, amount in get_closet() held[it] += amount;
-	foreach it, amount in get_display() held[it] += amount;
-	return held;
+ int [item] held;
+ foreach it, amount in get_inventory() held[it] += amount;
+ foreach it, amount in get_closet() held[it] += amount;
+ foreach it, amount in get_display() held[it] += amount;
+ foreach it, amount in get_storage() held[it] += amount;
+ foreach it, amount in get_shop() held[it] += amount;
+ foreach sl in $slots[]
+  if (sl != $slot[none] && sl != $slot[familiar] && equipped_item(sl) != $item[none]) held[equipped_item(sl)] += 1;
+ foreach fam, it in all_familiar_equipped_equipment()
+  if (it != $item[none]) held[it] += 1;
+ return held;
 }
 
 void dailyGrindBegin() {
-	dailyGrindMigrateHistory();
-	gGrindTurnMark = total_turns_played();
-	gGrindMeatMark = my_meat();
-	gGrindInventoryMark = dailyGrindHoldings();
+ dailyGrindMigrateHistory();
+ gGrindTurnMark = total_turns_played();
+ gGrindMeatMark = my_meat() + my_closet_meat() + my_storage_meat();
+ gGrindInventoryMark = dailyGrindHoldings();
+ gGrindLogMark = dailyGrindSessionLog().length();
+ gGrindCollectionLossMark = get_property("_smm.grind.collectionLoss").to_int();
+}
+
+// Reserve the maximum funded loss up front. Unused reservation is released
+// on success; an interrupted grind keeps its reservation until explicitly retried.
+void dailyGrindBegin(string name) {
+ dailyGrindBegin();
+ set_property("_smm.grind.active", "");
+ if (!dailyGrindCollectionNeeded(name)) return;
+ int cost = dailyGrindCollectionTurns(name) * kTurnValue;
+ int old = get_property("_smm.grind.reserved." + name).to_int();
+ int committed = get_property("_smm.grind.collectionCommitted").to_int() - old;
+ if (old > 0) cost = old;
+ if (committed + cost > dailyGrindCollectionBudget())
+  abort("dailyGrind: collection loss budget cannot fund " + name);
+ set_property("_smm.grind.collectionCommitted", committed + cost);
+ set_property("_smm.grind.reserved." + name, cost);
+ set_property("_smm.grind.active", name);
+ if (old == 0) {
+  set_property("_smm.grind.start." + name, total_turns_played());
+  set_property("_smm.grind.limit." + name, dailyGrindCollectionTurns(name));
+ }
+ set_property("_smm.grind.startTurns", get_property("_smm.grind.start." + name));
+ set_property("_smm.grind.turnLimit", get_property("_smm.grind.limit." + name));
+ print("Collection target: " + dailyGrindCollectionTarget(name) + ", short "
+  + smmMuseumMissing(dailyGrindCollectionTarget(name), smmMuseumGoal(dailyGrindCollectionTarget(name)))
+  + ", at most " + dailyGrindCollectionTurns(name) + " paid turns, funded loss " + cost, "blue");
 }
 
 // What one gained copy is worth for the log: what it really sells for. The
@@ -877,53 +966,88 @@ int dailyGrindItemValue(item it) {
 
 
 void dailyGrindEnd(string name) {
-	int turns = total_turns_played() - gGrindTurnMark;
-	int meat = my_meat() - gGrindMeatMark;
-	int itemValue = 0;
-	boolean museumGain = false;
-	string museumIds = "";
-	// Only gains count: copies used up or sold along the way are not losses here.
-	foreach it, amount in dailyGrindHoldings() {
-		int gained = amount - gGrindInventoryMark[it];
-		if (gained <= 0) continue;
-		itemValue += gained * dailyGrindItemValue(it);
-		if (!it.tradeable && is_displayable(it)) {
-			SmmMuseumGoal goal = smmMuseumGoal(it);
-			if (goal.known && smmMuseumMissing(it, goal) > 0) {
-				museumGain = true;
-				museumIds += (museumIds == "" ? "" : ",") + it.to_int();
-			}
-		}
-	}
-	if (turns <= 0 && meat == 0 && itemValue == 0) return;
-
-	set_property("_smm.grind.turns." + name, get_property("_smm.grind.turns." + name).to_int() + turns);
-	set_property("_smm.grind.meat." + name, get_property("_smm.grind.meat." + name).to_int() + meat);
-	set_property("_smm.grind.items." + name, get_property("_smm.grind.items." + name).to_int() + itemValue);
-	set_property(kGrindTurnsTotalKey, get_property(kGrindTurnsTotalKey).to_int() + turns);
-
-	// history across days: about the last 14 logged days, older days fading out
-	int histTurns = get_property("smm.grind.histTurns." + name).to_int();
-	int histValue = get_property("smm.grind.histValue." + name).to_int();
-	int histRuns = get_property("smm.grind.histRuns." + name).to_int();
-	if (!get_property("_smm.grind.counted." + name).to_boolean()) {
-		if (histRuns >= 14) {
-			histTurns = histTurns * 13 / 14;
-			histValue = histValue * 13 / 14;
-		}
-		histRuns += 1;
-		set_property("smm.grind.histRuns." + name, histRuns);
-		set_property("_smm.grind.counted." + name, "true");
-	}
-	set_property("smm.grind.histTurns." + name, histTurns + turns);
-	set_property("smm.grind.histValue." + name, histValue + meat + itemValue);
-	if (museumGain) {
-		set_property("smm.grind.histMuseumAt." + name, histRuns);
-		set_property("smm.grind.histMuseumItems." + name, museumIds);
-	}
-
-	print("dailyGrind: " + name + " took " + turns + " turns, Meat " + (meat >= 0 ? "+" : "") + meat + ", items worth " + itemValue
-		+ (museumGain ? ", including an untradeable item the Museum needs" : ""), "blue");
+ int turns = total_turns_played() - gGrindTurnMark;
+ int meat = my_meat() + my_closet_meat() + my_storage_meat() - gGrindMeatMark;
+ int itemValue = 0;
+ int nativeValue = 0;
+ boolean museumGain = false;
+ string museumIds = "";
+ string log = dailyGrindSessionLog();
+ boolean completeLog = log.length() >= gGrindLogMark;
+ SmmDailyItemReceipt [item] receipts = smmDailyItemReceipts(completeLog ? log.substring(gGrindLogMark) : "");
+ int [item] after = dailyGrindHoldings();
+ boolean [item] items;
+ foreach it in after items[it] = true;
+ foreach it in gGrindInventoryMark items[it] = true;
+ // Durable per-item quantities and transaction evidence, outside Git.
+ int [item, string] evidence;
+ item target = dailyGrindCollectionTarget(name);
+ foreach it in items {
+  int delta = smmDailyValuedDelta(it, gGrindInventoryMark[it], after[it], receipts[it].nativeDrops);
+  if (delta == 0) continue;
+  int price = dailyGrindItemValue(it);
+  int signedValue = delta > 0 ? delta * price : -ceil(min(1000000000.0, smmMuseumOwnedValue(it, -delta)));
+  itemValue += signedValue;
+  nativeValue += min(max(0, delta), receipts[it].nativeDrops) * price;
+  evidence[it, "before"] = gGrindInventoryMark[it];
+  evidence[it, "after"] = after[it];
+  evidence[it, "delta"] = delta;
+  evidence[it, "unitEstimate"] = price;
+  evidence[it, "signedValue"] = signedValue;
+  evidence[it, "acquired"] = receipts[it].acquired;
+  evidence[it, "nativeDrops"] = receipts[it].nativeDrops;
+  evidence[it, "requestedBuys"] = receipts[it].requestedBuys;
+  evidence[it, "requestedMeat"] = receipts[it].requestedMeat;
+  if (delta > 0 && it == target && !it.tradeable && is_displayable(it)) {
+   SmmMuseumGoal goal = smmMuseumGoal(it);
+   if (goal.known) { museumGain = true; museumIds = it.to_int().to_string(); }
+  }
+ }
+ if (!map_to_file(evidence, "smm-grind-" + my_id() + "-" + today_to_string() + "-" + name + "-" + gGrindTurnMark + ".txt"))
+  print("dailyGrind: could not write the " + name + " item receipt", "red");
+ if (!completeLog) print("dailyGrind: session log shortened; native-drop classification is incomplete", "orange");
+ set_property("_smm.grind.active", "");
+ if (turns <= 0 && meat == 0 && itemValue == 0) {
+  int held = get_property("_smm.grind.reserved." + name).to_int();
+  int priorLoss = held > 0 ? min(held, max(0, total_turns_played() - get_property("_smm.grind.start." + name).to_int()) * kTurnValue) : 0;
+  set_property("_smm.grind.collectionCommitted", max(0, get_property("_smm.grind.collectionCommitted").to_int() - held) + priorLoss);
+  set_property("_smm.grind.collectionLoss", gGrindCollectionLossMark + priorLoss);
+  set_property("_smm.grind.reserved." + name, "0");
+  return;
+ }
+ set_property("_smm.grind.turns." + name, get_property("_smm.grind.turns." + name).to_int() + turns);
+ set_property("_smm.grind.meat." + name, get_property("_smm.grind.meat." + name).to_int() + meat);
+ set_property("_smm.grind.items." + name, get_property("_smm.grind.items." + name).to_int() + itemValue);
+ set_property("_smm.grind.native." + name, get_property("_smm.grind.native." + name).to_int() + nativeValue);
+ set_property(kGrindTurnsTotalKey, get_property(kGrindTurnsTotalKey).to_int() + turns);
+ if (target != $item[none]) {
+  int reservedTurns = get_property("_smm.grind.reserved." + name).to_int() > 0
+   ? max(turns, total_turns_played() - get_property("_smm.grind.start." + name).to_int()) : turns;
+  int loss = max(0, reservedTurns * kTurnValue - meat - itemValue);
+  int reserved = get_property("_smm.grind.reserved." + name).to_int();
+  if (reserved > 0) {
+   set_property("_smm.grind.collectionCommitted", max(0, get_property("_smm.grind.collectionCommitted").to_int() - reserved) + loss);
+   set_property("_smm.grind.reserved." + name, "0");
+  }
+  set_property("_smm.grind.collectionLoss", gGrindCollectionLossMark + loss);
+ }
+ int histTurns = get_property("smm.grind.histTurns." + name).to_int();
+ int histValue = get_property("smm.grind.histValue." + name).to_int();
+ int histRuns = get_property("smm.grind.histRuns." + name).to_int();
+ if (!get_property("_smm.grind.counted." + name).to_boolean()) {
+  if (histRuns >= 14) { histTurns = histTurns * 13 / 14; histValue = histValue * 13 / 14; }
+  histRuns += 1;
+  set_property("smm.grind.histRuns." + name, histRuns);
+  set_property("_smm.grind.counted." + name, "true");
+ }
+ set_property("smm.grind.histTurns." + name, histTurns + turns);
+ set_property("smm.grind.histValue." + name, histValue + meat + itemValue);
+ if (museumGain) {
+  set_property("smm.grind.histMuseumAt." + name, histRuns);
+  set_property("smm.grind.histMuseumItems." + name, museumIds);
+ }
+ print("dailyGrind: " + name + " took " + turns + " turns, Meat " + meat + ", signed inventory estimate " + itemValue
+  + ", native retained loot estimate " + nativeValue + "; estimates are not realized sales", "blue");
 }
 
 void printDailyGrindLedger() {
@@ -934,10 +1058,10 @@ void printDailyGrindLedger() {
 		if (turns <= 0 && perTurn < 0) continue;
 		int meat = get_property("_smm.grind.meat." + name).to_int();
 		int items = get_property("_smm.grind.items." + name).to_int();
-		print(name + ": today " + turns + " turns, Meat " + meat + ", items " + items
+		print(name + ": today " + turns + " turns, Meat " + meat + ", signed inventory estimate " + items + ", native retained loot estimate " + get_property("_smm.grind.native." + name)
 			+ (turns > 0 ? " (" + ((meat + items) / turns) + " per turn)" : "")
 			+ "; over " + get_property("smm.grind.histRuns." + name).to_int() + " logged days " + perTurn + " per turn"
-			+ (dailyGrindMuseumRecent(name) ? ", Museum item gained recently" : ""));
+			+ (dailyGrindMuseumRecent(name) ? ", named collection target funded" : ""));
 	}
 	print("total paid turns: " + get_property(kGrindTurnsTotalKey).to_int());
 }

@@ -23,7 +23,43 @@ string [int] smmDTSettingWarnings() {
 	return warnings;
 }
 
+string smmDTCaseFile() { return "smm-daily-case-" + my_id() + ".txt"; }
+void smmDTCaseOpen() {
+ if (get_property("_smm.daily.caseEpoch") == smmDEpoch()) return;
+ int [item] opening = get_display();
+ if (!map_to_file(opening, smmDTCaseFile())) abort("smmDaily: could not save opening Display Case counts");
+ set_property("_smm.daily.caseEpoch", smmDEpoch());
+}
+void smmDTMuseumReport() {
+ if (get_property("_smm.daily.caseEpoch") != smmDEpoch()) {
+  print("Museum: opening case snapshot missing; no daily rank gains claimed", "orange"); return;
+ }
+ int [item] opening;
+ if (!file_to_map(smmDTCaseFile(), opening)) {
+  print("Museum: opening case snapshot unreadable; no daily rank gains claimed", "orange"); return;
+ }
+ int copies = 0;
+ int items = 0;
+ int topTen = 0;
+ int first = 0;
+ foreach it, now in get_display() {
+  int gained = now - opening[it];
+  if (gained <= 0) continue;
+  copies += gained; items += 1;
+  SmmMuseumGoal goal = smmMuseumBounds(smmMuseumCachedCollection(it), my_name(), 11);
+  if (goal.known && opening[it] < goal.tenth && now >= goal.tenth) topTen += 1;
+  if (goal.known && opening[it] < goal.first_minimum && now >= goal.first_minimum) first += 1;
+  print("Museum: confirmed case +" + gained + " " + it + " (" + opening[it] + " -> " + now + ")"
+   + (goal.known ? ", short of cached top ten " + max(0, goal.tenth - now) + ", #1 " + max(0, goal.first_minimum - now) : ", ranking unknown"));
+ }
+ print("Museum: confirmed " + copies + " added copies across " + items + " items; crossed " + topTen + " top-ten and " + first
+  + " #1 thresholds against cached competitors. Refresh ranks to confirm current standings.", "blue");
+ print("Collection loss: committed " + get_property("_smm.grind.collectionCommitted") + " / " + dailyGrindCollectionBudget()
+  + "; observed opportunity loss " + get_property("_smm.grind.collectionLoss"), "blue");
+}
+
 void smmDTOpen() {
+ smmDTCaseOpen();
 	smmSpendDayStart(); // opening Meat for the day's spending budget, before anything is earned or bought
 	foreach i, warning in smmDTSettingWarnings() {
 		print("smmDaily: " + warning + ".", "orange");
@@ -393,9 +429,28 @@ int smmDTPoolUsed(string value) {
 	return value.to_int();
 }
 
+string smmDTPoolOwner(SmmDPool pool) {
+ string pref = pool.pref.to_lower_case();
+ if (pref == "timesrested" || pref.contains_text("cinch") || pref.contains_text("spikolodon") || pref.contains_text("avalanche")) return "forced.nc";
+ if (pref.contains_text("restused") || pref == "nunsvisits" || pref.contains_text("battery") || pref.contains_text("licensetochill")) return "mp.bootstrap / goodnight";
+ if (pref.contains_text("hatred") || pref.contains_text("snoke") || pref.contains_text("tranquilizer") || pref.contains_text("saberforce")) return "grinds / garbo";
+ if (pref.contains_text("neverendingparty")) return "nep";
+ if (pref.contains_text("sweatout")) return "diet.finish";
+ if (pref.contains_text("timespinner")) return "goodnight.adv.spinner";
+ if (pref.contains_text("photocopy")) return "goodnight.adv.fax";
+ return "route / garbo / goodnight";
+}
+string smmDTPoolBlocked(SmmDPool pool) {
+ if (pool.pref == "_neverendingPartyFreeTurns") return get_property("_smm.nep.blocked");
+ if ((pool.pref == "_cinchUsed" || pool.pref == "timesRested") && smmDTFiestaExitsLeft(get_property("_cinchUsed").to_int(),
+  get_property("_cinchoRests").to_int(), max(0, total_free_rests() - get_property("timesRested").to_int())) == 0)
+  return "remaining Cinch and free rests cannot fund another Fiesta Exit";
+ return "";
+}
+
 void smmDTAudit() {
 	int open = 0;
-	print("smmDaily: daily resources with uses left:", "blue");
+	print("smmDaily: daily resource outcomes (unspent does not by itself mean wasted):", "blue");
 	// the nightcap and good_night spend much of this list
 	if (my_inebriety() <= inebriety_limit())
 		print("&nbsp;&nbsp;(before the nightcap: the nightcap steps and good_night still spend the free fights, free kills and the rest of the Cinch. The close phase after them shows what really went unused.)", "gray");
@@ -407,9 +462,13 @@ void smmDTAudit() {
 		if (smmDTPoolProblem(pool) != "" || !smmDTPoolOwned(pool)) continue;
 		int limit = pool.limit > 0 ? pool.limit : total_free_rests();
 		int used = smmDTPoolUsed(get_property(pool.pref));
-		if (used >= limit) continue;
-		open += 1;
-		print("&nbsp;&nbsp;" + pool.label + ": " + used + " of " + limit + " used");
+  string owner = smmDTPoolOwner(pool);
+  boolean failed = false;
+  foreach j, task in owner.split_string(" / ")
+   if (get_property("_smm.daily.failed." + task) == smmDEpoch()) failed = true;
+  string state = smmDailyResourceState(used, limit, smmDTPoolBlocked(pool), get_property("smm.daily.resourceReason." + pool.pref), owner, failed);
+  if (used < limit) open += 1;
+  print("&nbsp;&nbsp;" + pool.label + ": " + used + " of " + limit + "; owner " + owner + "; " + state);
 	}
 	if (open == 0) print("&nbsp;&nbsp;none");
 	smmDLog("close.report", "NOTE", open + " daily resources still have uses left; Museum grinds used " + smmDMuseumTurnsUsed() + " of "
@@ -420,6 +479,8 @@ void smmDTAudit() {
 // The day is over only when the nightcap is in. A diet.ash finish that refused
 // (more adventures held than its stop point) leaves the day open: say so.
 string smmDTDayEndProblem() {
+ string taskProblem = smmDCompletionProblem();
+ if (taskProblem != "") return taskProblem;
 	if (!smmDTGarboDone()) return "garbo has not finished today";
 	if (!smmDTOverdrunk()) return "the nightcap is not in: spend down to the diet's stop point (_smm.diet.stopAt = " + get_property("_smm.diet.stopAt") + "), then smmdaily run nightcap";
 	return "";
@@ -427,7 +488,9 @@ string smmDTDayEndProblem() {
 
 void smmDTReport() {
 	string open = smmDTDayEndProblem();
-	if (open != "") print("smmDaily: the day is not finished: " + open + ".", "orange");
+ if (open != "") print("smmDaily: the day is not finished: " + open + ".", "orange");
+
+ smmDTMuseumReport();
 	smmDLLedger();
 	smmDBookPurchases();
 	smmSpendReport();
@@ -435,6 +498,8 @@ void smmDTReport() {
 	smmDPriceCheck();
 	smmDTAudit();
 	timeToRollover();
+ set_property("_smm.daily.complete", open == "" ? smmDEpoch() : "");
+ print("SMM_DAILY_RESULT " + (open == "" ? "COMPLETE" : "INCOMPLETE: " + open), open == "" ? "green" : "red");
 }
 
 // ---------------------------------------------------------------------------
@@ -507,7 +572,12 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(5, "garbo.final", "fence, garbo down to the diet's stop point, unfence", "smmDTGarboFinalReady", "", "smmDTGarboFinal", "", "turns", "on", "on");
 	smmDTAdd(5, "diet.finish", "diet.ash: the rest of the diet and the nightcap drink", "smmDTSoberAfterGarboReady", "smmDTOverdrunk", "smmDTDietFinish", "", "", "on", "on");
 	smmDTAdd(5, "goodnight.adv", "good_night_adv: the overdrunk turns", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightAdv", "", "legacy", "legacy");
-	smmDTAdd(5, "goodnight", "good_night: rollover gear, free uses, budgeted buying", "smmDTOverdrunkReady", "", "", "smmDLGoodNight", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight.adv.fax", "overdrunk fax fight", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightFax", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight.adv.spinner", "overdrunk Time-Spinner fights", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightSpinner", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight.adv.locket", "overdrunk locket fights", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightLocket", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight.adv.daycare", "Boxing Daycare scavenging", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightDaycare", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight.adv.excess", "spend adventures above the rollover cap", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightExcess", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight", "good_night: rollover gear, free uses, budgeted buying", "smmDTOverdrunkReady", "", "", "smmDLGoodNight", "", "legacy", "legacy");
 	// 6 close
 	smmDTAdd(6, "close.unfence", "take back anything still closeted from a garbo run", "", "smmDTUnfenceDone", "smmDTUnfence", "", "repeat", "on", "on");
 	smmDTAdd(6, "close.book", "book the day's purchases from the session log as operating spend", "", "", "smmDTBook", "", "repeat", "on", "on");

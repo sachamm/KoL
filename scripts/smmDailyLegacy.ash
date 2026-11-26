@@ -196,7 +196,7 @@ void smmDLOasis() {
 	// keep banishes back only for the banisher grinds still to do today
 	int kSaveBanishes = (smmDLBeerLensPending() ? 4 : 0) + (smmDLGhostCostumePending() ? 8 : 0);
 	if (banishesAvailable(maxPerTurnCost) > kSaveBanishes && my_adventures() > 10 && dailyGrindMayRun("oasis")) {
-		dailyGrindBegin();
+		dailyGrindBegin("oasis");
 		int perAdventureCost = perAdventureCost($location[The Oasis]);
 		int beatleValue = scarabBeatleValue(perAdventureCost);
 		int blurValue = monsterCurrentTotalMeatValue($monster[blur], false) - perAdventureCost;
@@ -220,7 +220,7 @@ string smmDLBeerLensReady() {
 }
 
 void smmDLBeerLens() {
-	dailyGrindBegin();
+	dailyGrindBegin("beerLens");
 	grindBeerLens(smmDLMaxPerTurnCost()); // 3-5 adv, 4 banishers
 	dailyGrindEnd("beerLens");
 }
@@ -232,7 +232,7 @@ string smmDLGhostCostumeReady() {
 }
 
 void smmDLGhostCostume() {
-	dailyGrindBegin();
+	dailyGrindBegin("ghostCostume");
 	grindGhostCostume(); // 5-11 adv, 9 banishers
 	dailyGrindEnd("ghostCostume");
 }
@@ -240,7 +240,7 @@ void smmDLGhostCostume() {
 string smmDLSpacegateReady() { return smmDLControls("spacegate"); }
 
 void smmDLSpacegate() {
-	dailyGrindBegin();
+	dailyGrindBegin("spacegate");
 	try {
 		saveAndSetProperty("choiceAdventure1251", "6");
 		grindSpacegate(gkSpacegateCoordinates);
@@ -268,7 +268,7 @@ int smmDLFantasyRealmNeed() {
 void smmDLFantasyRealm() {
 	boolean unused;
 	boolean frAlreadyDone = get_property("_fantasyRealmDone").to_boolean();
-	dailyGrindBegin();
+	dailyGrindBegin("fantasyRealm");
 	if (!frAlreadyDone)
 		unused = cli_execute("fr best");
 	item frTargetItem = get_property("_smm.frTarget").to_item();
@@ -291,7 +291,7 @@ string smmDLPirateRealmReady() {
 }
 
 void smmDLPirateRealm() {
-	dailyGrindBegin();
+	dailyGrindBegin("pirateRealm");
 	boolean unused = cli_execute("pr short"); // grind PirateRealm
 	dailyGrindEnd("pirateRealm");
 }
@@ -302,7 +302,7 @@ string smmDLDailyDungeonReady() {
 }
 
 void smmDLDailyDungeon() {
-	dailyGrindBegin();
+	dailyGrindBegin("dailyDungeon");
 	grindDailyDungeon();
 	dailyGrindEnd("dailyDungeon");
 }
@@ -310,7 +310,7 @@ void smmDLDailyDungeon() {
 string smmDLDripReady() { return smmDLControls("drip"); }
 
 void smmDLDrip() {
-	dailyGrindBegin();
+	dailyGrindBegin("drip");
 	grindDrip(); // TODO: don't run on the day of breaking the prism
 	dailyGrindEnd("drip");
 }
@@ -362,7 +362,7 @@ void smmDLGingerbread() {
 		printTop10List(leaderboard);
 	} else if (!winSprinkles && gbcTurns < 20 && dailyGrindMayRun("gingerbread")) {
 		if (gbcTurns > 0 || dailyGrindConfirm("gingerbreadItems", "We can't win the Gingerbread City sprinkles leaderboard, should we grind items?", true)) {
-			dailyGrindBegin();
+			dailyGrindBegin("gingerbread");
 			if (!cli_execute("gbc items")) // last grind of the day, report instead of stopping
 				print("'gbc items' failed, finish Gingerbread City manually", "red");
 			dailyGrindEnd("gingerbread");
@@ -388,9 +388,34 @@ void smmDLBeforeOverdrunk() {
 	beforeOverdrunkGoodNight();
 }
 
-void smmDLGoodNightAdv() {
-	good_night_adv();
+// Each overdrunk activity has its own journal entry in smmdaily.
+void smmDLOverdrunkPrep() {
+ automate_dressup($location[none], "item", "item", "0.1 mp, -equip \"i voted!\" sticker, -equip Kramco Sausage-o-Matic&trade;");
+ smmDCombatPrepare();
 }
+void smmDLGoodNightRoute() {
+ if (my_adventures() > 0 && smmIREnabled() && !inRonin() && my_path() == $path[none]) smmIRDailyRoute(true, true);
+}
+void smmDLGoodNightFax() {
+ if (my_adventures() <= 0 || get_property("_photocopyUsed").to_boolean()) return;
+ if (item_amount($item[photocopied monster]) <= 0 && !(get_clan_lounge() contains $item[deluxe fax machine])) return;
+ smmDLOverdrunkPrep();
+ burnFax(false);
+}
+void smmDLGoodNightSpinner() {
+ if (my_adventures() <= 0) return;
+ smmDLOverdrunkPrep();
+ burn_timespinner();
+}
+void smmDLGoodNightLocket() {
+ if (my_adventures() <= 0) return;
+ smmDLOverdrunkPrep();
+ burnCombatLoversLocket();
+}
+void smmDLGoodNightDaycare() { burnScavengeDaycare(min(3, my_adventures())); }
+void smmDLGoodNightExcess() { burnOverdrunkExcess(); }
+
+void smmDLGoodNightAdv() { smmDLGoodNightRoute(); }
 
 // good_night's burnFreeTurnGen (chocolates, essential tofu, the Mayam
 // calendar, the latte refill) can add adventures after good_night_adv's
@@ -442,6 +467,7 @@ void smmDLRunStart() {
 }
 
 void smmDLRunEnd() {
+ set_property("_smm.grind.active", "");
 	foreach name in smmDLPromptsSet
 		set_property("smm.dailyGrind." + name, "");
 	clear(smmDLPromptsSet);

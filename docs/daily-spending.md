@@ -2,7 +2,8 @@
 
 This is how `dailyGrind()` applies the spending rules in the aftercore goals: Meat goes first to purchases with a positive return, then to items on sale, biggest discount first; at most half of the day's net Meat is spent; nothing is bought above the market price; and "cheap" means 20% or more under the market price. The market price is the item's recent average sale price, read from Pricegun, not the current lowest mall listing.
 
-The code is in `scripts/smmSpend.ash`, with NPC resale planning in `scripts/smmNpcResale.ash`. **The new NPC resale pass has only been tested offline, logged out.** Set `smm.spend.dryRun = true` for the first day to see what it would buy.
+The code is in `scripts/smmSpend.ash`, with NPC resale planning in `scripts/smmNpcResale.ash`. The earlier spending passes ran on November 25. **The new NPC resale pass and November 26 corrections have only been tested offline, logged out.** Set `smm.spend.dryRun = true` for the first day to see what it would buy.
+
 
 ## The day's ledger
 
@@ -18,9 +19,10 @@ Only Meat is counted: items gained are not valued until they sell. Anything else
 
 `smmSpendRun()` runs at the end of `dailyGrind()` and again at the start of `good_night()`. It can run any number of times: each run spends only what the budget still allows.
 
-1. **Positive return.** Reads `data/unrestricted_buy_map.txt` (item, what one copy is worth, how many to keep on hand). It buys an item when the mall price is under that worth, never paying more than the average sale price, best return per Meat first. When Pricegun has no sales for an item it pays no more than the current listing.
+1. **Positive return.** Reads `data/unrestricted_buy_map.txt` (item, what one copy is worth, how many to keep on hand). It buys an item when the mall price is under that worth, never paying more than the average sale price, best return per Meat first. When Pricegun has no verified average, it skips the purchase.
 2. **NPC resale.** Screens the installed KoLmafia NPC catalog for supported, accessible Meat shops. Compares pants-only batches with batches using one sleaze jelly, ranks profitable offers by projected profit per Meat committed, and recalculates quantity against the remaining daily budget immediately before buying. See the details below.
 3. **Display Case items on sale.** Considers tradeable items that have a stored Museum ranking and are short of first place, items short of the top ten first. The average sale price is trusted only when at least `smm.spend.minSales` copies sold in Pricegun's history. Each candidate is probed by buying one copy at no more than 80% of its average: the mall fills that from its cheapest listing, so a sale of only a few copies is found, which the quoted mall price (the fifth-cheapest listing) would hide. Items whose probe filled are then bought biggest discount first, to the top ten for every item before any is bought toward first place, and the copies go into the Display Case.
+
 
 4. **Display Case places at the average sale price.** What the budget still allows goes to the cheapest whole gaps in the Display Case: to the top ten for every item before any toward first place, the cheapest gap first (sorted by the stored mall price, so no request is made to sort them). Each copy costs no more than the item's average sale price, and only a gap the budget can close in full is bought, because part of a gap gains no place. A gap whose lookup came to nothing (no sales history, too few sales, nothing listed at or under the average) is passed over for `smm.spend.rankRetryDays` days (default 3, kept in `smm.spend.rankMiss`), so the same cheap gaps cannot use every lookup each day. `smm.spend.rankPass = false` turns this pass off. On 2026-11-24 nine such gaps (about 2.5M Meat for nine #1 places) were bought by hand after the day was over.
 
@@ -67,7 +69,7 @@ This replaces the old trigger in `secondBreakfast()` that ran `buyMallSpecials()
 
 `diet.ash` follows the same price rule and has its own budget, apart from the half-of-net rule.
 
-**Never above the average sale price.** Before it settles on a plan, the diet looks up the average sale price (Pricegun) of every item the plan would buy in the mall. An item listed above its average is not bought: the plan is limited to the spare copies already owned, or made without the item, and a line says so. When it buys, the most it pays per copy is the planned price plus 30%, and never more than the average. Pricegun having no sales for an item, or not answering, counts as "unknown", and then the current listing is the price, as in the spending step. Items an NPC store sells for no more than the mall are not checked. KoLmafia's own mall buying (`autoSatisfyWithMall`) is switched off while the diet fetches an item it could not buy under its cap, because that path knows neither cap.
+**Never above the average sale price.** Before it settles on a plan, the diet looks up the average sale price (Pricegun) of every item the plan would buy in the mall. An item listed above its average is not bought: the plan is limited to the spare copies already owned, or made without the item, and a line says so. When it buys, the most it pays per copy is the planned price plus 30%, and never more than the average. Pricegun having no sales for an item, or not answering, counts as "unknown": no mall purchase is authorized. Spare owned copies can still be planned at their existing opportunity value. Items an NPC store sells for no more than the mall are not checked. KoLmafia's own mall buying (`autoSatisfyWithMall`) is switched off while the diet fetches an item it could not buy under its cap, because that path knows neither cap.
 
 **Its own budget.** The diet may pay `smm.diet.budget` Meat a day (default 500,000; `budget=N` on the command line overrides it for one run). `_smm.diet.spent` holds what its runs have paid today. Every run plans the rest of the day, and the purchases of that plan (copies beyond the spare ones owned, at the planned price) must fit in what is left. A plan that does not fit is made again with an adventure valued 15% lower, as often as needed, so the purchases that return the fewest adventures per Meat go first. When nothing is left, or nothing worth buying fits, the plan uses only what is owned. Either case prints an orange line.
 
@@ -90,7 +92,15 @@ A skipped grind prints an orange line with its figures. To clear a grind's histo
 
 The Oasis block now keeps banishes back only for the banisher grinds still to do that day: 4 for beer lenses, 8 for the li'l ghost costume, none when both are done.
 
-## Prompts and reports
+## November 26 accounting and allocation corrections
+
+Every `smmSpend` allowance decision during an active daily run first refreshes operating purchases from the session log, including the spending inside `good_night`. Its common purchase boundary requires a verified average and clamps each caller's limit. This protects `smmSpend`; arbitrary direct purchases by garbo and other imported code remain booked and audited afterwards. The diet also fails closed on unknown mall averages; NPC purchases retain their documented treatment.
+
+The version-3 grind ledger uses signed physical ownership changes across storage and equipment, supplemented by session transactions and separate native-loot estimates. Consumed owned inputs count at Museum-aware opportunity value; selling reduces stock as well as adding Meat. Buying then consuming is charged through its cash cost. Equipment moves and reusable returns do not manufacture production. Older histories are discarded once. Estimated stock value does not imply that the entire stockpile can sell at one quote.
+
+The old exemption for any recently acquired untradeable item is replaced by a known gap for a named output and a funded collection-loss allocation. See the daily-script operational corrections for settings and interruption behavior. The 100-adventure Museum cap remains in addition to that allocation.
+
+## Prompt controls
 
 Each yes/no prompt can be answered ahead of time with `smm.dailyGrind.<name> = true` or `false`. Unset, it asks as before.
 

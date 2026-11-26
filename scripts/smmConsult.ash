@@ -1,4 +1,5 @@
 import <smmUtils.ash>
+import <smmDailyPolicy.ash>
 string __smm_consult_version = "0.1";
 
 /**
@@ -994,6 +995,21 @@ boolean shouldAttack(monster foe, DebuffMonsterRecord dmr, int monsterHP) {
 // most monsters are susceptible to attack, even if their stats are much higher
 ActionRecord defaultAttack(monster foe, int monsterHP) { // #defaultAction
 	ActionRecord theAction;
+	// Weapon attacks are unreliable while overdrunk. Pick an affordable spell
+	// that can finish within both the round and HP budgets, before debuffing.
+	if (get_property("smm.daily.active") != "" && isOverdrunk()) {
+		foreach sk in $skills[Saucegeyser, Saucestorm, Weapon of the Pastalord, Cannelloni Cannon] {
+			if (!have_skill(sk)) continue;
+			ActionRecord candidate;
+			candidate.skillToUse = sk;
+			int damage = expectedDamageDone(candidate, foe);
+			if (damage <= 0) continue;
+			int rounds = ceil(monsterHP / to_float(damage));
+			if (rounds * mp_cost(sk) <= my_mp() && willKillBeforeTimeout(foe, monsterHP, candidate)
+				&& willKillBeforeDying(foe, monsterHP, candidate)) return candidate;
+		}
+		abort("smmDaily: no safe affordable overdrunk spell; recover MP or change the combat outfit before retrying");
+	}
 	DebuffMonsterRecord dmr = debuffMonsterRecords(0);
 	boolean shouldAttack = shouldAttack(foe, dmr, monsterHP);
 
@@ -1547,7 +1563,7 @@ string doItemsAndBuffs(monster foe, int monsterHP, string scriptSoFar) {
 	//	scriptString += "skill Pinch Ghost;";
 
 	// MP RESTORE -- BLUE ROCKET
-	if (!inRonin() && have_effect($effect[Everything Looks Blue]) <= 0)
+	if (smmDailyRocketAllowed(inRonin(), item_amount($item[blue rocket]), have_effect($effect[Everything Looks Blue])))
 		scriptString += "use blue rocket;";
 
 	// SILENT TREATMENT this is strictly a debuff but do here to take advantage of a possible stun
@@ -2081,6 +2097,7 @@ string customScriptWithDefaultKillHelperTop(int initround, monster foe, string a
 	initConsult(foe);
 	string scriptString = startFight(foe);
 	int monsterHP = real_monster_hp("");
+	if (get_property("smm.daily.active") != "" && isOverdrunk()) return scriptString;
 
 	if (currentRound == 1)
 		scriptString = doPickpocketAndDebuff(foe, monsterHP, scriptString);
@@ -2100,6 +2117,8 @@ string customScriptWithDefaultKillHelperTop(int initround, monster foe, string a
 
 // returns the script so far
 string customScriptWithDefaultKillHelperBottom(string scriptString, int initround, monster foe, int monsterHP, string aPage, string customScript) {
+	if (get_property("smm.daily.active") != "" && isOverdrunk())
+		return doMainLoop(foe, monsterHP, scriptString + customScript);
 	scriptString = doItemsAndBuffs(foe, monsterHP, scriptString);
 	scriptString = doClassSkills(foe, monsterHP, scriptString);
 	scriptString = doLocationSpecific(scriptString);

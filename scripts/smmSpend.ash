@@ -11,7 +11,9 @@
 
 import <smmUtils.ash>
 import <smmMuseumPolicy.ash>
+import <smmDailyReceipts.ash>
 import <smmNpcResale.ash>
+
 
 string kSmmSpendStartKey = "_smm.spend.startMeat";   // cleared at rollover
 string kSmmSpendCloseKey = "smm.spend.lastClose";    // kept across days: Meat held when the spending step last finished
@@ -109,7 +111,24 @@ int smmSpendAllowance(int net, int spent, int operating, float fraction) {
 }
 
 // Meat still allowed to be spent today. Never more than the Meat on hand.
+// Refresh immediately before every allowance decision, including the buying
+// inside good_night. Purchase requests conservatively overbook partial fills.
+int smmSpendLogOffset;
+int smmSpendLogPurchases;
+void smmSpendRefreshOperating() {
+ if (get_property("smm.daily.active") == "") return;
+ string [int] logs = session_logs(1);
+ if (count(logs) == 0) return;
+ if (logs[0].length() < smmSpendLogOffset) { smmSpendLogOffset = 0; smmSpendLogPurchases = 0; }
+ matcher buys = create_matcher("(?m-s)^buy ([0-9,]+) .+ for ([0-9,]+) each from .+$", logs[0].substring(smmSpendLogOffset));
+ while (buys.find()) smmSpendLogPurchases += buys.group(1).to_int() * buys.group(2).to_int();
+ smmSpendLogOffset = logs[0].length();
+ int elsewhere = smmSpendLoggedSpent() + max(0, get_property("_smm.diet.bought").to_int());
+ set_property(kSmmSpendOperatingKey, max(smmSpendOperating(), max(0, smmSpendLogPurchases - elsewhere)));
+}
+
 int smmSpendBudget() {
+ smmSpendRefreshOperating();
 	return min(smmSpendAllowance(smmSpendNet(), smmSpendSpent(), smmSpendOperating(), smmSpendFraction()), my_meat());
 }
 
@@ -180,7 +199,11 @@ int smmSpendSalesVolume(item it) {
 // remaining budget. Returns the Meat actually spent, measured, not estimated.
 int smmSpendBuy(SmmSpendOffer offer, string reason) {
 	int budget = smmSpendBudget();
-	if (offer.limit <= 0) return 0;
+ offer.limit = smmDailyPurchaseLimit(offer.limit, smmSpendAveragePrice(offer.it));
+ if (offer.limit <= 0) {
+  print("Spending: no verified average-price allowance for " + offer.it + "; skipped", "orange");
+  return 0;
+ }
 	// buy() may pay up to the limit for each copy, so the limit sizes the purchase:
 	// the budget can't be exceeded whatever the listings turn out to cost
 	int quantity = min(offer.quantity, budget / offer.limit);
@@ -221,10 +244,9 @@ void smmSpendPositiveReturn() {
 		int price = mall_price(it);
 		if (price <= 0 || price >= worth) continue;
 
-		// rule 3: never above the average sale price. With no sales on record,
-		// pay no more than the current listing.
+		// Rule 3: a verified average is required before buying.
 		float average = smmSpendAveragePrice(it);
-		int limit = average > 0 ? min(worth, floor(average)) : min(worth, price);
+		int limit = smmDailyPurchaseLimit(worth, average);
 		if (limit < price) continue;
 
 		SmmSpendOffer offer;
@@ -462,9 +484,17 @@ int smmSpendTenGap(item it) {
 }
 
 void smmSpendDeposit(item it) {
-	int deposit = smmMuseumDepositAmount(it);
-	if (deposit > 0 && !smmMuseumDeposit(it, deposit))
-		print("Spending: could not add " + it + " to the Display Case, the copies stay in inventory", "orange");
+ int deposit = smmMuseumDepositAmount(it);
+ int before = display_amount(it);
+ if (deposit <= 0) return;
+ boolean moved = smmMuseumDeposit(it, deposit);
+ int confirmed = max(0, display_amount(it) - before);
+ if (!moved || confirmed != deposit)
+  print("Spending: Display Case transfer for " + it + " confirmed " + confirmed + " of " + deposit, "orange");
+ if (confirmed > 0) {
+  set_property("_smm.spend.deposited", get_property("_smm.spend.deposited").to_int() + confirmed);
+  print("Museum deposit confirmed: " + confirmed + " " + it + ", case now " + display_amount(it), "blue");
+ }
 }
 
 // Pass 2: Display Case items on sale. Only items with a stored Museum ranking

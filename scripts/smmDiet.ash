@@ -406,12 +406,11 @@ float smmDietAverageSalePrice(item it) {
 }
 
 // What to do with a planned item the mall sells at price:
-//   "buy"   at or under the average, or the average is unknown (no sales on
-//           record: the current listing is the only price there is);
+//   "buy"   at or under a verified average; an unknown average cannot buy;
 //   "owned" above the average, but spare copies are owned: use only those;
 //   "drop"  above the average and none to spare: leave it out of the diet.
 string smmDietAverageRule(float price, float average, int spare) {
-	if (!(average > 0) || price <= average) return "buy";
+	if (average > 0 && price <= average) return "buy";
 	return spare > 0 ? "owned" : "drop";
 }
 
@@ -421,7 +420,8 @@ string smmDietAverageRule(float price, float average, int spare) {
 // kSmmDietHuge for no budget to mind). Prices can rise between plan and purchase.
 int smmDietBuyCap(float planned, float average, float left, int n) {
 	int cap = ceil(planned * kSmmDietPriceSlack);
-	if (average > 0) cap = min(cap, floor(average));
+	if (average <= 0) return 0;
+ cap = min(cap, floor(average));
 	if (n > 0 && left < kSmmDietHuge) cap = min(cap, floor(left / n));
 	return max(0, cap);
 }
@@ -1490,11 +1490,11 @@ boolean smmDietRefreshPlanPrices(DietPlan plan) {
 		int spare = e.type != "" ? max(0, smmDietSpareCopies(it)) : 0;  // helpers are bought or left out
 		string rule = smmDietAverageRule(live.price, average, spare);
 		if (rule == "buy") continue;
-		print("Not buying " + e.name + ": the mall's " + smmDietFmt(live.price) + " is above its average sale price of " + smmDietFmt(floor(average))
+		print("Not buying " + e.name + ": the mall price is " + smmDietFmt(live.price) + ", verified average sale price " + smmDietFmt(floor(average))
 			+ (rule == "owned" ? "; only the " + spare + " spare owned are used" : ""), "orange");
 		if (rule == "owned") {
 			e.limit = e.limit != 0 ? min(e.limit, spare) : spare;
-			e.price = floor(average);  // what a spare copy could be sold for
+			e.price = average > 0 ? floor(average) : live.price;  // unknown sales must not make owned inputs free
 			e.owned = true;
 		} else {
 			remove dietConsumables[c];
@@ -1726,7 +1726,7 @@ boolean smmDietAcquire(string name, int n) {
 	if (is_tradeable(it) && can_interact()) {
 		// never above the average sale price, whatever the plan says
 		float planned = smmDietPlannedPrice(name);
-		int cap = smmDietBuyCap(planned, npc > 0 && npc <= planned ? 0 : smmDietAverageSalePrice(it), smmDietBudgetLeftNow(), n - have);
+		int cap = smmDietBuyCap(planned, npc > 0 && npc <= planned ? npc : smmDietAverageSalePrice(it), smmDietBudgetLeftNow(), n - have);
 		int meatBefore = my_meat();
 		if (cap > 0) {
 			int bought = buy(n - have, it, cap);
