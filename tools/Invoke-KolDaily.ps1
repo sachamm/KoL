@@ -191,6 +191,18 @@ function Find-Problems([string] $text, [string] $phase) {
  }
 }
 
+# ---------------------------------------------------------------------------
+if (Test-Path $lockFile) {
+  $lockAge = (Get-Date) - (Get-Item $lockFile).LastWriteTime
+  if ($lockAge.TotalHours -lt 8) {
+    Write-Log "Another runner started $([int]$lockAge.TotalMinutes) min ago (lock $lockFile); not starting a second." 'ERROR'
+    $status.result = 'error'; $status.finished = (Get-Date).ToString('o'); Save-Status; exit 2
+  }
+  Write-Log "Removing a stale runner lock from $((Get-Item $lockFile).LastWriteTime)." 'WARN'
+}
+Set-Content $lockFile $PID
+Save-Status
+
 try {
   Write-Log "Daily runner starting: mode $Mode, user $Username, root $MafiaRoot"
   Stop-Mafia
