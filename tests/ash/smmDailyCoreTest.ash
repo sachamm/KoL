@@ -167,8 +167,7 @@ void testAttempts() {
 	check(ran["c"] == 2 && ran["a"] == 1 && ran["e"] == 1, "a failed task blocks only itself");
 	check(smmDTaskStatus(smmDTasks[smmDTaskIndex["t.c"]]).starts_with("FAILED"), "status says FAILED");
 	// what 'smmdaily retry' does
-	smmDSet("_smm.daily.failed.t.c", "");
-	smmDSet("_smm.daily.tries.t.c", "0");
+	smmDRetry("t.c");
 	neverDone = false;
 	ran["c"] = 0;
 	smmDRun("t.c");
@@ -224,6 +223,7 @@ void testSelectors() {
 	smmDRun("no.such.thing");
 	check(count(ran) == 0, "an unknown selector runs nothing");
 	check(smmDKnownSelector("") && smmDKnownSelector("close") && smmDKnownSelector("t.a") && !smmDKnownSelector("clos"), "selector lookup");
+ check(smmDKnownSelector("goodnight.adv"), "the old nightcap group is accepted before child selection");
 }
 
 void testTurnLimits() {
@@ -372,6 +372,60 @@ void testCommandFailure() {
  check(smmDStopRun != "", "dependent work cannot follow an explicit command failure");
 }
 
+void reloadAfterCrash() {
+ clear(smmDJournal);
+ smmDJournalLoaded = false;
+ // Simulate a process crash before preference flushing, not a normal retry.
+ foreach key in smmDTestProps if (key.starts_with("_smm.daily.")) remove smmDTestProps[key];
+}
+
+void testDurableRecovery() {
+ fresh();
+ smmDRun("t.a");
+ reloadAfterCrash();
+ smmDRun("t.a");
+ check(ran["a"] == 1, "durable END prevents duplicate work after all daily preferences are lost");
+ check(smmDTaskDone(smmDTasks[smmDTaskIndex["t.a"]]), "completion is rebuilt from the journal");
+ smmDRetry("t.a");
+ reloadAfterCrash();
+ smmDRun("t.a");
+ check(ran["a"] == 2, "explicit retry remains authorized after losing its preference updates");
+
+ fresh();
+ smmDCheckpoint("t.m", "BEGIN", "fixture", 1, false, false, 21, "");
+ smmDCheckpoint("t.m", "END", "fixture", 1, true, false, 34, "");
+ reloadAfterCrash();
+ smmDRecoverState();
+ check(smmDMuseumTurnsUsed() == 34, "Museum charges survive missing preferences");
+ smmDRecoverState();
+ check(smmDMuseumTurnsUsed() == 34, "replaying an END never adds its Museum charge twice");
+
+ fresh();
+ smmDCheckpoint("t.c", "BEGIN", "fixture interrupted before END", 2, false, false, 0, "");
+ reloadAfterCrash();
+ neverDone = true;
+ smmDRun("t.c");
+ check(ran["c"] == 0 && journalCount("t.c", "FAIL") == 1, "durable BEGIN preserves the attempt ceiling after a crash");
+ reloadAfterCrash();
+ smmDRecoverState();
+ check(smmDGet("_smm.daily.failed.t.c") == smmDEpoch(), "failed state is durable too");
+
+ fresh();
+ string error = "command failed: fixture | value % [tab]\tnewline\n";
+ smmDCheckpoint("t.bad", "END", "fixture", 1, false, false, 0, error);
+ reloadAfterCrash();
+ smmDRecoverState();
+ same(smmDGet("_smm.daily.error.t.bad"), error, "failure details survive safe journal encoding");
+ check(!smmDTaskDone(smmDTasks[smmDTaskIndex["t.bad"]]), "a failed command cannot recover as a successful task");
+
+ fresh();
+ smmDCheckpoint("t.a", "END", "fixture", 1, true, false, 10, "");
+ reloadAfterCrash();
+ smmDSet("smm.daily.runner", "false");
+ smmDRun("t.a");
+ same(smmDGet("_smm.daily.done.t.a"), "", "dry run does not mutate preferences while inspecting recovery");
+}
+
 void main() {
 	smmDTestMode = true;
 	smmDJournalOverride = "smm-daily-test.txt";
@@ -402,6 +456,7 @@ void main() {
 	testAdventuresNeeded();
 	testJournal();
  testCommandFailure();
+ testDurableRecovery();
 
 	fresh(); // leave an empty test journal behind
 	if (failures == 0) print("PASS smmDailyCoreTest: " + checks + " checks");

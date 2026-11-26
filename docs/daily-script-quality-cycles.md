@@ -14,3 +14,11 @@ The target is 9.9 under the existing scorecard rubric. A new code assessment doe
 The account lock coordinates cooperating local runners. It cannot prevent manual browser play or another computer from using the same account. Continue the explicit ownership coordination required by the workspace instructions. Use the same AccountLockRoot for every local runner for an account.
 
 Validation commands: tests/smmdaily-tests.sh, tests/kol-daily-diagnostics-tests.ps1 and tests/kol-daily-ownership-tests.ps1. The scorecard is updated only after merge and verification. Live acceptance still requires corrected unattended days and measured economics.
+
+## Cycle 2: recoverable outcomes and attributable run evidence
+
+Journal checkpoints now persist completion, attempt counts, failed commands, explicit retries and absolute Museum turn charges before updating their preference cache. A restart reconstructs them from the journal. An interrupted task still has an uncertain outcome; the journal does not turn an arbitrary game action into an exactly-once transaction. Its game-state checks and attempt ceiling remain necessary. A missing journal segment blocks actions until reconciled, rather than silently authorizing repeated work. The old `goodnight.adv` group is accepted by selector validation as well as child selection.
+
+The runner records the installed code identity before login and again after execution, with a unique run ID and bounded game counters. Fingerprints cover installed ASH/JS, relay code, shipped policy tables, runner modules and the jar; account settings and saved credentials are excluded. Reports distinguish a candidate for live review from verified unattended operation or profit. Contradictory/missing completion markers, changed epochs/players, changed code, nonzero exit or failed diagnostics invalidate that candidate. Atomic status writes retain a complete previous JSON if replacement fails. A wrong-account login stops before custom commands and smmdaily.
+
+Validation adds crash/preference-loss and replay tests, an expected abort on unrecoverable gaps, and fixture tests for source drift, marker ordering, wrong player/day/ascension, echoed commands, failed exits and atomic report replacement. Generated boundary commands are also exercised in the isolated logged-out Mafia. No live game actions are part of this cycle.

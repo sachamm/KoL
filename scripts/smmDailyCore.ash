@@ -203,6 +203,41 @@ string smmDJournalOpenTask() {
 	return open > 0 ? smmDJournal[open].task : "";
 }
 
+// Journal checkpoints are the authority after a process crash. Preferences
+// are a cache: they may not have reached disk after the durable END did.
+// Keep the existing record columns readable by older journal tools.
+string smmDCheckpointNote(string note, int tries, boolean done, boolean failed, int museum, string error) {
+ return note + "; engine-v1 " + tries + "|" + done + "|" + failed + "|" + museum + "|" + url_encode(error);
+}
+
+void smmDApplyCheckpoint(SmmDLine line) {
+ matcher state = create_matcher("; engine-v1 ([0-9]+)\\|(true|false)\\|(true|false)\\|([0-9]+)\\|([^\\r\\n]*)$", line.note);
+ if (!state.find()) return; // pre-checkpoint journals keep their existing preferences
+ smmDSet("_smm.daily.tries." + line.task, state.group(1));
+ smmDSet("_smm.daily.done." + line.task, state.group(2) == "true" ? line.epoch : "");
+ smmDSet("_smm.daily.failed." + line.task, state.group(3) == "true" ? line.epoch : "");
+ smmDSet("_smm.daily.museumTurnsUsed", state.group(4));
+ smmDSet("_smm.daily.error." + line.task, url_decode(state.group(5)));
+}
+
+void smmDRecoverState() {
+ smmDJournalLoad();
+ foreach seq, line in smmDJournal {
+  if (line.event == "GAP") abort("smmDaily: journal gap requires reconciliation from a backup before more tasks may run");
+  smmDApplyCheckpoint(line);
+ }
+}
+
+void smmDCheckpoint(string task, string event, string note, int tries, boolean done, boolean failed, int museum, string error) {
+ SmmDLine saved = smmDLog(task, event, smmDCheckpointNote(note, tries, done, failed, museum, error));
+ smmDApplyCheckpoint(saved); // only after both journal copies are durable
+}
+
+void smmDRetry(string task) {
+ smmDRecoverState();
+ smmDCheckpoint(task, "RETRY", "retry requested", 0, false, false, smmDGet("_smm.daily.museumTurnsUsed").to_int(), "");
+}
+
 // ---------------------------------------------------------------------------
 // Tasks
 
@@ -399,6 +434,7 @@ boolean smmDSelected(SmmDTask t, string selector) {
 }
 
 boolean smmDKnownSelector(string selector) {
+	if (selector == "goodnight.adv") return true;
 	if (selector == "" || (smmDTaskIndex contains selector)) return true;
 	foreach i, name in smmDPhaseNames if (name == selector) return true;
 	return false;
@@ -410,8 +446,7 @@ void smmDRunTask(SmmDTask t) {
 	if (smmDTaskDone(t)) return;
 	if (t.done_fn != "" && smmDCallBool(t.done_fn)) {
 		if (mode != "dry") {
-			smmDSet("_smm.daily.done." + t.id, smmDEpoch());
-			smmDLog(t.id, "DONE", "already done (game state)");
+			smmDCheckpoint(t.id, "DONE", "already done (game state)", 0, true, false, smmDMuseumTurnsUsed(), "");
 		}
 		return;
 	}
@@ -442,16 +477,15 @@ void smmDRunTask(SmmDTask t) {
 	}
 	int tries = smmDGet("_smm.daily.tries." + t.id).to_int();
 	if (!t.repeatable && tries >= smmDSettingInt("maxAttempts")) {
-		smmDSet("_smm.daily.failed." + t.id, smmDEpoch());
-		smmDLog(t.id, "FAIL", "started " + tries + " times without finishing");
+		smmDCheckpoint(t.id, "FAIL", "started " + tries + " times without finishing", tries, false, true, smmDMuseumTurnsUsed(), smmDGet("_smm.daily.error." + t.id));
 		print("smmDaily: " + t.id + " started " + tries + " times without finishing; marked failed for today.", "red");
 		return;
 	}
 	smmDTaskProblem = "";
-	smmDSet("_smm.daily.tries." + t.id, tries + 1);
 
 	print("smmDaily: " + t.id + " [" + mode + "] - " + t.about, "blue");
-	SmmDLine before = smmDLog(t.id, "BEGIN", mode + (tries > 0 ? ", attempt " + (tries + 1) : ""));
+	SmmDLine before = smmDLog(t.id, "BEGIN", smmDCheckpointNote(mode + (tries > 0 ? ", attempt " + (tries + 1) : ""), tries + 1, false, false, smmDMuseumTurnsUsed(), ""));
+ smmDApplyCheckpoint(before);
  if (smmDHookBeforeTask != "") call void smmDHookBeforeTask(t.id);
 	call void fn();
 	int turns = total_turns_played() - before.turns;
@@ -460,18 +494,14 @@ void smmDRunTask(SmmDTask t) {
 	boolean finished = smmDTaskProblem == "" && (t.done_fn == "" || smmDCallBool(t.done_fn));
  if (smmDTaskProblem != "") {
   note += "; " + smmDTaskProblem;
-  smmDSet("_smm.daily.error." + t.id, smmDTaskProblem);
   smmDStopRun = smmDTaskProblem + "; this task remains unfinished";
- } else smmDSet("_smm.daily.error." + t.id, "");
+ }
 	if (!finished) note += "; done-test still false";
 	boolean ranOut = smmDRanOutOfAdventures(t, turns, my_adventures());
 	if (ranOut) note += "; out of adventures, so it stays open";
-	smmDLog(t.id, "END", note);
-	if (t.museum && turns > 0) smmDSet("_smm.daily.museumTurnsUsed", smmDMuseumTurnsUsed() + turns);
-	if (finished && !ranOut && !t.repeatable) smmDSet("_smm.daily.done." + t.id, smmDEpoch());
-	if (t.repeatable && finished) smmDSet("_smm.daily.tries." + t.id, 0);
-	// running out of turns is not a failed attempt
-	if (ranOut) smmDSet("_smm.daily.tries." + t.id, tries);
+ int museum = smmDMuseumTurnsUsed() + (t.museum ? max(0, turns) : 0);
+ int nextTries = ranOut ? tries : (t.repeatable && finished ? 0 : tries + 1);
+ smmDCheckpoint(t.id, "END", note, nextTries, finished && !ranOut && !t.repeatable, false, museum, smmDTaskProblem);
 }
 
 // A task that began and never ended (an abort, a crash, a closed window) is
@@ -483,8 +513,9 @@ void smmDCloseInterrupted() {
 	SmmDLine begin = smmDJournal[open];
 	int turns = max(0, total_turns_played() - begin.turns);
 	boolean museum = (smmDTaskIndex contains begin.task) && smmDTasks[smmDTaskIndex[begin.task]].museum;
-	if (museum && turns > 0) smmDSet("_smm.daily.museumTurnsUsed", smmDMuseumTurnsUsed() + turns);
-	smmDLog(begin.task, "END", "interrupted; closed by the next run, " + turns + " turns played since it began");
+ smmDCheckpoint(begin.task, "END", "interrupted; closed by the next run, " + turns + " turns played since it began",
+  smmDGet("_smm.daily.tries." + begin.task).to_int(), false, false,
+  smmDMuseumTurnsUsed() + (museum ? turns : 0), "interrupted; outcome unconfirmed");
 	print("smmDaily: the last run stopped inside " + begin.task + " (" + turns + " turns played since it began).", "orange");
 }
 
@@ -504,6 +535,7 @@ void smmDRun(string selector) {
 
 	string epoch = smmDEpoch();
 	if (!dry) {
+		smmDRecoverState();
 		smmDSet("_smm.daily.complete", "");
 		smmDCloseInterrupted();
 		if (smmDGet("smm.daily.active") == epoch) print("smmDaily: the last run did not end cleanly.", "orange");
