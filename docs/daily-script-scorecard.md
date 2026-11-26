@@ -18,22 +18,32 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 7.8/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.15/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
-| Whole day unattended | 2 | 0.8 | 1.4 |
+| Whole day unattended | 2 | 0.8 | 1.55 |
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
-| Scarce resources protected and aimed | 1.5 | 1.2 | 1.25 |
+| Scarce resources protected and aimed | 1.5 | 1.2 | 1.35 |
 | Paid adventures allocated well | 1.5 | 0.4 | 1.0 |
 | Spending rules | 1 | 0.7 | 0.75 |
 | Museum progress | 1 | 0.7 | 0.85 |
-| Safety and reporting | 1 | 0.6 | 0.85 |
-| **Total** | **10** | **6.0** | **7.8** |
+| Safety and reporting | 1 | 0.6 | 0.95 |
+| **Total** | **10** | **6.0** | **8.15** |
+
+### Quality cycle 1: post-merge assessment
+
+The provisional code assessment advances from **7.8 to 8.15**, following [PR #32](https://github.com/sachamm/KoL/pull/32). Whole-day handling gains 0.15 for explicit failed-command propagation, scarce-resource protection gains 0.10 for fail-closed and observed-quantity fencing, and safety/reporting gains 0.10 for durable intent, dated journal recovery and exclusive runner ownership. Other criteria do not gain points from this cycle. The live score remains 6.0.
+
+Full verification was repeated on merged commit `6dd43ccd6f6da74b3f207687fd6e18af81a7b50c`: **937 ASH assertions** (120 core, 612 gate, 7 dressup, 94 diet, 49 review, 55 NPC resale), both compilations, logged-out plan/diet/static checks, and an expected-abort regression proving neither the task nor its recovery hook runs after failed journal persistence. Windows verification passed **12 diagnostic cases and 18 ownership/process/launcher checks** using real file exclusion and fake process APIs. No game actions were performed.
+
+The user's later manual close on November 26 reported net 7,171,031 Meat, operating spend 326,807, collection spending 2,499,686, and three resource counters with uses left. It does not establish a fresh corrected unattended day, source provenance, realized per-grind item proceeds or new confirmed ranks. None of those gaps is awarded points here.
+
+The unchanged target is **9.9**, not achieved. Continue with provenance, economic evidence and allocation; the five-day live acceptance milestone remains open. See [quality cycles](daily-script-quality-cycles.md).
 
 ### Evidence behind the live score
 
-- November 25 reached the close after repeated intervention. Forced noncombats and overdrunk combat stopped; `goodnight.adv` ultimately exhausted its two attempts. The November 26 snapshot also had interrupted nightcap work and no completed close. These are not unattended completions.
+- November 25 reached the close after repeated intervention. Forced noncombats and overdrunk combat stopped; `goodnight.adv` ultimately exhausted its two attempts. The first November 26 snapshot also had interrupted nightcap work and no completed close. After the user finished manually, its journal recorded a close; that is recovery with intervention, not an unattended completion.
 - November 25 used all five spikes, three Avalanches, three Feel Envy casts and 100 Sword charges. Fences and opening MP recovery worked. On November 26 the Party counter stopped at six, but a subsequent attempt returned “Party's Over”; those remaining charges were blocked at that point, not four confirmed missed fights.
 - The November 25 grind report credited 143 Oasis turns with 32,812,113 Meat of items and four Daily Dungeon turns with 7,053,064. The positive-only holdings calculation omitted equipment and input consumption, so these totals cannot establish profitability. Their precise attribution has not been reconstructed from a complete opening inventory.
 - The completed close reported net 4,295,136 Meat, operating spend 216,605, collection spending 351,613 and remaining allowance 1,579,350. That net includes sales of existing stock. The audit found 2,546 Meat above average sale prices among the checked purchases.
