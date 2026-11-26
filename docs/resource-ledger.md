@@ -413,9 +413,89 @@ At those reported prices, the batch costs 9M Meat and would return 10M if all co
 
 The [KoLmafia discount discussion](https://kolmafia.us/threads/track-black-day-and-sleazy-jellied-npc-discounts.23013/) documents the bulk distinction, trousers/skill discounts and historical limitations in displayed `npc_price` estimates. Verify the actual purchase/Meat delta rather than assuming that an effect duration or cached quote means every later purchase remains discounted.
 
-**Look for other tradeable NPC goods where the same margin exists.** Compare the actual discounted vendor cost with recent realizable mall proceeds and sales volume. Include access and quantity limits, consumable/organ costs, competing sellers and existing unsold stock. Buy only a batch supported by demand and the available spending budget; check discount stacking and rounding rather than assuming one formula applies to every store. This is an opportunity to investigate, not a claim that a scanner or buyer is implemented.
+**Other tradeable NPC goods have been screened below.** Buy only a batch supported by demand and the available spending budget. Recheck access, quantity limits, discount stacking, actual charged price and competing sellers before acting. The screen is research; it does not automate purchases or establish a guaranteed sale price.
 
 A positive-return resale purchase belongs in the goals' positive-return category even when its purchase discount is only 10%; the separate 20% threshold defines a qualifying bargain, not the minimum margin for every profitable investment. The existing spending cap and price ceiling still apply. Automation must use the intended vendor/batch and charge the discount once, not assume every independent buy receives it.
+
+### NPC resale screen, November 26, 2026
+
+The complete screen is in [the dated NPC resale snapshot](data/npc-vendor-resale-2026-11-26.json). It covers **414 catalog offers, 377 distinct items and all 247 tradeable items** in KoLmafia's catalog at commit `3317ceb532e8bcd2d85d46b614d1ceae179e7a0f`. None of the item names were unmatched. Public Pricegun responses supplied recorded sales in the returned window for 173 tradeable items; 74 had no window sales, which means insufficient evidence rather than proven lack of demand.
+
+The returned daily buckets span November 12–26 UTC; endpoint days may be partial. Counts below are **observed Pricegun sales across contributors**, not sales this shop can capture or a complete census of the market. The reference resale price is the whole-Meat floor of the lower of Pricegun's time-weighted value and the median unit price of its returned recent transactions. It is a historical reference, not a live lowest listing or a buyer's bid. Shared Mafia `mallprices.txt` was not used as the resale price because it can include NPC offers.
+
+For an eligible shop, the modeled two-discount cost is `floor(base × 0.85)`: jelly's 10% plus one 5% pants discount, without Five Finger Discount. Verify the actual charge before relying on that stacking model. Current Mafia also recognizes **designer sweatpants** and their replica as alternative 5% discount pants; they do not add another pants discount on top of Travoltan trousers, and their gift-shop exception matters. Already-owned sweatpants may remove the need to acquire Travoltan trousers for these shops.
+
+#### Best starting candidates
+
+All amounts are Meat per item. Spread excludes the jelly, spleen opportunity cost and other batch costs. Shop access is conditional; the screen did not log into the account to check it.
+
+| Item (ID)                            | NPC source and base        | Modeled cost, both discounts | Reference resale | Spread | Recorded units / active date buckets | Decision                                                                                                                                                                                                                                     |
+| ------------------------------------ | -------------------------- | ---------------------------- | ---------------- | ------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bowl of Scorpions (6681)             | Hidden Tavern, 500         | 425                          | 463              | 38     | 15,773 / 15                          | **Strongest new volume-backed candidate.** Unlock the tavern this ascension. At the reference price, pants alone cost 475 and lose money; the jelly creates the margin.                                                                      |
+| MSG (1549)                           | Gouda's guild store, 1,000 | 850                          | 1,000            | 150    | 3,240 / 15                           | Confirms the original strategy; both discounts improve the modeled margin over the reported 900 purchase. Requires the appropriate guild/class access. Existing MSG stock and recorded turnover argue against another blind 10,000-copy buy. |
+| Knob Goblin nasal spray (1515)       | Knob Dispensary, 150       | 127                          | 150              | 23     | 1,678 / 14                           | Repeated sales support a candidate batch once the dispensary is unlocked. Size it to sell-through and the jelly-versus-pants test below.                                                                                                     |
+| Knob Goblin pet-buffing spray (1512) | Knob Dispensary, 250       | 212                          | 250              | 38     | 896 / 14                             | Another repeated-sales candidate, with a larger spread but lower volume than nasal spray. Requires dispensary access and enough batch size to justify the jelly.                                                                             |
+
+**Illustrative batch, not a purchase instruction:** 1,000 Bowls of Scorpions at 425 cost 425,000 and would return 463,000 if all sell at 463. That is 38,000 before batch costs, or 35,500 after a jelly valued at 2,500, before spleen and other costs. That batch is about 6.3% of all units recorded in the window; the evidence does not promise that share or immediate sales. Reserve budget and choose quantity from actual shop sell-through.
+
+#### Margins that do not automatically justify a jelly
+
+These items also have positive modeled spreads, but many are better stocked with pants alone in modest batches. Cheaper alternatives in another NPC store must be accessible before using their price.
+
+| Item (ID)               | NPC source and base          | Modeled cost, both | Reference resale | Spread | Recorded units / active buckets | Practical treatment                                                                                                              |
+| ----------------------- | ---------------------------- | ------------------ | ---------------- | ------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Lemon (332)             | Eligible Hippy Store, 70     | 59                 | 100              | 41     | 1,906 / 14                      | Repeated sales, but a jelly saves only 7 more per copy than pants alone. Verify store access without a pants-conflicting outfit. |
+| Olive (245)             | Eligible Hippy Store, 70     | 59                 | 100              | 41     | 7,068 / 14                      | 6,241 units occurred in one date bucket; do not extrapolate that spike into steady demand. Same outfit/access restriction.       |
+| Grapefruit (243)        | Eligible Hippy Store, 70     | 59                 | 100              | 41     | 4,895 / 14                      | 4,771 units were in one bucket. Restock against actual sales, not the headline volume.                                           |
+| Grapes (244)            | Eligible Hippy Store, 70     | 59                 | 100              | 41     | 178,582 / 3                     | 178,538 units were in one bucket. A speculative enormous batch is not justified by this concentrated history.                    |
+| Fermenting powder (247) | General Store, 70            | 59                 | 100              | 41     | 147,555 / 2                     | 147,550 units were in one bucket. Keep as a spike-driven watch candidate rather than assume repeat daily demand.                 |
+| Sprocket (119)          | Degrassi Knoll, 20           | 17                 | 100              | 83     | 1,632 / 15                      | Useful small resale stock if Knoll is accessible. Jelly improves cost by only 2; pants alone usually wins for a modest restock.  |
+| Cog (120)               | Degrassi Knoll, 20           | 17                 | 100              | 83     | 1,625 / 15                      | Same economics: preserve the jelly unless the batch is genuinely large enough.                                                   |
+| Spring (118)            | Degrassi Knoll, 20           | 17                 | 100              | 83     | 1,261 / 15                      | Same 2-per-copy incremental saving, with less observed demand.                                                                   |
+| Tires (136)             | Degrassi Knoll, 28           | 23                 | 100              | 77     | 799 / 15                        | Only 3 extra saved per copy with jelly. Start with pants-only restocks.                                                          |
+| Empty meat tank (124)   | Degrassi Knoll, 20           | 17                 | 100              | 83     | 337 / 14                        | Positive resale spread, insufficient evidence for a jelly-sized bulk restock.                                                    |
+| Wad of dough (159)      | Madeline's Baking Supply, 40 | 34                 | 100              | 66     | 472 / 5                         | Cheaper than the 50-Meat stores if the Armory quest is finished. The jelly saves only 4 per copy versus pants.                   |
+| Taco shell (173)        | Madeline's Baking Supply, 60 | 51                 | 100              | 49     | 582 / 2                         | Positive spread but concentrated sales; do not assume stable bulk turnover.                                                      |
+| Skewer (165)            | Madeline's Baking Supply, 60 | 51                 | 100              | 49     | 574 / 3                         | Same small incremental jelly saving and concentrated demand.                                                                     |
+| Gnollish pie tin (158)  | Madeline's Baking Supply, 25 | 21                 | 100              | 79     | 92 / 7                          | Small pants-only inventory; jelly savings of 2 per copy do not support a speculative bulk purchase.                              |
+
+Thin but positive-spread watch items are **Synapse Blaster** (11678: Hack Market 500 → 425, reference 469, spread 44, 165 units/13 buckets; CyberRealm access required), **high-test fishing line** (9010: General Store 2,500 → 2,125, reference 2,323, spread 198, 61 units/4 buckets; fishing pole required), **drippy nugget** (10445: 10,000 → 8,500, reference 8,994, spread 494, eight units/eight buckets), and **glass of drippy wine** (10446: 10,000 → 8,500, reference 9,001, spread 501, five units/five buckets). The Drip items require actual shop/charge confirmation and comparison with already-held stock; do not buy large batches merely because the unit margin is positive. **Kickback cookbook** (521: 4,000 → 3,400, reference 4,000, six units/three buckets) is similarly too thin to support a large new batch, and has guild/class access restrictions.
+
+#### Charge the jelly once per batch, and compare pants alone
+
+The queried jelly reference was 2,500 Meat. Let `F` be that opportunity/replacement cost **plus displaced spleen value and any other setup cost**. For a batch of `Q` copies:
+
+```text
+batch profit = Q × (reference resale - modeled two-discount cost) - F
+strictly profitable quantity = floor(F / per-copy spread) + 1
+```
+
+When pants-only resale is already profitable, spending a jelly must also beat that cheaper setup:
+
+```text
+extra saving from jelly = Q × (pants-only cost - two-discount cost)
+use jelly only when extra saving > F
+```
+
+With `F=2,500` and **no spleen/setup displacement**, the extra-saving test needs 51 Bowls, 26 MSG, 167 nasal sprays, 101 pet sprays, 358 of a 70-Meat fruit/powder, or 1,251 of a 20-Meat part. These are marginal-jelly thresholds, not minimum quantities for every resale opportunity; pants-only profits and doing nothing remain alternatives. A 1,251-part batch is most of the recorded window's demand for some parts, so chasing the discount can be worse than a small pants-only restock. Increase every threshold when spleen is scarce. Use one jelly per separate intended single-item batch, not one jelly for the whole multi-item shortlist.
+
+For Bowls specifically, pants-only resale loses money: compare with skipping the trade, which needs **66 copies** to cover a 2,500-Meat jelly at a 38-Meat spread. The 51-copy figure above measures the extra discount only and is not that trade's profit threshold. If spleen/setup brings `F` to 11,000, the strict profit threshold becomes 290 Bowls. Both tests matter when choosing a batch.
+
+#### False positives and access restrictions
+
+- **Closed Crimbo shops:** candles, Carols, tattoo kits, old cafe foods and ornaments retain catalog prices but are not current bulk vendors. Current Mafia explicitly marks these historical shops closed.
+- **White rice:** attractive 250 → 212 versus reference 512 and 572 recorded units, but the General Store offer is Sea-path-only. Exclude from an ordinary unrestricted-aftercore shopping list.
+- **Nervewrecker's appliances:** the 500-Meat Dramatic range and Queue Du Coq kit offers are Bad Moon-only. Their attractive sales histories do not make those prices available to this aftercore run.
+- **Green rockets and holiday goods:** green rockets require both Dependence Day and St. Sneaky Pete's Day. Other fireworks, party hats and marshmallows have their own holiday gates. Do not project today's access from old sales.
+- **Heavy-duty umbrellas and water wings for babies:** path-gated Heavy Rains offers, not ordinary General Store stock for unrestricted aftercore.
+- **Nuclear Autumn vault shops:** cheap holo-records and radiation supplies are path-restricted, not current unrestricted stock.
+- **Outfit conflicts:** Bugbear Bakery requires its costume, and some Hippy Store states require an outfit. A required pants slot can invalidate the combined discount. Madeline's cheaper baking offers have a different quest gate.
+- **Guild stores:** Gouda's requires a Mysticality class or level-9+ Accordion Thief and an open guild. A historical Turtle Tamer snapshot must not be treated as proof of current MSG-vendor access; Sacha's reported purchase remains a historical observation.
+- **Chinatown:** requires strange goggles and a suspicious jar. Bonsai trees show only 12 units in six buckets despite a high margin; they are not established bulk demand.
+- **Doc Galaktik:** the completed-quest discount changes the base calculation; evaluate that case separately rather than apply the generic 85% model blindly.
+- **'Villa' document and drippy caviar:** no sales in the returned window. High old quotes do not support tying up a large cash balance. Drippy truncheon/petri-dish references likewise did not support a positive margin under the conservative method.
+
+Evidence: [revision-pinned NPC catalog](https://github.com/kolmafia/kolmafia/blob/3317ceb532e8bcd2d85d46b614d1ceae179e7a0f/src/main/resources/data/npcstores.txt), [store access rules](https://github.com/kolmafia/kolmafia/blob/3317ceb532e8bcd2d85d46b614d1ceae179e7a0f/src/main/java/net/sourceforge/kolmafia/persistence/NPCStoreDatabase.java), [pants discount handling](https://github.com/kolmafia/kolmafia/blob/3317ceb532e8bcd2d85d46b614d1ceae179e7a0f/src/main/java/net/sourceforge/kolmafia/request/NPCPurchaseRequest.java), and the public Pricegun API, for example [Bowls](https://pricegun.loathers.net/api/6681), [nasal spray](https://pricegun.loathers.net/api/1515), [pet spray](https://pricegun.loathers.net/api/1512) and [jelly](https://pricegun.loathers.net/api/9294). The dated snapshot preserves all 247 screened items, prices, volumes and access flags. No game purchase, consumption, listing or account action was performed.
 
 ## Stockpiles: retain, place, then sell what will move
 
