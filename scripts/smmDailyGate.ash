@@ -339,7 +339,7 @@ boolean [item] smmDFenceItems() {
 	foreach i, name in smmDSetting("fenceItems").split_string("\\|") {
 		item it = name.to_item();
 		if (it != $item[none]) items[it] = true;
-		else if (name != "") print("smmDaily: smm.daily.fenceItems names '" + name + "', which is not an item.", "orange");
+		else if (name != "") abort("smmDaily: smm.daily.fenceItems names an unknown item: " + name);
 	}
 	return items;
 }
@@ -350,7 +350,7 @@ void smmDTakeOff(item it) {
 	foreach sl in $slots[hat, back, shirt, weapon, off-hand, pants, acc1, acc2, acc3, familiar] {
 		if (equipped_item(sl) != it) continue;
 		boolean off = equip(sl, $item[none]);
-		if (!off) print("smmDaily: could not take " + it + " off.", "orange");
+		if (!off) abort("smmDaily: could not take " + it + " off before fencing");
 	}
 }
 
@@ -358,34 +358,40 @@ void smmDTakeOff(item it) {
 // after each move, so an interruption never loses track of a closeted copy.
 void smmDFence() {
 	if (get_property("autoSatisfyWithCloset") == "true")
-		print("smmDaily: autoSatisfyWithCloset is true, so the closet does not protect anything from garbo.", "red");
+		abort("smmDaily: closet sourcing must be disabled before garbo can be fenced");
 	int [item] fenced = smmDParseFenced(get_property(kSmmDFencedKey));
 	foreach it in smmDFenceItems() {
 		smmDTakeOff(it); // garbo can wear what is equipped
 		int amount = item_amount(it);
 		if (amount <= 0) continue;
-		if (put_closet(amount, it)) {
-			fenced[it] += amount;
-			set_property(kSmmDFencedKey, smmDFencedToString(fenced));
-			print("smmDaily: closeted " + amount + " " + it + " for the garbo run.", "blue");
-		} else
-			print("smmDaily: could not closet " + amount + " " + it + ".", "red");
+  int closetBefore = closet_amount(it);
+  boolean moved = put_closet(amount, it);
+  int confirmed = max(0, min(amount, closet_amount(it) - closetBefore));
+  fenced[it] += confirmed;
+  set_property(kSmmDFencedKey, smmDFencedToString(fenced));
+  if (!moved || confirmed != amount || item_amount(it) > 0 || equipped_amount(it) > 0)
+   abort("smmDaily: could not closet all " + amount + " " + it + "; garbo was not started");
+  print("smmDaily: closeted " + confirmed + " " + it + " for the garbo run.", "blue");
 	}
+}
+
+int smmDFenceRemaining(int owed, int requested, int inventoryBefore, int inventoryAfter) {
+ return max(0, owed - max(0, min(requested, inventoryAfter - inventoryBefore)));
 }
 
 void smmDUnfence() {
 	int [item] fenced = smmDParseFenced(get_property(kSmmDFencedKey));
 	foreach it, amount in fenced {
 		int take = min(amount, closet_amount(it));
+  int inventoryBefore = item_amount(it);
 		if (take < amount)
 			print("smmDaily: " + amount + " " + it + " were fenced but the closet holds " + closet_amount(it) + ".", "orange");
-		if (take > 0 && !take_closet(take, it)) {
-			print("smmDaily: could not take " + take + " " + it + " back out of the closet.", "red");
-			continue; // stays on record for the next try
-		}
-		fenced[it] = 0;
+  boolean ok = take <= 0 || take_closet(take, it);
+  fenced[it] = smmDFenceRemaining(amount, take, inventoryBefore, item_amount(it));
+  if (!ok || amount - fenced[it] < take)
+   print("smmDaily: could not confirm all " + take + " " + it + " returned; the missing quantity stays fenced", "red");
 		set_property(kSmmDFencedKey, smmDFencedToString(fenced));
-		if (take > 0) print("smmDaily: took " + take + " " + it + " back out of the closet.", "blue");
+		if (amount - fenced[it] > 0) print("smmDaily: took " + (amount - fenced[it]) + " " + it + " back out of the closet.", "blue");
 	}
 }
 

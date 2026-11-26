@@ -100,6 +100,7 @@ record SmmDLine {
 SmmDLine [int] smmDJournal;
 boolean smmDJournalLoaded;
 string smmDJournalOverride; // tests
+boolean smmDTestRejectJournalWrite; // tests: prove no action follows failed intent persistence
 
 string smmDJournalFile() {
 	if (smmDJournalOverride != "") return smmDJournalOverride;
@@ -112,9 +113,16 @@ int smmDJournalNext() {
 	return last + 1;
 }
 
+string smmDJournalArchiveFile(string epoch) {
+ if (!create_matcher("^[0-9-]+:[0-9-]+:[0-9-]+$", epoch).find()) abort("smmDaily: invalid journal epoch");
+ return smmDJournalFile().replace_string(".txt", "-" + epoch.replace_string(":", "-") + ".txt");
+}
+
 void smmDJournalWrite() {
-	if (!map_to_file(smmDJournal, smmDJournalFile()))
-		print("smmDaily: could not write the journal " + smmDJournalFile(), "red");
+ // Archive first: a truncated compatibility file can be recovered next run.
+ if ((smmDTestMode && smmDTestRejectJournalWrite) || !map_to_file(smmDJournal, smmDJournalArchiveFile(smmDEpoch()))
+  || !map_to_file(smmDJournal, smmDJournalFile()))
+  abort("smmDaily: could not write the journal; no further task is authorized");
 }
 
 SmmDLine smmDLineNow(string task, string event, string note) {
@@ -146,8 +154,20 @@ void smmDJournalLoad() {
 		if (line.epoch == epoch) smmDJournal[seq] = line;
 		else earlier[seq] = line;
 	}
-	if (count(earlier) > 0)
-		map_to_file(earlier, smmDJournalFile().replace_string(".txt", "-prev.txt").to_string());
+ if (count(earlier) > 0) {
+  boolean [string] epochs;
+  foreach seq, line in earlier epochs[line.epoch] = true;
+  foreach oldEpoch in epochs {
+   SmmDLine [int] archive;
+   file_to_map(smmDJournalArchiveFile(oldEpoch), archive);
+   foreach seq, line in earlier if (line.epoch == oldEpoch) archive[seq] = line;
+   if (!map_to_file(archive, smmDJournalArchiveFile(oldEpoch))) abort("smmDaily: could not archive the earlier journal");
+  }
+  if (!map_to_file(earlier, smmDJournalFile().replace_string(".txt", "-prev.txt"))) abort("smmDaily: could not preserve the previous journal");
+ }
+ SmmDLine [int] recovered;
+ file_to_map(smmDJournalArchiveFile(epoch), recovered);
+ foreach seq, line in recovered if (line.epoch == epoch) smmDJournal[seq] = line;
 	int written = smmDGet("_smm.daily.journalLines").to_int();
 	if (count(smmDJournal) < written) {
 		smmDJournal[max(written, smmDJournalNext())] = smmDLineNow("journal", "GAP",
@@ -353,6 +373,13 @@ string smmDTaskStatus(SmmDTask t) {
 // ---------------------------------------------------------------------------
 // The run
 
+string smmDTaskProblem;       // explicit command failure; never recorded as task completion
+boolean smmDCommandResult(string command, boolean ok) {
+ if (!ok) smmDTaskProblem = "command failed: " + command;
+ return ok;
+}
+boolean smmDCommand(string command) { return smmDCommandResult(command, cli_execute(command)); }
+
 string smmDStopRun;           // a task sets this to end the run after itself
 string smmDHookBeforeTask;    // void fn(string id): set by the gate (MP floor)
 string smmDHookRunStart;      // void fn(): set by the task files (prompt presets)
@@ -420,23 +447,29 @@ void smmDRunTask(SmmDTask t) {
 		print("smmDaily: " + t.id + " started " + tries + " times without finishing; marked failed for today.", "red");
 		return;
 	}
+	smmDTaskProblem = "";
 	smmDSet("_smm.daily.tries." + t.id, tries + 1);
-	if (smmDHookBeforeTask != "") call void smmDHookBeforeTask(t.id);
 
 	print("smmDaily: " + t.id + " [" + mode + "] - " + t.about, "blue");
 	SmmDLine before = smmDLog(t.id, "BEGIN", mode + (tries > 0 ? ", attempt " + (tries + 1) : ""));
+ if (smmDHookBeforeTask != "") call void smmDHookBeforeTask(t.id);
 	call void fn();
 	int turns = total_turns_played() - before.turns;
 	int meat = my_meat() + my_closet_meat() + my_storage_meat() - before.meat;
 	string note = "turns " + turns + ", Meat " + (meat >= 0 ? "+" : "") + meat;
-	boolean finished = t.done_fn == "" || smmDCallBool(t.done_fn);
+	boolean finished = smmDTaskProblem == "" && (t.done_fn == "" || smmDCallBool(t.done_fn));
+ if (smmDTaskProblem != "") {
+  note += "; " + smmDTaskProblem;
+  smmDSet("_smm.daily.error." + t.id, smmDTaskProblem);
+  smmDStopRun = smmDTaskProblem + "; this task remains unfinished";
+ } else smmDSet("_smm.daily.error." + t.id, "");
 	if (!finished) note += "; done-test still false";
 	boolean ranOut = smmDRanOutOfAdventures(t, turns, my_adventures());
 	if (ranOut) note += "; out of adventures, so it stays open";
 	smmDLog(t.id, "END", note);
 	if (t.museum && turns > 0) smmDSet("_smm.daily.museumTurnsUsed", smmDMuseumTurnsUsed() + turns);
 	if (finished && !ranOut && !t.repeatable) smmDSet("_smm.daily.done." + t.id, smmDEpoch());
-	if (t.repeatable) smmDSet("_smm.daily.tries." + t.id, 0);
+	if (t.repeatable && finished) smmDSet("_smm.daily.tries." + t.id, 0);
 	// running out of turns is not a failed attempt
 	if (ranOut) smmDSet("_smm.daily.tries." + t.id, tries);
 }
@@ -520,6 +553,7 @@ string smmDCompletionProblem() {
  foreach i, t in smmDTasks {
   if (smmDConfiguredMode(t) == "off" || t.repeatable) continue;
   if (smmDGet("_smm.daily.failed." + t.id) == smmDEpoch()) return "failed task " + t.id;
+  if (smmDGet("_smm.daily.error." + t.id) != "") return "unfinished task " + t.id + ": " + smmDGet("_smm.daily.error." + t.id);
  }
  foreach i, t in smmDTasks {
   if (!t.id.starts_with("goodnight")) continue;

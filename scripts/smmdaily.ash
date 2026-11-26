@@ -67,6 +67,7 @@ void main(string command) {
 		smmDSet("_smm.daily.failed." + rest, "");
 		smmDSet("_smm.daily.tries." + rest, "0");
 		smmDSet("_smm.daily.done." + rest, "");
+		smmDSet("_smm.daily.error." + rest, "");
 		smmDLog(rest, "NOTE", "retry requested");
 		print("smmDaily: " + rest + " may run again. Daily counters and spending were kept.");
 		break;

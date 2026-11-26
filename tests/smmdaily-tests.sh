@@ -73,6 +73,11 @@ for t in smmDailyCoreTest smmDailyGateTest smmDressupTest smmDietTest smmDailyRe
 	fi
 done
 
+# The expected abort proves intent must reach disk before a task can act.
+out="$(mafia "smmDailyJournalFailureTest")"
+if grep -q "could not write the journal" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "journal failure stops before the task action"
+else fail "journal failure did not prevent the task action"; fi
+
 # --- 3. the plan prints logged out, start to finish --------------------------
 
 out="$(mafia "smmdaily plan")"

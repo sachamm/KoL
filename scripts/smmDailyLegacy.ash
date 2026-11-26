@@ -270,7 +270,8 @@ void smmDLFantasyRealm() {
 	boolean frAlreadyDone = get_property("_fantasyRealmDone").to_boolean();
 	dailyGrindBegin("fantasyRealm");
 	if (!frAlreadyDone)
-		unused = cli_execute("fr best");
+		unused = smmDCommand("fr best");
+ if (smmDTaskProblem != "") return;
 	item frTargetItem = get_property("_smm.frTarget").to_item();
 	// warn instead of stopping: the grinds below still have daily resources to use
 	if (frTargetItem == $item[none] && !frAlreadyDone)
@@ -292,7 +293,7 @@ string smmDLPirateRealmReady() {
 
 void smmDLPirateRealm() {
 	dailyGrindBegin("pirateRealm");
-	boolean unused = cli_execute("pr short"); // grind PirateRealm
+	boolean unused = smmDCommand("pr short"); // grind PirateRealm
 	dailyGrindEnd("pirateRealm");
 }
 

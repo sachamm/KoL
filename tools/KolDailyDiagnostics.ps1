@@ -14,7 +14,7 @@ function Test-KolDailyProblemLine {
   'Nightly maintenance', 'timed out', 'Connection refused', 'could not be found',
   'cannot run now', 'finish the current fight or choice', 'SMM_DAILY_RESULT INCOMPLETE',
   'Could not match item(s) for use', 'no safe affordable overdrunk spell', 'combat preparation needs',
-  'could not save opening Display Case', 'could not write the'
+  'could not save opening Display Case', 'could not write the', 'fenced items remain unreconciled', 'garbo was not started', 'command failed:'
  )
  foreach ($dailyFailure in $dailyFailures) {
   if ($dailyLine -match [regex]::Escape($dailyFailure)) { return $true }
