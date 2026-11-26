@@ -20,4 +20,8 @@ foreach ($diagnosticCase in $diagnosticCases) {
 $runnerTokens = $null; $runnerErrors = $null
 $null = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot '..\tools\Invoke-KolDaily.ps1'), [ref]$runnerTokens, [ref]$runnerErrors)
 if ($runnerErrors.Count) { throw ($runnerErrors | Out-String) }
-Write-Output "PASS kol-daily-diagnostics: $($diagnosticCases.Count) cases; runner parses"
+$runnerText = Get-Content (Join-Path $PSScriptRoot '..\tools\Invoke-KolDaily.ps1') -Raw
+if (-not $runnerText.Contains('if (Test-Path $lockFile)') -or -not $runnerText.Contains('$lockAge.TotalHours -lt 8')) { throw 'Existing runner lock guard was lost' }
+if ($runnerText.IndexOf('if (Test-Path $lockFile)') -gt $runnerText.IndexOf('Stop-Mafia', $runnerText.IndexOf('Daily runner starting:'))) { throw 'Lock guard must precede stopping Mafia' }
+if (-not $runnerText.Contains('Set-Content $lockFile')) { throw 'Runner must write its lock before starting' }
+Write-Output "PASS kol-daily-diagnostics: $($diagnosticCases.Count) cases; runner parses; lock guard preserved"
