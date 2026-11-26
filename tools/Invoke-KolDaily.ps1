@@ -14,13 +14,14 @@
   No password is stored here: `login <name>` uses the password KoLmafia saved
   when "save password" was ticked in the GUI.
 
-  -Mode Plan runs `smmdaily plan` instead of `smmdaily run` (changes nothing in game).
+  -Mode Plan still logs in (KoLmafia login breakfast may act), then prints the plan.
+  For read-only inspection use the existing session; do not start this runner.
   -SkipJarUpdate / -SkipGitUpdate skip those steps.
 #>
 [CmdletBinding()]
 param(
   [ValidateSet('Run', 'Plan')] [string] $Mode = 'Run',
-  [string] $Username = 'Tquilla',
+  [ValidatePattern('^[^;"\\\r\n]+$')] [string] $Username = 'Tquilla',
   [string] $MafiaRoot = 'C:\Users\sacha\Projects\runtime\kol\mafia',
   [string] $BackupRoot = 'C:\Users\sacha\Projects\runtime\kol\backups',
   [string] $AccountLockRoot = 'C:\Users\sacha\Projects\runtime\kol\account-locks',
@@ -38,11 +39,15 @@ $ProgressPreference = 'SilentlyContinue'
 
 if ([string]::IsNullOrWhiteSpace($AccountLockRoot)) { $AccountLockRoot = Join-Path (Split-Path $BackupRoot) 'account-locks' }
 $MafiaRoot = [IO.Path]::GetFullPath($MafiaRoot)
+$Username = $Username.Trim()
+$runId = [guid]::NewGuid().ToString('N')
 
 $stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logDir  = Join-Path $MafiaRoot 'runlogs\daily'
 New-Item -ItemType Directory -Force $logDir | Out-Null
+$stamp = $stamp + '-' + $runId.Substring(0,8)
 $logFile = Join-Path $logDir "daily-$stamp.log"
+$evidenceFile = Join-Path $logDir "daily-$stamp.evidence.json"
 $statusFile = Join-Path $logDir 'latest.json'
 $lockFile = Join-Path $logDir 'runner.lock'
 
@@ -51,6 +56,8 @@ $status = [ordered]@{
   log = $logFile; jarBefore = $null; jarAfter = $null; jarUpdate = $null; gitUpdate = $null
   closedProcesses = 0; movedStaleScripts = @(); mafiaExitCode = $null; timedOut = $false
   loggedIn = $false; errors = @(); warnings = @(); smmdailyLines = @()
+  runId = $runId; evidenceFile = $evidenceFile; sourceDigest = $null; sourceStable = $null; candidateForLiveReview = $false
+  customLoginCommands = ($AfterLoginCommands.Count -gt 0)
 }
 
 function Write-Log([string] $msg, [string] $level = 'INFO') {
@@ -60,8 +67,8 @@ function Write-Log([string] $msg, [string] $level = 'INFO') {
   elseif ($level -eq 'WARN') { $script:status.warnings += $msg }
 }
 function Save-Status {
-  $script:status | ConvertTo-Json -Depth 5 | Set-Content -Path $statusFile -Encoding utf8
-  Copy-Item $statusFile (Join-Path $logDir "daily-$stamp.json") -Force
+  Write-KolDailyJson (Join-Path $logDir "daily-$stamp.json") $script:status
+  Write-KolDailyJson $statusFile $script:status
 }
 
 function Get-JavaExe {
@@ -195,6 +202,7 @@ function Remove-StaleScripts {
 
 . (Join-Path $PSScriptRoot 'KolDailyDiagnostics.ps1')
 . (Join-Path $PSScriptRoot 'KolDailyOwnership.ps1')
+. (Join-Path $PSScriptRoot 'KolDailyEvidence.ps1')
 function Find-Problems([string] $text, [string] $phase) {
  foreach ($line in ($text -split "\r?\n")) {
   if (Test-KolDailyProblemLine $line) { $script:status.errors += "[$phase] $($line.Trim())" }
@@ -204,6 +212,7 @@ function Find-Problems([string] $text, [string] $phase) {
 # Obtain both leases before changing latest status or stopping any process.
 # Failed contenders write only their own log, never the owner's latest.json.
 $ownership = $null
+$sourceBefore = $null; $sourceAfter = $null; $r = $null
 try { $ownership = Enter-KolDailyOwnership $MafiaRoot $Username $AccountLockRoot }
 catch { Write-Log "Runner ownership denied: $_" 'ERROR'; exit 2 }
 try {
@@ -228,12 +237,17 @@ try {
     } else { $status.gitUpdate = 'ok' }
   }
   Remove-StaleScripts
+  $sourceBefore = Get-KolDailySourceManifest $MafiaRoot (Join-Path $MafiaRoot (Get-NewestJar).Name) $PSScriptRoot
+  $status.sourceDigest = $sourceBefore.digest
+  # Persist the source identity before any login or custom command can act.
+  Write-KolDailyJson $evidenceFile ([ordered]@{schemaVersion=1;runId=$runId;state='before-login';sourceBefore=$sourceBefore;candidateForLiveReview=$false})
   Save-Status
 
   $smm = if ($Mode -eq 'Run') { 'smmdaily run' } else { 'smmdaily plan' }
   $cmds = @(
     "login $Username",
-    'ash if (my_name() == "") abort("DAILY-RUNNER: not logged in");',
+    ('ash if (my_name().to_lower_case() != "' + $Username.ToLowerInvariant() + '") abort("DAILY-RUNNER: wrong or missing account");'),
+    (New-KolDailyBoundaryCommand $runId 'START'),
     'ash print("DAILY-RUNNER: logged in as " + my_name() + ", day " + today_to_string() + ", rollover in " + (rollover() - now_to_int() / 1000) / 60 + " min");'
     # An open Combat Lover's Locket screen (choice 1463) left from manual play makes smmdaily refuse to start;
     # it costs nothing to walk away from, so leave it. Any other open fight or choice is left for Sacha.
@@ -242,6 +256,7 @@ try {
     $smm,
     'smmdaily status',
     'smmdaily journal 40',
+    (New-KolDailyBoundaryCommand $runId 'END'),
     'ash print("DAILY-RUNNER: finished; adventures " + my_adventures() + ", meat " + my_meat() + ", inebriety " + my_inebriety() + "/" + inebriety_limit());'
   )
   $r = Invoke-MafiaCli 'run' $cmds $RunTimeoutMinutes
@@ -249,6 +264,7 @@ try {
   if (Test-Path $r.Err) { $errText = Get-Content $r.Err -Raw; if ($errText) { Add-Content $logFile "----- stderr -----`r`n$errText" -Encoding utf8 } }
   $status.mafiaExitCode = $r.ExitCode
   $status.timedOut = $r.TimedOut
+  if ($r.TimedOut -or $r.ExitCode -ne 0) { Write-Log 'KoLmafia did not exit successfully.' 'ERROR' }
   $status.loggedIn = $r.Text -match 'DAILY-RUNNER: logged in as'
   $status.smmdailyLines = @(($r.Text -split "`r?`n") | Where-Object { $_ -match '^(smmDaily|DAILY-RUNNER)' } | Select-Object -Last 60)
 
@@ -265,6 +281,19 @@ finally {
   $status.finished = (Get-Date).ToString('o')
   if ($Mode -eq 'Run' -and $r.Text -notmatch '(?m)^>?\s*SMM_DAILY_RESULT COMPLETE\s*$') {
     Write-Log 'smmdaily did not confirm a complete day; inspect the journal for failed, blocked or unfinished tasks.' 'ERROR'
+  }
+  if ($sourceBefore) {
+   try { $sourceAfter = Get-KolDailySourceManifest $MafiaRoot (Join-Path $MafiaRoot (Get-NewestJar).Name) $PSScriptRoot }
+   catch { Write-Log "Could not capture final source manifest: $_" 'ERROR' }
+   $evidence = Get-KolDailyRunEvidence $r.Text $runId $sourceBefore $sourceAfter $Mode ($status.errors.Count -eq 0 -and $status.loggedIn -and -not $status.timedOut -and $r.ExitCode -eq 0)
+   $status.sourceStable = $evidence.sourceStable
+   if (-not $evidence.sourceStable) { Write-Log 'Installed source changed during the run or could not be verified.' 'ERROR' }
+   if ($Mode -eq 'Run') {
+    foreach ($issue in $evidence.issues) { Write-Log "Run evidence: $issue" 'ERROR' }
+   }
+   $status.candidateForLiveReview = $evidence.candidateForLiveReview
+   try { Write-KolDailyJson $evidenceFile $evidence }
+   catch { $status.candidateForLiveReview = $false; Write-Log "Could not persist final run evidence: $_" 'ERROR' }
   }
   $status.result = if ($status.errors.Count) { 'error' } elseif ($status.warnings.Count) { 'warning' } else { 'ok' }
   Write-Log "Daily runner finished: $($status.result) ($($status.errors.Count) error lines, $($status.warnings.Count) warnings)."

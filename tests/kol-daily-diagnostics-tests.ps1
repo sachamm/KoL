@@ -13,6 +13,8 @@ $diagnosticCases = @(
  @{Line='SMM_DAILY_RESULT COMPLETE'; Error=$false},
  @{Line='smmDaily: combat preparation needs 60000 HP after dressing'; Error=$true},
  @{Line=''; Error=$false}
+ @{Line='DAILY-RUNNER: wrong or missing account'; Error=$true},
+ @{Line='smmDaily: journal gap requires reconciliation from a backup before more tasks may run'; Error=$true}
 )
 foreach ($diagnosticCase in $diagnosticCases) {
  if ((Test-KolDailyProblemLine $diagnosticCase.Line) -ne $diagnosticCase.Error) { throw "Unexpected classification: $($diagnosticCase.Line)" }

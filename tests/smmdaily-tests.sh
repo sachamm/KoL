@@ -78,6 +78,10 @@ out="$(mafia "smmDailyJournalFailureTest")"
 if grep -q "could not write the journal" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "journal failure stops before the task action"
 else fail "journal failure did not prevent the task action"; fi
 
+out="$(mafia "smmDailyJournalGapTest")"
+if grep -q "journal gap requires reconciliation" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "unrecoverable journal gap stops before any task or recovery hook"
+else fail "journal gap did not prevent the task action"; fi
+
 # --- 3. the plan prints logged out, start to finish --------------------------
 
 out="$(mafia "smmdaily plan")"

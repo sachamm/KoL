@@ -64,11 +64,7 @@ void main(string command) {
 		break;
 	case "retry":
 		if (!(smmDTaskIndex contains rest)) abort("No task is called '" + rest + "'. Try smmdaily plan.");
-		smmDSet("_smm.daily.failed." + rest, "");
-		smmDSet("_smm.daily.tries." + rest, "0");
-		smmDSet("_smm.daily.done." + rest, "");
-		smmDSet("_smm.daily.error." + rest, "");
-		smmDLog(rest, "NOTE", "retry requested");
+		smmDRetry(rest);
 		print("smmDaily: " + rest + " may run again. Daily counters and spending were kept.");
 		break;
 	case "book":
