@@ -38,6 +38,7 @@ void stubGarbo() { ran["garbo"] += 1; }
 void stubR() { ran["r"] += 1; }
 boolean stubAlready() { return true; }
 void stubF() { ran["f"] += 1; }
+void stubCommandFailure() { ran["bad"] += 1; boolean unused = smmDCommandResult("fixture command", false); }
 void stubFreeNew() { ran["g.new"] += 1; }
 void stubPaidOld() { ran["g.old"] += 1; }
 
@@ -64,6 +65,7 @@ void fresh() {
 	smmDJournalLoaded = true;
 	smmDJournalWrite();
 	smmDForceDry = false;
+ smmDTestRejectJournalWrite = false;
 	neverDone = false;
 	notReady = "";
 	stopAfter = "";
@@ -315,10 +317,17 @@ void testJournal() {
 	SmmDLine [int] cut;
 	cut[1] = smmDJournal[1];
 	map_to_file(cut, smmDJournalFile());
-	clear(smmDJournal);
-	smmDJournalLoaded = false;
-	smmDJournalLoad();
-	check(journalCount("journal", "GAP") == 1, "missing lines are recorded as a GAP");
+ clear(smmDJournal);
+ smmDJournalLoaded = false;
+ smmDJournalLoad();
+ check(count(smmDJournal) == 3, "dated archive recovers a truncated compatibility journal");
+ check(journalCount("journal", "GAP") == 0, "successful archive recovery is not a lost journal");
+ map_to_file(cut, smmDJournalFile());
+ map_to_file(cut, smmDJournalArchiveFile(smmDEpoch()));
+ clear(smmDJournal);
+ smmDJournalLoaded = false;
+ smmDJournalLoad();
+ check(journalCount("journal", "GAP") == 1, "missing lines are recorded as a GAP");
 	check(count(smmDJournal) == 2, "the surviving line is kept");
 
 	// an earlier day's lines move out of today's journal
@@ -327,6 +336,8 @@ void testJournal() {
 	old.epoch = "20000101:0:0";
 	mixed[1] = old;
 	mixed[2] = smmDLineNow("x", "BEGIN", "today");
+ SmmDLine [int] noCurrentArchive;
+ map_to_file(noCurrentArchive, smmDJournalArchiveFile(smmDEpoch()));
 	map_to_file(mixed, smmDJournalFile());
 	smmDSet("_smm.daily.journalLines", "1");
 	clear(smmDJournal);
@@ -335,7 +346,10 @@ void testJournal() {
 	check(count(smmDJournal) == 1 && smmDJournal[2].task == "x", "only today's lines are loaded");
 	SmmDLine [int] previous;
 	file_to_map("smm-daily-test-prev.txt", previous);
-	check(count(previous) == 1 && previous[1].task == "z", "earlier lines are kept in the -prev file");
+ check(count(previous) == 1 && previous[1].task == "z", "earlier lines are kept in the -prev file");
+ SmmDLine [int] dated;
+ file_to_map(smmDJournalArchiveFile(old.epoch), dated);
+ check(count(dated) == 1 && dated[1].task == "z", "older epochs also retain independent dated evidence");
 
 	// an interrupted task is closed by the next run, then runs again
 	fresh();
@@ -346,6 +360,16 @@ void testJournal() {
 	check(journalCount("t.a", "BEGIN") == 2 && journalCount("t.a", "END") == 2, "the interrupted BEGIN gets its END");
 	same(smmDJournalOpenTask(), "", "nothing is left open");
 	check(smmDJournalOpenSeq() == 0, "no open line");
+}
+
+void testCommandFailure() {
+ fresh();
+ smmDSet("smm.daily.task.t.bad", "on");
+ smmDRun("t.bad");
+ check(ran["bad"] == 1, "failed command was attempted once");
+ check(!smmDTaskDone(smmDTasks[smmDTaskIndex["t.bad"]]), "failed CLI command cannot be marked done");
+ check(smmDGet("_smm.daily.error.t.bad") != "", "failure reason persists for the close report");
+ check(smmDStopRun != "", "dependent work cannot follow an explicit command failure");
 }
 
 void main() {
@@ -363,6 +387,8 @@ void main() {
 	addStub(4, "garbo", "", "", "stubGarbo", "", "turns", "dry", "on");
 	addStub(5, "t.r", "", "", "stubR", "", "repeat", "on", "on");
 
+ addStub(6, "t.bad", "", "", "stubCommandFailure", "", "", "off", "off");
+ smmDSet("smm.daily.task.t.bad", "off");
 	testSettings();
 	testModes();
 	testRunOnceAndResume();
@@ -375,6 +401,7 @@ void main() {
 	testRanOutOfAdventures();
 	testAdventuresNeeded();
 	testJournal();
+ testCommandFailure();
 
 	fresh(); // leave an empty test journal behind
 	if (failures == 0) print("PASS smmDailyCoreTest: " + checks + " checks");

@@ -115,7 +115,7 @@ string smmDTDietReady() {
 }
 
 void smmDTDiet() {
-	boolean unused = cli_execute(smmDTDietCommand("execute"));
+	boolean unused = smmDCommand(smmDTDietCommand("execute"));
 }
 
 // ---------------------------------------------------------------------------
@@ -192,19 +192,23 @@ void smmDTGarboRun(string task, string command) {
 	boolean finished = false;
 	boolean autoConfirm = smmDSettingBool("garboAutoConfirm");
 	string confirmBefore = get_property("garbo_autoUserConfirm");
+ string closetBefore = get_property("autoSatisfyWithCloset");
 	try {
 		if (autoConfirm) set_property("garbo_autoUserConfirm", "true");
+  set_property("autoSatisfyWithCloset", "false");
 		smmDFence();
 		smmDLog(task, "NOTE", command + "; fenced " + get_property(kSmmDFencedKey));
-		finished = cli_execute(command);
+		finished = smmDCommand(command);
 	} finally {
 		smmDUnfence();
 		if (autoConfirm) set_property("garbo_autoUserConfirm", confirmBefore);
+  set_property("autoSatisfyWithCloset", closetBefore);
 	}
 	int bought = smmDBookPurchases() - operatingBefore;
 	smmDLog(task, "NOTE", "garbo bought " + bought + " Meat of items; its own count: Meat " + get_property("garboResultsMeat")
 		+ ", items " + get_property("garboResultsItems") + ", turns " + get_property("garboResultsTurns"));
 	if (!finished) smmDStopRun = "garbo did not finish; smmdaily run starts it again";
+ if (get_property(kSmmDFencedKey) != "") smmDStopRun = "fenced items remain unreconciled; resolve them before continuing";
 }
 
 void smmDTGarbo() {
@@ -226,7 +230,7 @@ string smmDTSoberAfterGarboReady() {
 }
 
 void smmDTDietTurngen() {
-	boolean unused = cli_execute(smmDTDietCommand("turngen"));
+	boolean unused = smmDCommand(smmDTDietCommand("turngen"));
 }
 
 // diet.ash records the stop point of its last plan in _smm.diet.stopAt: the
@@ -266,7 +270,8 @@ boolean smmDTOverdrunk() {
 void smmDTDietFinish() {
 	int spendDowns = 0;
 	while (true) {
-		boolean unused = cli_execute(smmDTDietCommand("finish"));
+		boolean unused = smmDCommand(smmDTDietCommand("finish"));
+  if (smmDTaskProblem != "") return;
 		if (smmDTOverdrunk() || smmDStopRun != "") return;
 		int stopAt = smmDTStopPoint(get_property("_smm.diet.stopAt"));
 		if (my_adventures() <= stopAt || spendDowns >= 2) return; // refused for another reason, or not settling
@@ -479,6 +484,7 @@ void smmDTAudit() {
 // The day is over only when the nightcap is in. A diet.ash finish that refused
 // (more adventures held than its stop point) leaves the day open: say so.
 string smmDTDayEndProblem() {
+ if (get_property(kSmmDFencedKey) != "") return "fenced items remain unreconciled";
  string taskProblem = smmDCompletionProblem();
  if (taskProblem != "") return taskProblem;
 	if (!smmDTGarboDone()) return "garbo has not finished today";

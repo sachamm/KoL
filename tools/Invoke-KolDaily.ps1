@@ -1,7 +1,7 @@
 ﻿<#
   Nightly KoLmafia run for Tquilla on this PC.
 
-  1. Closes KoLmafia if it is running.
+  1. Acquires exclusive root/account ownership; closes only Mafia processes identified with this root.
   2. Installs the newest KoLmafia jar from github.com/kolmafia/kolmafia releases.
   3. Runs `git update` (sachamm/KoL, KoLUtils and the other git installs) logged out,
      and moves aside scripts the repo no longer ships that would shadow new ones
@@ -23,6 +23,7 @@ param(
   [string] $Username = 'Tquilla',
   [string] $MafiaRoot = 'C:\Users\sacha\Projects\runtime\kol\mafia',
   [string] $BackupRoot = 'C:\Users\sacha\Projects\runtime\kol\backups',
+  [string] $AccountLockRoot = 'C:\Users\sacha\Projects\runtime\kol\account-locks',
   [int] $RunTimeoutMinutes = 360,
   [int] $IdleMinutes = 20,
   [switch] $SkipJarUpdate,
@@ -34,6 +35,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+if ([string]::IsNullOrWhiteSpace($AccountLockRoot)) { $AccountLockRoot = Join-Path (Split-Path $BackupRoot) 'account-locks' }
+$MafiaRoot = [IO.Path]::GetFullPath($MafiaRoot)
 
 $stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logDir  = Join-Path $MafiaRoot 'runlogs\daily'
@@ -85,9 +89,11 @@ function Invoke-MafiaCli([string] $name, [string[]] $commands, [int] $timeoutMin
   $out = Join-Path $logDir "daily-$stamp-$name.out.txt"
   $err = Join-Path $logDir "daily-$stamp-$name.err.txt"
   $jar = (Get-NewestJar).Name
+  $jarPath = Join-Path $MafiaRoot $jar
+  $rootTag = '-Dcodex.kol.root="' + ([IO.Path]::GetFullPath($MafiaRoot)) + '"'
   Write-Log "KoLmafia CLI ($name) with $jar : $($commands -join ' | ')"
-  $p = Start-Process -FilePath (Get-JavaExe) -WorkingDirectory $MafiaRoot -NoNewWindow -PassThru `
-        -ArgumentList '-DuseCWDasROOT=true', '--enable-native-access=ALL-UNNAMED', '-jar', $jar, '--CLI', $cmdName `
+  $p = Start-Process -FilePath (Get-JavaExe) -WorkingDirectory $MafiaRoot -WindowStyle Hidden -PassThru `
+        -ArgumentList '-DuseCWDasROOT=true', $rootTag, '--enable-native-access=ALL-UNNAMED', '-jar', ('"' + $jarPath + '"'), '--CLI', $cmdName `
         -RedirectStandardInput $empty -RedirectStandardOutput $out -RedirectStandardError $err
   $null = $p.Handle
   # When a command in the file aborts, KoLmafia stops reading the file but does not exit,
@@ -113,7 +119,10 @@ function Invoke-MafiaCli([string] $name, [string[]] $commands, [int] $timeoutMin
 function Stop-Mafia {
   $procs = Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
            Where-Object { $_.CommandLine -match 'KoLmafia' }
+  $unknown = @($procs | Where-Object { (Get-KolDailyProcessDisposition $_.CommandLine $MafiaRoot) -eq 'unknown' })
+  if ($unknown.Count) { throw 'An unidentifiable Mafia process is running. Close or identify it before this runner starts; no process was stopped.' }
   foreach ($cp in $procs) {
+    if ((Get-KolDailyProcessDisposition $cp.CommandLine $MafiaRoot) -ne 'owned') { continue }
     Write-Log "Closing KoLmafia (pid $($cp.ProcessId)): $($cp.CommandLine)"
     $p = Get-Process -Id $cp.ProcessId -ErrorAction SilentlyContinue
     if (-not $p) { continue }
@@ -185,25 +194,20 @@ function Remove-StaleScripts {
 }
 
 . (Join-Path $PSScriptRoot 'KolDailyDiagnostics.ps1')
+. (Join-Path $PSScriptRoot 'KolDailyOwnership.ps1')
 function Find-Problems([string] $text, [string] $phase) {
  foreach ($line in ($text -split "\r?\n")) {
   if (Test-KolDailyProblemLine $line) { $script:status.errors += "[$phase] $($line.Trim())" }
  }
 }
 
-# ---------------------------------------------------------------------------
-if (Test-Path $lockFile) {
-  $lockAge = (Get-Date) - (Get-Item $lockFile).LastWriteTime
-  if ($lockAge.TotalHours -lt 8) {
-    Write-Log "Another runner started $([int]$lockAge.TotalMinutes) min ago (lock $lockFile); not starting a second." 'ERROR'
-    $status.result = 'error'; $status.finished = (Get-Date).ToString('o'); Save-Status; exit 2
-  }
-  Write-Log "Removing a stale runner lock from $((Get-Item $lockFile).LastWriteTime)." 'WARN'
-}
-Set-Content $lockFile $PID
-Save-Status
-
+# Obtain both leases before changing latest status or stopping any process.
+# Failed contenders write only their own log, never the owner's latest.json.
+$ownership = $null
+try { $ownership = Enter-KolDailyOwnership $MafiaRoot $Username $AccountLockRoot }
+catch { Write-Log "Runner ownership denied: $_" 'ERROR'; exit 2 }
 try {
+  Save-Status
   Write-Log "Daily runner starting: mode $Mode, user $Username, root $MafiaRoot"
   Stop-Mafia
 
@@ -257,6 +261,7 @@ catch {
   Write-Log "Runner failed: $_ `n$($_.ScriptStackTrace)" 'ERROR'
 }
 finally {
+ try {
   $status.finished = (Get-Date).ToString('o')
   if ($Mode -eq 'Run' -and $r.Text -notmatch '(?m)^>?\s*SMM_DAILY_RESULT COMPLETE\s*$') {
     Write-Log 'smmdaily did not confirm a complete day; inspect the journal for failed, blocked or unfinished tasks.' 'ERROR'
@@ -264,8 +269,8 @@ finally {
   $status.result = if ($status.errors.Count) { 'error' } elseif ($status.warnings.Count) { 'warning' } else { 'ok' }
   Write-Log "Daily runner finished: $($status.result) ($($status.errors.Count) error lines, $($status.warnings.Count) warnings)."
   Save-Status
-  Remove-Item $lockFile -ErrorAction SilentlyContinue
   # Keep 60 days of runner logs.
   Get-ChildItem $logDir -File | Where-Object { $_.Name -like 'daily-*' -and $_.LastWriteTime -lt (Get-Date).AddDays(-60) } | Remove-Item -Force
+ } finally { Exit-KolDailyOwnership $ownership }
 }
 if ($status.result -eq 'error') { exit 1 } else { exit 0 }

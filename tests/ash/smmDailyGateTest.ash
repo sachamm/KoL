@@ -92,6 +92,11 @@ void testBooking() {
 }
 
 void testFence() {
+ check(smmDFenceRemaining(10, 10, 0, 0) == 10, "a missing closet item is not silently forgotten");
+ check(smmDFenceRemaining(10, 10, 0, 3) == 7, "only observed returned copies clear the fence");
+ check(smmDFenceRemaining(10, 2, 0, 3) == 8, "unrelated inventory gains cannot clear more than requested");
+ check(smmDFenceRemaining(10, 10, 5, 3) == 10, "inventory loss cannot clear the fence");
+ check(smmDFenceRemaining(10, 10, 2, 12) == 0, "a fully observed return closes the fence");
 	int drum = $item[drum machine].to_int();
 	int leaf = $item[inflammable leaf].to_int();
 	check(drum > 0 && leaf > 0, "the fence test items exist");
