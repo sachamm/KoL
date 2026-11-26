@@ -60,7 +60,7 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
 	verdict="^[[:space:]]*(>[[:space:]]*)?PASS $t:"
 	if grep -Eq "$verdict" <<<"$out"; then pass "$(grep -E "$verdict" <<<"$out" | sed 's/^[[:space:]>]*//')"
@@ -82,6 +82,23 @@ out="$(mafia "smmDailyJournalGapTest")"
 if grep -q "journal gap requires reconciliation" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "unrecoverable journal gap stops before any task or recovery hook"
 else fail "journal gap did not prevent the task action"; fi
 
+# Persistent fencing fails closed before another game move. The garbo case
+# also verifies its settings are restored despite an abort during fencing.
+for scenario in write garbo pending ambiguous corrupt conflict; do
+ case "$scenario" in
+  write|garbo) expected="could not write the fence record"; moves=0 ;;
+  pending) expected="pending fence transfer"; moves=0 ;;
+  ambiguous) expected="ambiguous pending fence transfer"; moves=1 ;;
+  corrupt) expected="unreadable fence records"; moves=0 ;;
+  conflict) expected="conflicting fence records"; moves=0 ;;
+ esac
+ out="$(mafia "smmDailyFenceFailureTest $scenario")"
+ if grep -q "$expected" <<<"$out" && grep -q "FENCE_TEST_MOVES $moves" <<<"$out" && ! grep -qE 'UNSAFE_(TASK|GARBO)_EXECUTED' <<<"$out"; then
+  if [ "$scenario" != garbo ] || grep -q 'FENCE_TEST_RESTORED true fixture-original' <<<"$out"; then pass "fence $scenario fails closed with correct cleanup"
+  else fail "garbo settings not restored on fence abort"; fi
+ else fail "fence $scenario did not stop safely"; tail -12 <<<"$out"; fi
+done
+
 # --- 3. the plan prints logged out, start to finish --------------------------
 
 out="$(mafia "smmdaily plan")"
@@ -90,7 +107,7 @@ else fail "smmdaily plan did not list the whole day"; tail -20 <<<"$out"; fi
 
 # --- 4. no prompts in the new code -------------------------------------------
 
-NEW="$REPO/scripts/smmdaily.ash $REPO/scripts/smmDailyCore.ash $REPO/scripts/smmDailyGate.ash $REPO/scripts/smmDailyTasks.ash $REPO/scripts/smmDailyLegacy.ash"
+NEW="$REPO/scripts/smmdaily.ash $REPO/scripts/smmDailyCore.ash $REPO/scripts/smmDailyGate.ash $REPO/scripts/smmDailyFence.ash $REPO/scripts/smmDailyTasks.ash $REPO/scripts/smmDailyLegacy.ash"
 if grep -n "user_confirm\|user_prompt\|user_notify" $NEW; then fail "the engine must never ask a question"
 else pass "no user_confirm, user_prompt or user_notify in the smmDaily files"; fi
 

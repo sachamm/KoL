@@ -191,18 +191,20 @@ void smmDTGarboRun(string task, string command) {
 	int operatingBefore = smmDBookPurchases();
 	boolean finished = false;
 	boolean autoConfirm = smmDSettingBool("garboAutoConfirm");
-	string confirmBefore = get_property("garbo_autoUserConfirm");
- string closetBefore = get_property("autoSatisfyWithCloset");
+	string confirmBefore = smmDGet("garbo_autoUserConfirm");
+ string closetBefore = smmDGet("autoSatisfyWithCloset");
 	try {
-		if (autoConfirm) set_property("garbo_autoUserConfirm", "true");
-  set_property("autoSatisfyWithCloset", "false");
+		if (autoConfirm) smmDSet("garbo_autoUserConfirm", "true");
+  smmDSet("autoSatisfyWithCloset", "false");
 		smmDFence();
 		smmDLog(task, "NOTE", command + "; fenced " + get_property(kSmmDFencedKey));
 		finished = smmDCommand(command);
 	} finally {
-		smmDUnfence();
-		if (autoConfirm) set_property("garbo_autoUserConfirm", confirmBefore);
-  set_property("autoSatisfyWithCloset", closetBefore);
+  try { smmDUnfence(); }
+  finally {
+   if (autoConfirm) smmDSet("garbo_autoUserConfirm", confirmBefore);
+   smmDSet("autoSatisfyWithCloset", closetBefore);
+  }
 	}
 	int bought = smmDBookPurchases() - operatingBefore;
 	smmDLog(task, "NOTE", "garbo bought " + bought + " Meat of items; its own count: Meat " + get_property("garboResultsMeat")
@@ -484,6 +486,9 @@ void smmDTAudit() {
 // The day is over only when the nightcap is in. A diet.ash finish that refused
 // (more adventures held than its stop point) leaves the day open: say so.
 string smmDTDayEndProblem() {
+ SmmDFenceState fence = smmDFenceRead();
+ if (fence.direction != 0) return "pending fence transfer requires reconciliation";
+ if (fence.fenced != "") return "fenced items remain unreconciled";
  if (get_property(kSmmDFencedKey) != "") return "fenced items remain unreconciled";
  string taskProblem = smmDCompletionProblem();
  if (taskProblem != "") return taskProblem;

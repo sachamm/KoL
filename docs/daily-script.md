@@ -33,6 +33,7 @@ Either way, `smmdaily run` again carries on from where the day stopped. A task t
 | `smmdaily status` | The plan, the spending ledger, the fence and the run lock. |
 | `smmdaily journal [n]` | Today's journal, or its last n lines. |
 | `smmdaily retry <task>` | Lets a failed or finished task run again. Counters and spending are kept. |
+| `smmdaily fence-status` | Reads persistent fence ownership and pending transfer counts without moving items. |
 | `smmdaily book` | Books today's purchases as operating spend and prints the ledger. |
 | `smmdaily audit` | Books purchases, checks their prices, and lists daily resources with uses left. Before the nightcap that list still holds what the nightcap steps and `good_night` spend, so run it again after them. |
 | `smmdaily unfence` | Takes fenced items back out of the closet. |
@@ -94,7 +95,7 @@ The existing `smm.dailyGrind.<name>` switches, the paid-turn budget and the turn
 
 **Feel Envy** (Emotion Chip, 3 a day: the monster drops every item it has) is cast by the consult script in fights the run's own scripts start (not garbo's), on a monster whose drops still left to chance are worth at least `smm.envy.minGain` (default two turns). Each drop counts its value times the chance it would not drop anyway; pickpocket-only, conditional and unknown-rate drops are left out.
 
-**garbo.** The `garbo` task refuses to start unless `valueOfAdventure` is between 3,500 and 10,000. It always passes an explicit negative turn count, and refuses `ascend`, `workshed=`, `quick` and a turn count in `smm.daily.garboArgs`. While garbo runs, the items in `smm.daily.fenceItems` sit in the closet, recorded in `smm.daily.fenced`, and come back out afterwards even if garbo aborts.
+**garbo.** The `garbo` task refuses to start unless `valueOfAdventure` is between 3,500 and 10,000. It always passes an explicit negative turn count, and refuses `ascend`, `workshed=`, `quick` and a turn count in `smm.daily.garboArgs`. While garbo runs, the items in `smm.daily.fenceItems` sit in the closet. Two versioned files (`data/smm-daily-fence-<playerid>[-backup].txt`) record transfer intent before each request and confirm conserved inventory/closet changes afterwards; `smm.daily.fenced` is their compatibility cache. The finalizer attempts to return confirmed copies and restores temporary settings even if recovery fails. Missing copies stay recorded. A restart stops before workers if a transfer is pending or items remain fenced. Inspect `smmdaily fence-status`, then use `smmdaily unfence` to reconcile conserved counts; ambiguous changes require manual investigation. Neither file should be deleted to bypass a pending transfer.
 
 **Turns.** The overdrunk nightcap steps check the rollover buffer themselves: `goodnight.adv` waits for the next run, `goodnight` still runs but leaves the adventures over the cap unspent, and `diet.finish` does not start its garbo spend-down. A task that spends turns does not start when overdrunk, within `smm.daily.rolloverBufferMin` minutes of rollover, or with `smm.daily.garboLeaveTurns` adventures or fewer left. A grind also needs enough adventures to finish, on top of those held back: 30 for a fresh FantasyRealm, 35 for PirateRealm, 20 for the Spacegate, Gingerbread City, the bounty and fishing, 15 for the Daily Dungeon and the Drip, 11 for the ghost costume and the champagne bottle, 9 for beer lenses. Today's code stops with an error when the adventures run out halfway, so a grind that cannot finish is not started. The Museum grinds share a cap of `smm.daily.museumTurns` paid turns, and leave `smm.daily.garboReserveTurns` more for garbo while the garbo task is on. Both are checked before a grind starts, not during it.
 
@@ -170,7 +171,8 @@ The added `smmDailyReviewTest` covers combat policies, signed item changes, tran
 |---|---|
 | `scripts/smmdaily.ash` | The command. |
 | `scripts/smmDailyCore.ash` | Settings, day key, journal, task engine. No imports, no game actions. |
-| `scripts/smmDailyGate.ash` | Booking and price check, free MP, the fence. |
+| `scripts/smmDailyGate.ash` | Booking and price check, free MP. |
+| `scripts/smmDailyFence.ash` | Persistent fence ownership, transfer intent and recovery. |
 | `scripts/smmDailyLegacy.ash` | Today's code, one function per task. |
 | `scripts/smmDailyTasks.ash` | The new tasks, the audit table, and the day's task list. |
 | `scripts/smmSpend.ash` | Gained the operating-spend figure in the budget. |

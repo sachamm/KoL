@@ -56,7 +56,7 @@ void main(string command) {
 		smmDailyHeader();
 		smmDPrintTasks("");
 		smmSpendReport();
-		if (get_property(kSmmDFencedKey) != "") print("Fenced in the closet: " + get_property(kSmmDFencedKey), "orange");
+		smmDFenceStatus();
 		if (smmDGet("smm.daily.active") != "") print("A run is marked active (" + smmDGet("smm.daily.active") + "). If none is running: smmdaily reset", "orange");
 		break;
 	case "journal":
@@ -82,6 +82,9 @@ void main(string command) {
 	case "unfence":
 		smmDUnfence();
 		break;
+	case "fence-status":
+		smmDFenceStatus();
+		break;
 	case "settings":
 		smmDPrintSettings();
 		break;
@@ -92,6 +95,6 @@ void main(string command) {
 		print("smmDaily: cleared the run lock. Finished tasks, daily counters and spending were kept.");
 		break;
 	default:
-		abort("Use smmdaily plan | dry | run [phase|task] | status | journal [n] | retry <task> | book | audit | unfence | settings | reset");
+		abort("Use smmdaily plan | dry | run [phase|task] | status | journal [n] | retry <task> | book | audit | fence-status | unfence | settings | reset");
 	}
 }
