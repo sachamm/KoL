@@ -15,6 +15,7 @@
 import <smmDailyCore.ash>
 import <smmSpend.ash>
 import <smmDailyPolicy.ash>
+import <smmDailyFence.ash>
 
 boolean smmDGateSettings =
 	smmDDeclare("priceCheckLookups", "15", "how many of the day's biggest mall purchases the audit checks against the average sale price")
@@ -309,91 +310,6 @@ void smmDMpHook(string task) {
 // Fence: items moved to the closet while garbo runs. garbo does not take from
 // the closet while autoSatisfyWithCloset is false. The record is a plain
 // preference (no leading underscore) so it survives rollover with the items.
-
-string kSmmDFencedKey = "smm.daily.fenced"; // "itemId:count|itemId:count"
-
-int [item] smmDParseFenced(string stored) {
-	int [item] fenced;
-	foreach i, part in stored.split_string("\\|") {
-		string [int] fields = part.split_string(":");
-		if (count(fields) != 2) continue;
-		item it = fields[0].to_int().to_item();
-		int amount = fields[1].to_int();
-		if (it != $item[none] && amount > 0) fenced[it] += amount;
-	}
-	return fenced;
-}
-
-string smmDFencedToString(int [item] fenced) {
-	buffer out;
-	foreach it, amount in fenced {
-		if (amount <= 0) continue;
-		if (out.length() > 0) out.append("|");
-		out.append(it.to_int() + ":" + amount);
-	}
-	return out.to_string();
-}
-
-boolean [item] smmDFenceItems() {
-	boolean [item] items;
-	foreach i, name in smmDSetting("fenceItems").split_string("\\|") {
-		item it = name.to_item();
-		if (it != $item[none]) items[it] = true;
-		else if (name != "") abort("smmDaily: smm.daily.fenceItems names an unknown item: " + name);
-	}
-	return items;
-}
-
-// Takes an item off wherever it is worn, so it can go into the closet.
-void smmDTakeOff(item it) {
-	if (equipped_amount(it) <= 0) return;
-	foreach sl in $slots[hat, back, shirt, weapon, off-hand, pants, acc1, acc2, acc3, familiar] {
-		if (equipped_item(sl) != it) continue;
-		boolean off = equip(sl, $item[none]);
-		if (!off) abort("smmDaily: could not take " + it + " off before fencing");
-	}
-}
-
-// Closets every copy in inventory of the fenced items. The record is written
-// after each move, so an interruption never loses track of a closeted copy.
-void smmDFence() {
-	if (get_property("autoSatisfyWithCloset") == "true")
-		abort("smmDaily: closet sourcing must be disabled before garbo can be fenced");
-	int [item] fenced = smmDParseFenced(get_property(kSmmDFencedKey));
-	foreach it in smmDFenceItems() {
-		smmDTakeOff(it); // garbo can wear what is equipped
-		int amount = item_amount(it);
-		if (amount <= 0) continue;
-  int closetBefore = closet_amount(it);
-  boolean moved = put_closet(amount, it);
-  int confirmed = max(0, min(amount, closet_amount(it) - closetBefore));
-  fenced[it] += confirmed;
-  set_property(kSmmDFencedKey, smmDFencedToString(fenced));
-  if (!moved || confirmed != amount || item_amount(it) > 0 || equipped_amount(it) > 0)
-   abort("smmDaily: could not closet all " + amount + " " + it + "; garbo was not started");
-  print("smmDaily: closeted " + confirmed + " " + it + " for the garbo run.", "blue");
-	}
-}
-
-int smmDFenceRemaining(int owed, int requested, int inventoryBefore, int inventoryAfter) {
- return max(0, owed - max(0, min(requested, inventoryAfter - inventoryBefore)));
-}
-
-void smmDUnfence() {
-	int [item] fenced = smmDParseFenced(get_property(kSmmDFencedKey));
-	foreach it, amount in fenced {
-		int take = min(amount, closet_amount(it));
-  int inventoryBefore = item_amount(it);
-		if (take < amount)
-			print("smmDaily: " + amount + " " + it + " were fenced but the closet holds " + closet_amount(it) + ".", "orange");
-  boolean ok = take <= 0 || take_closet(take, it);
-  fenced[it] = smmDFenceRemaining(amount, take, inventoryBefore, item_amount(it));
-  if (!ok || amount - fenced[it] < take)
-   print("smmDaily: could not confirm all " + take + " " + it + " returned; the missing quantity stays fenced", "red");
-		set_property(kSmmDFencedKey, smmDFencedToString(fenced));
-		if (amount - fenced[it] > 0) print("smmDaily: took " + (amount - fenced[it]) + " " + it + " back out of the closet.", "blue");
-	}
-}
 
 boolean smmDGateHooks() {
 	smmDHookBeforeTask = "smmDMpHook";

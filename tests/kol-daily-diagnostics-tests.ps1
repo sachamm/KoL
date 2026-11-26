@@ -15,6 +15,8 @@ $diagnosticCases = @(
  @{Line=''; Error=$false}
  @{Line='DAILY-RUNNER: wrong or missing account'; Error=$true},
  @{Line='smmDaily: journal gap requires reconciliation from a backup before more tasks may run'; Error=$true}
+ @{Line='smmDaily: pending fence transfer; inspect smmdaily fence-status'; Error=$true},
+ @{Line='smmDaily: conflicting fence records require reconciliation; no closet move was authorized'; Error=$true}
 )
 foreach ($diagnosticCase in $diagnosticCases) {
  if ((Test-KolDailyProblemLine $diagnosticCase.Line) -ne $diagnosticCase.Error) { throw "Unexpected classification: $($diagnosticCase.Line)" }

@@ -459,6 +459,7 @@ string [string] smmDLPromptAnswers = {
 boolean [string] smmDLPromptsSet;
 
 void smmDLRunStart() {
+	smmDFenceEnsureReady();
 	smmDLNoteFishy();
 	foreach name, answer in smmDLPromptAnswers {
 		if (get_property("smm.dailyGrind." + name) != "") continue;
