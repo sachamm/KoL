@@ -18,18 +18,24 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.15/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.20/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
-| Whole day unattended | 2 | 0.8 | 1.55 |
+| Whole day unattended | 2 | 0.8 | 1.60 |
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.35 |
 | Paid adventures allocated well | 1.5 | 0.4 | 1.0 |
 | Spending rules | 1 | 0.7 | 0.75 |
 | Museum progress | 1 | 0.7 | 0.85 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.15** |
+| **Total** | **10** | **6.0** | **8.20** |
+
+### Quality cycle 2: post-merge assessment
+
+[PR #34](https://github.com/sachamm/KoL/pull/34), merged as `64328111e8881f9604dc1cb4d9d989e0a1b13242`, advances the provisional code score by **0.05 to 8.20** for recovering completed tasks, attempts and Museum turn charges from journal checkpoints after lost preference updates. Explicit retry is durable and an unrecoverable journal gap stops work. The runner also fingerprints installed code, checks account identity and records strict run boundaries in atomic reports. These improve the evidence available for future reviews; they do not earn profitability or live-performance points. Safety remains below full marks: closet transfer bookkeeping still has a server-action-to-local-record crash window.
+
+Post-merge verification passed **948 ASH assertions** (131 core, 612 gate, 7 dressup, 94 diet, 49 review, 55 NPC resale), both compilations, planning/static checks and both expected journal abort regressions. Windows checks passed **35 evidence cases, 14 diagnostic cases and 18 ownership checks**. The generated boundary commands also ran successfully in logged-out r29462. No live account actions were performed. Live performance stays **6.0/10**, and **9.9 remains unachieved**.
 
 ### Quality cycle 1: post-merge assessment
 
