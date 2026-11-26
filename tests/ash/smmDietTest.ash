@@ -51,7 +51,7 @@ void testRule() {
 	check(smmDietAverageRule(326000, 216771.5, 2) == "owned", "above the average with spare copies: only those");
 	check(smmDietAverageRule(216771, 216771.5, 0) == "buy", "at the average: bought");
 	check(smmDietAverageRule(150000, 216771.5, 0) == "buy", "under the average: bought");
-	check(smmDietAverageRule(326000, 0, 0) == "buy", "unknown average: the listing is the only price");
+	check(smmDietAverageRule(326000, 0, 0) == "drop", "unknown average: no unverified mall purchase");
 }
 
 // --- the most acquire may pay per copy ---------------------------------------
@@ -61,12 +61,12 @@ void testBuyCap() {
 	check(smmDietBuyCap(200000, 216771.5, none, 0) == 216771, "the slack on the plan never passes the average");
 	check(smmDietBuyCap(100000, 216771.5, none, 0) == 130000, "under the average the plan and its slack decide");
 	check(smmDietBuyCap(326000, 216771.5, none, 0) == 216771, "a plan above the average is still capped");
-	check(smmDietBuyCap(1000, 0, none, 0) == 1300, "unknown average: the plan and its slack");
+	check(smmDietBuyCap(1000, 0, none, 0) == 0, "unknown average: no purchase allowance");
 	check(smmDietBuyCap(0, 216771.5, none, 0) == 0, "an unplanned item is not bought");
 	check(smmDietBuyCap(100000, 216771.5, none, 2) == 130000, "no budget to mind: unchanged");
 	check(smmDietBuyCap(100000, 216771.5, 150000, 2) == 75000, "two copies share the Meat left in the budget");
 	check(smmDietBuyCap(100000, 216771.5, 500000, 2) == 130000, "plenty left: the plan and its slack decide");
-	check(smmDietBuyCap(100000, 0, 99, 1) == 99, "a price that rose past the budget is not paid");
+	check(smmDietBuyCap(100000, 200000, 99, 1) == 99, "a price that rose past the budget is not paid");
 	check(smmDietBuyCap(100000, 216771.5, 0, 1) == 0, "nothing left: nothing bought");
 	check(smmDietBuyCap(100000, 216771.5, -500, 1) == 0, "an overspent budget buys nothing");
 	check(smmDietCanAfford(500, 500) && !smmDietCanAfford(500, 499) && !smmDietCanAfford(1, 0) && smmDietCanAfford(1, kSmmDietHuge),

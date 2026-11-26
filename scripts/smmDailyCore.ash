@@ -56,7 +56,7 @@ int smmDSettingInt(string name) { return smmDSetting(name).to_int(); }
 boolean smmDSettingBool(string name) { return smmDSetting(name) == "true"; }
 
 boolean smmDCoreSettings =
-	smmDDeclare("profile", "legacy", "legacy = today's code in the new order; plan = the plan's target (garbo as the Meat engine, Oasis and sandworms off)")
+	smmDDeclare("profile", "plan", "legacy = today's code in the new order; plan = the plan's target (garbo as the Meat engine, Oasis and sandworms off)")
 	&& smmDDeclare("runner", "false", "true on the one machine that runs the day; anywhere else 'run' is a dry run. Never put this in smm-prefs.txt")
 	&& smmDDeclare("dryRun", "false", "true makes every 'run' a dry run")
 	&& smmDDeclare("museumTurns", "100", "most paid turns a day for the Museum grinds (beer lens, ghost costume, Spacegate, FantasyRealm, PirateRealm, Daily Dungeon, Drip, Gingerbread)")
@@ -64,6 +64,7 @@ boolean smmDCoreSettings =
 	&& smmDDeclare("garboArgs", "", "extra garbo arguments; ascend, workshed= and quick are refused")
 	&& smmDDeclare("garboReserveTurns", "30", "adventures a Museum grind must leave for garbo, on top of garboLeaveTurns, while the garbo task is on")
 	&& smmDDeclare("mpFloor", "2000", "MP to restore to after breakfast, from free sources only")
+	&& smmDDeclare("combatMpBudget", "5000", "maximum daily Meat for capped, freshly bought MP recovery before overdrunk fights; 0 keeps recovery free-only")
 	&& smmDDeclare("mpLow", "400", "no task starts under this much MP while a free restore is left")
 	&& smmDDeclare("rolloverBufferMin", "10", "no turn-spending task starts this close to rollover")
 	&& smmDDeclare("fenceItems", "drum machine|Special Seasoning|inflammable leaf|Cincho de Mayo", "items closeted while garbo runs, separated by |. The Cincho de Mayo keeps garbo from spending the free rests and Cinch, which are kept for Fiesta Exits")
@@ -366,7 +367,8 @@ string smmDPreflight() {
 
 // selector: "" for everything, a phase name, or a task id.
 boolean smmDSelected(SmmDTask t, string selector) {
-	return selector == "" || selector == t.id || selector == smmDPhaseNames[t.phase];
+	return selector == "" || selector == t.id || selector == smmDPhaseNames[t.phase]
+  || (selector == "goodnight.adv" && t.id.starts_with("goodnight.adv."));
 }
 
 boolean smmDKnownSelector(string selector) {
@@ -469,6 +471,7 @@ void smmDRun(string selector) {
 
 	string epoch = smmDEpoch();
 	if (!dry) {
+		smmDSet("_smm.daily.complete", "");
 		smmDCloseInterrupted();
 		if (smmDGet("smm.daily.active") == epoch) print("smmDaily: the last run did not end cleanly.", "orange");
 		smmDSet("smm.daily.active", epoch);
@@ -511,6 +514,21 @@ void smmDRun(string selector) {
 
 // ---------------------------------------------------------------------------
 // Reports
+
+// Completion is an outcome, not merely a return from the command loop.
+string smmDCompletionProblem() {
+ foreach i, t in smmDTasks {
+  if (smmDConfiguredMode(t) == "off" || t.repeatable) continue;
+  if (smmDGet("_smm.daily.failed." + t.id) == smmDEpoch()) return "failed task " + t.id;
+ }
+ foreach i, t in smmDTasks {
+  if (!t.id.starts_with("goodnight")) continue;
+  if (smmDConfiguredMode(t) == "off" || smmDConfiguredMode(t) == "dry") return "end-of-day task disabled: " + t.id;
+  if (!smmDTaskDone(t)) return "unfinished end-of-day task " + t.id;
+ }
+ return "";
+}
+
 
 void smmDPrintTasks(string selector) {
 	int phase = -1;

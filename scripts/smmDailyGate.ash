@@ -14,6 +14,7 @@
 
 import <smmDailyCore.ash>
 import <smmSpend.ash>
+import <smmDailyPolicy.ash>
 
 boolean smmDGateSettings =
 	smmDDeclare("priceCheckLookups", "15", "how many of the day's biggest mall purchases the audit checks against the average sale price")
@@ -230,6 +231,56 @@ int smmDFreeMP(int target) {
 		if (my_mp() <= before) smmDMpSourceFailed[source] = true;
 	}
 	return my_mp();
+}
+
+// The old nightcap can reach 12 MP after free restores are exhausted.
+// Buy only fresh medicine, at a verified average-price ceiling, within both
+// a small daily cap and the remaining spending allowance. Owned stock stays.
+void smmDOverdrunkMP(int target) {
+ if (!isOverdrunk() || my_mp() >= target) return;
+ item medicine = $item[Doc Galaktik's Invigorating Tonic];
+ int limit = smmDailyPurchaseLimit(npc_price(medicine), smmSpendAveragePrice(medicine));
+ if (limit <= 0) return;
+ for attempt from 1 upto 15 {
+  if (my_mp() >= target) break;
+  int left = smmDSettingInt("combatMpBudget") - get_property("_smm.daily.combatMpSpent").to_int();
+  if (left < limit || smmSpendBudget() < limit || my_meat() < limit) break;
+  int copiesBefore = item_amount(medicine);
+  int meatBefore = my_meat();
+  int bought = buy(1, medicine, limit);
+  int paid = max(0, meatBefore - my_meat());
+  set_property("_smm.daily.combatMpSpent", get_property("_smm.daily.combatMpSpent").to_int() + paid);
+  if (bought <= 0 || item_amount(medicine) <= copiesBefore) break;
+  int mpBefore = my_mp();
+  boolean restored = use(1, medicine); // exactly the freshly acquired copy
+  if (!restored || my_mp() <= mpBefore) break;
+ }
+}
+
+// Called after the final outfit change, immediately before opening a fight.
+// Free recovery first; only the bounded overdrunk fallback may buy medicine.
+// Campsite rests are never used.
+void smmDCombatPrepare() {
+	if (get_property("smm.daily.active") == "" || current_round() > 0 || handling_choice()) return;
+	string grind = get_property("_smm.grind.active");
+ if (grind != "" && smmDailyFundedTurnsLeft(total_turns_played(), get_property("_smm.grind.startTurns").to_int(), get_property("_smm.grind.turnLimit").to_int()) == 0)
+  abort("smmDaily: funded paid-turn limit reached for " + grind + "; collection work is held for another day");
+ smmDFreeMP(min(my_maxmp(), max(100, smmDSettingInt("mpLow"))));
+ smmDOverdrunkMP(min(my_maxmp(), 100));
+	int target = smmDailyCombatHpTarget(my_maxhp());
+	for attempt from 1 upto 8 {
+		if (my_hp() >= target) break;
+		int before = my_hp();
+		boolean healed = false;
+		if (have_skill($skill[Cannelloni Cocoon]) && my_mp() >= mp_cost($skill[Cannelloni Cocoon]))
+			healed = use_skill(1, $skill[Cannelloni Cocoon]);
+		else if (have_skill($skill[Tongue of the Walrus]) && my_mp() >= mp_cost($skill[Tongue of the Walrus]))
+			healed = use_skill(1, $skill[Tongue of the Walrus]);
+		if (!healed || my_hp() <= before) break;
+	}
+ smmDOverdrunkMP(min(my_maxmp(), 100));
+	if (my_hp() < target)
+		abort("smmDaily: combat preparation needs " + target + " HP after dressing (have " + my_hp() + "); no safe free recovery remains");
 }
 
 // Before each task: no task starts nearly out of MP while a free restore is

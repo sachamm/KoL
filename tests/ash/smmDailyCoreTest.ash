@@ -67,6 +67,7 @@ void fresh() {
 	neverDone = false;
 	notReady = "";
 	stopAfter = "";
+	smmDSet("smm.daily.profile", "legacy"); // fixtures explicitly exercise the legacy modes
 	smmDSet("smm.daily.runner", "true");
 	smmDSet("smm.daily.garboLeaveTurns", "-1"); // logged out there are 0 adventures; don't let that block turn tasks
 }

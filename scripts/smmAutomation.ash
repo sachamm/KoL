@@ -1,6 +1,7 @@
 import <smmUtils.ash>
 import <smmCCS.ash>
 import <smmConsult.ash>
+import <smmDailyGate.ash>
 
 // A yes/no question. During an smmdaily run (smm.daily.active is set) nobody
 // is there to answer, so it takes the default answer at once instead of
@@ -1417,6 +1418,7 @@ string getToAdventure(AdventureRecord advRecord) {
 // adventures at advRecord (a location, item or skill) including all pre- and post-adventure stuff
 boolean anyAdventure(AdventureRecord advRecord) {
     print("anyAdventure: going to " + toString(advRecord), "green");
+	smmDCombatPrepare();
 	string result = getToAdventure(advRecord);
 	result += run_turn();
 	assert(!postAdventure(), "anyAdventure: goals were satisfied, aborting");
@@ -1562,6 +1564,7 @@ location realAdvLocation(location aLocation, boolean shouldPrep) {
 		dressup("", false);
 	}
 
+	if (shouldPrep) smmDCombatPrepare();
 	return actualLocation;
 }
 
@@ -1587,6 +1590,7 @@ string advURLWithWanderingMonsterRedirect(location aLocation) {
 
 	// ADVENTURE
 	setDefaultMoodForLocation(actualLocation);
+ smmDCombatPrepare();
 	string aPage;
 	if (bugfixMap contains actualLocation && have_effect($effect[Shadow Affinity]) > 0) // shadow rift locations are not standard locations
 		aPage = advUrl(bugfixMap[actualLocation]);
