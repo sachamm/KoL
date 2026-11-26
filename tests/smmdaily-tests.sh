@@ -60,9 +60,9 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDressupTest smmDietTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDressupTest smmDietTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
-	if grep -q "^PASS $t" <<<"$out"; then pass "$(grep "^PASS $t" <<<"$out")"
+	if grep -qE "^[[:space:]]*(> )?PASS $t" <<<"$out"; then pass "$(grep -E "^[[:space:]]*(> )?PASS $t" <<<"$out")"
 	else
 		fail "$t"
 		grep "FAIL\|Expected\|undefined\|aborted\|not an integer" <<<"$out" | head -40

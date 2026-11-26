@@ -171,5 +171,6 @@ Known limits of what is built:
 - every function a task names exists, and every KoLmafia preference the new files read exists in r29462;
 - the Day 0 settings are in `data/smm-prefs.txt` and `smm.daily.runner` is not.
 - `diet.ash` compiles, plans a day logged out, keeps its price rule, budget and adventure bounds (`tests/ash/smmDietTest.ash`), and has the same default budget as `smmDailyGate.ash`.
+- NPC resale respects the fourteen-day demand window, one-year stock ceiling, remaining spending budget, jelly versus pants-only profit, exact vendor rows and receipt checks, and reconciles the NPC log's pants-only charge (`tests/ash/smmNpcResaleTest.ash`). See [daily-spending.md](daily-spending.md#npc-resale-batches).
 
 The tests cannot log in, so nothing that touches the game is exercised by them: the free MP restores, the fence moves, garbo and every legacy task are untested until the first live run. Start with `smmdaily plan` and `smmdaily dry`.

@@ -96,7 +96,7 @@ int smmDBookPurchases() {
 	smmSpendDayStart();
 	SmmDPurchase [int] purchases = smmDParsePurchases(smmDTodaysLog());
 	int total = smmDPurchaseTotal(purchases);
-	int operating = smmDOperatingFrom(total, max(0, smmSpendSpent()) + smmDDietBought(), smmSpendOperating());
+	int operating = smmDOperatingFrom(total, smmSpendLoggedSpent() + smmDDietBought(), smmSpendOperating());
 	set_property(kSmmSpendOperatingKey, operating);
 	print("smmDaily: " + count(purchases) + " purchases in today's session log on this machine, " + total + " Meat. Booked as operating spend: "
 		+ operating + " (smmSpend's own buys: " + smmSpendSpent() + "; the diet's, on its own budget: " + smmDDietBought() + ").", "blue");

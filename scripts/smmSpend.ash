@@ -11,11 +11,14 @@
 
 import <smmUtils.ash>
 import <smmMuseumPolicy.ash>
+import <smmNpcResale.ash>
 
 string kSmmSpendStartKey = "_smm.spend.startMeat";   // cleared at rollover
 string kSmmSpendCloseKey = "smm.spend.lastClose";    // kept across days: Meat held when the spending step last finished
 string kSmmSpendSpentKey = "_smm.spend.spent";       // cleared at rollover
 string kSmmSpendOperatingKey = "_smm.spend.operating"; // cleared at rollover: Meat everything else paid for purchases today, booked by smmDaily
+string kSmmSpendLogAdjustmentKey = "_smm.spend.logAdjustment"; // NPC log charge minus measured charge
+string kSmmSpendNPCPendingKey = "smm.spend.npcPending"; // survives rollover: interrupted/ambiguous batch needs reconciliation
 string kSmmSpendBuyMapFile = "unrestricted_buy_map.txt";
 
 record SmmSpendOffer {
@@ -84,6 +87,9 @@ boolean smmSpendStarted() { return get_property(kSmmSpendStartKey) != ""; }
 
 int smmSpendSpent() { return get_property(kSmmSpendSpentKey).to_int(); }
 
+int smmSpendLoggedSpentFrom(int spent, int adjustment) { return max(0, spent + adjustment); }
+int smmSpendLoggedSpent() { return smmSpendLoggedSpentFrom(smmSpendSpent(), get_property(kSmmSpendLogAdjustmentKey).to_int()); }
+
 // Meat netted today by everything except this script's own purchases.
 int smmSpendNet() {
 	if (!smmSpendStarted()) return 0;
@@ -122,6 +128,7 @@ void smmSpendReport() {
 
 float [item] smmSpendAverages;
 int [item] smmSpendVolumes;
+string [item] smmSpendMarketResponses;
 int smmSpendLookups;
 
 // Copies sold over Pricegun's history. 0 when there is none.
@@ -153,6 +160,7 @@ float smmSpendAveragePrice(item it) {
 	if (!(smmSpendAverages contains it)) {
 		smmSpendLookups += 1;
 		string response = visit_url("https://pricegun.loathers.net/api/" + to_int(it), false, false);
+		smmSpendMarketResponses[it] = response;
 		smmSpendAverages[it] = smmSpendParseAverage(it, response);
 		smmSpendVolumes[it] = smmSpendAverages[it] > 0 ? smmSpendParseVolume(response) : 0;
 	}
@@ -243,6 +251,207 @@ int [int] smmSpendRotate(int [int] ids, string cursorKey) {
 	foreach i, id in ids if (id > cursor) ordered[count(ordered)] = id;
 	foreach i, id in ids if (id <= cursor) ordered[count(ordered)] = id;
 	return ordered;
+}
+
+// ---------------------------------------------------------------------------
+// NPC resale: a positive-return pass before collection purchases.
+
+int smmSpendNPCDays() {
+	string setting = get_property("smm.spend.npcBufferDays");
+	return setting == "" ? 365 : min(365, max(0, setting.to_int()));
+}
+
+int smmSpendNPCSpleenValue() {
+	string setting = get_property("smm.spend.npcSpleenValue");
+	return setting == "" ? ceil(1.88 * max(0, kTurnValue)) : max(0, setting.to_int());
+}
+
+int smmSpendNPCHeld(item it) {
+	return item_amount(it) + closet_amount(it) + storage_amount(it) + shop_amount(it) + equipped_amount(it);
+}
+
+item smmSpendNPCPants() {
+	foreach pants in $items[Travoltan trousers, designer sweatpants, replica designer sweatpants]
+		if ((item_amount(pants) > 0 || equipped_amount(pants) > 0) && can_equip(pants)) return pants;
+	return $item[none]; // never buy equipment as an unbudgeted side effect
+}
+
+string smmSpendNPCLog() {
+	string [int] logs = session_logs(1);
+	return count(logs) > 0 ? logs[0] : "";
+}
+
+record SmmSpendNPCOffer {
+	SmmNRVendor vendor;
+	SmmNRMarket market;
+	float score;
+};
+
+record SmmSpendNPCJelly {
+	boolean usable;
+	int cash;
+	int value;
+};
+
+SmmSpendNPCJelly smmSpendNPCQuote() {
+	SmmSpendNPCJelly quote;
+	if (my_spleen_use() >= spleen_limit()) return quote;
+	item jelly = $item[sleaze jelly];
+	boolean spare = item_amount(jelly) > 0 && smmMuseumSpareCopies(jelly) > 0;
+	int average = floor(smmSpendAveragePrice(jelly));
+	int price = mall_price(jelly);
+	quote.usable = average > 0 && price > 0 && (spare || price <= average);
+	if (quote.usable) {
+		quote.cash = spare ? 0 : average;
+		quote.value = max(quote.cash, ceil(spare ? smmMuseumOwnedValue(jelly, 1) : average)) + smmSpendNPCSpleenValue();
+	}
+	return quote;
+}
+
+// Final preparation may visit pages and buy one fresh jelly. Everything must
+// finish BEFORE chewing: the only following game request is the single POST.
+boolean smmSpendNPCBuy(SmmSpendNPCOffer offer, item pants, boolean fiveFinger,
+	boolean canJelly, int jellyCash, int jellyValue) {
+	item it = offer.vendor.it;
+	item jelly = $item[sleaze jelly];
+	int resale = offer.market.price;
+	if (shop_amount(it) > 0) resale = min(resale, shop_price(it));
+	int wanted = smmNRStockGap(offer.market.volume, smmSpendNPCDays(), smmSpendNPCHeld(it));
+	SmmNRBatch batch = smmNRPlan(wanted, smmSpendBudget(), offer.vendor.base, resale, fiveFinger,
+		canJelly && my_spleen_use() < spleen_limit(), jellyCash, jellyValue);
+	if (batch.quantity < 1) return true;
+	if (smmSpendDryRun()) {
+		print("Spending (dry run): NPC resale " + batch.quantity + " " + it + " at " + batch.unitCost
+			+ ", list at " + resale + "; projected profit " + batch.profit + ", " + offer.market.volume
+			+ " sales / 14 complete days; " + (batch.jelly ? "one jelly immediately before one bulk purchase" : "pants only")
+			+ ", conditional on the vendor price with " + pants + " equipped.", "blue");
+		return true;
+	}
+	if (equipped_item($slot[pants]) != pants) return false;
+	int plain = smmNRUnitCost(offer.vendor.base, fiveFinger, false);
+	string page = visit_url("shop.php?whichshop=" + offer.vendor.shop);
+	if (smmNRVisiblePrice(page, offer.vendor) != plain) return true; // locked store, outfit conflict, or changed price
+	if (batch.jelly && jellyCash > 0) {
+		int before = item_amount(jelly);
+		SmmSpendOffer acquisition;
+		acquisition.it = jelly; acquisition.quantity = 1; acquisition.limit = jellyCash;
+		smmSpendBuy(acquisition, "one fresh jelly for NPC resale");
+		if (item_amount(jelly) != before + 1) return true;
+		// The cash is now booked. Charge its economic value, but do not reserve it twice.
+		batch = smmNRPlan(wanted, smmSpendBudget(), offer.vendor.base, resale, fiveFinger, true, 0, jellyValue);
+	}
+	if (batch.quantity < 1) return true;
+	if (batch.jelly && item_amount(jelly) < 1) return true;
+	// Recheck the row after acquiring jelly; no fallback, split buy, or retrieval
+	// is allowed once the one-purchase discount has been consumed.
+	page = visit_url("shop.php?whichshop=" + offer.vendor.shop);
+	if (equipped_item($slot[pants]) != pants || smmNRVisiblePrice(page, offer.vendor) != plain) return true;
+	if (batch.worstCost > smmSpendBudget()) return true;
+	string url = smmNRPurchaseURL(offer.vendor, batch.quantity) + "&pwd=" + my_hash();
+	int beforeItems = item_amount(it);
+	int beforeJelly = item_amount(jelly);
+	int beforeSpleen = my_spleen_use();
+	int beforeLogged = smmNRLoggedPurchases(smmSpendNPCLog());
+	int beforeMeat = my_meat();
+	int received; int paid;
+	set_property(kSmmSpendNPCPendingKey, it.to_int() + ":" + batch.quantity + ":" + batch.unitCost + ":" + beforeMeat);
+	try {
+		if (batch.jelly) {
+			boolean chewed = chew(1, jelly);
+			if (!smmNRJellyConfirmed(chewed, beforeJelly, item_amount(jelly), beforeSpleen, my_spleen_use())) {
+				print("Spending: jelly consumption was not confirmed; no NPC purchase sent. Reconcile " + kSmmSpendNPCPendingKey + ".", "red");
+				return false;
+			}
+		}
+		visit_url(url, true, false); // immediately after confirmed chew: exactly one item, one bulk request
+	} finally {
+		paid = max(0, beforeMeat - my_meat());
+		received = item_amount(it) - beforeItems;
+		set_property(kSmmSpendSpentKey, smmSpendSpent() + paid);
+		int logged = smmNRLoggedPurchases(smmSpendNPCLog()) - beforeLogged;
+		set_property(kSmmSpendLogAdjustmentKey, get_property(kSmmSpendLogAdjustmentKey).to_int() + logged - paid);
+	}
+	if (!smmNRReceiptOK(batch.quantity, received, paid, batch.unitCost)) {
+		print("Spending: unexpected NPC receipt for " + it + ": received " + received + ", paid " + paid
+			+ ". Spending stopped; reconcile " + kSmmSpendNPCPendingKey + " before clearing it.", "red");
+		return false;
+	}
+	set_property(kSmmSpendNPCPendingKey, "");
+	// Only the newly purchased copies are listed. Retain an existing lower shop
+	// price and its per-buyer limit rather than repricing unrelated stock upward.
+	if (!put_shop(resale, shop_limit(it), received, it))
+		print("Spending: listing failed for " + received + " " + it + "; stock retained and counts against the next batch.", "orange");
+	print("Spending: NPC resale bought " + received + " " + it + " for " + paid + ", listing at " + resale
+		+ " each; projected profit " + batch.profit + (batch.jelly ? " after jelly and spleen value" : " with pants only"), "blue");
+	return true;
+}
+
+boolean smmSpendNPCResale() {
+	if (get_property("smm.spend.npcResale") == "false" || smmSpendNPCDays() < 1) return true;
+	item pants = smmSpendNPCPants();
+	if (pants == $item[none]) { print("Spending: NPC resale needs owned discount pants in inventory or equipped.", "orange"); return true; }
+	if (!refresh_shop()) { print("Spending: cannot refresh shop stock; skipping NPC resale.", "orange"); return true; }
+	boolean fiveFinger = have_skill($skill[Five Finger Discount]);
+	SmmSpendNPCJelly quote = smmSpendNPCQuote();
+	SmmNRVendor [int] vendors;
+	boolean [int] seen;
+	int [int] ids;
+	foreach n, line in file_to_array("data/npcstores.txt") {
+		SmmNRVendor vendor = smmNRVendorLine(line);
+		if (vendor.it == $item[none] || npc_price(vendor.it) <= 0) continue;
+		vendors[count(vendors)] = vendor;
+		int id = vendor.it.to_int();
+		if (!seen[id]) { seen[id] = true; ids[count(ids)] = id; }
+	}
+	item previous = equipped_item($slot[pants]);
+	string [string] saved;
+	foreach pref in $strings[autoSatisfyWithMall, autoSatisfyWithNPCs, autoSatisfyWithCoinmasters, autoSatisfyWithCloset, autoSatisfyWithStorage, autoSatisfyWithStash]
+		saved[pref] = get_property(pref);
+	try {
+		if (!smmSpendDryRun()) {
+			foreach pref in saved set_property(pref, "false");
+			if (!equip($slot[pants], pants) || equipped_item($slot[pants]) != pants) return true;
+		}
+		SmmSpendNPCOffer [int] offers;
+		string [string] pages;
+		int lookups;
+		foreach n, id in smmSpendRotate(ids, "smm.spend.npcCursor") {
+			if (lookups >= smmSpendMaxLookups()) break;
+			lookups += 1;
+			if (!smmSpendDryRun()) set_property("smm.spend.npcCursor", id);
+			item it = id.to_item();
+			int average = floor(smmSpendAveragePrice(it));
+			SmmNRMarket market = smmNRMarketFrom(smmSpendMarketResponses[it], average, now_to_int() / 86400000);
+			if (!market.valid || market.volume < smmSpendMinSales()) continue;
+			int resale = shop_amount(it) > 0 ? min(market.price, shop_price(it)) : market.price;
+			int wanted = smmNRStockGap(market.volume, smmSpendNPCDays(), smmSpendNPCHeld(it));
+			SmmSpendNPCOffer best;
+			foreach v, vendor in vendors {
+				if (vendor.it != it) continue;
+				SmmNRBatch plan = smmNRPlan(wanted, smmSpendBudget(), vendor.base, resale, fiveFinger, quote.usable, quote.cash, quote.value);
+				if (plan.quantity < 1) continue;
+				if (!(pages contains vendor.shop)) pages[vendor.shop] = visit_url("shop.php?whichshop=" + vendor.shop);
+				int visible = smmNRVisiblePrice(pages[vendor.shop], vendor);
+				if (visible <= 0 || (!smmSpendDryRun() && visible != smmNRUnitCost(vendor.base, fiveFinger, false))) continue;
+				float score = plan.profit / to_float(max(1, plan.worstCost));
+				if (score > best.score) { best.vendor = vendor; best.market = market; best.score = score; }
+			}
+			if (best.score > 0) offers[count(offers)] = best;
+		}
+		sort offers by -value.score;
+		foreach n, offer in offers {
+			if (smmSpendBudget() < 1) break;
+			// Re-evaluate spare copies and remaining spleen before every batch.
+			quote = smmSpendNPCQuote();
+			if (!smmSpendNPCBuy(offer, pants, fiveFinger, quote.usable, quote.cash, quote.value)) return false;
+		}
+	} finally {
+		if (!smmSpendDryRun()) {
+			if (equipped_item($slot[pants]) != previous && !equip($slot[pants], previous)) print("Spending: could not restore previous pants.", "orange");
+			foreach pref, setting in saved set_property(pref, setting);
+		}
+	}
+	return true;
 }
 
 // Copies of an item still to acquire to reach the Museum top ten.
@@ -473,8 +682,15 @@ void smmSpendRun() {
 	}
 	smmSpendDayStart();
 	smmSpendReport();
+	if (get_property(kSmmSpendNPCPendingKey) != "") {
+		print("Spending: interrupted/ambiguous NPC batch; reconcile " + kSmmSpendNPCPendingKey + " before clearing it.", "red");
+		return;
+	}
 	if (smmSpendBudget() > 0) {
 		smmSpendPositiveReturn();
+		if (smmSpendBudget() > 0 && !smmSpendNPCResale()) {
+			smmSpendReport(); smmSpendDayClose(); return;
+		}
 		if (smmSpendBudget() > 0)
 			smmSpendMuseumSales();
 		if (smmSpendBudget() > 0)

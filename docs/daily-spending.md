@@ -2,7 +2,7 @@
 
 This is how `dailyGrind()` applies the spending rules in the aftercore goals: Meat goes first to purchases with a positive return, then to items on sale, biggest discount first; at most half of the day's net Meat is spent; nothing is bought above the market price; and "cheap" means 20% or more under the market price. The market price is the item's recent average sale price, read from Pricegun, not the current lowest mall listing.
 
-The code is in `scripts/smmSpend.ash`. **It has not yet been run in KoLmafia.** Set `smm.spend.dryRun = true` for the first day to see what it would buy.
+The code is in `scripts/smmSpend.ash`, with NPC resale planning in `scripts/smmNpcResale.ash`. **The new NPC resale pass has only been tested offline, logged out.** Set `smm.spend.dryRun = true` for the first day to see what it would buy.
 
 ## The day's ledger
 
@@ -19,25 +19,49 @@ Only Meat is counted: items gained are not valued until they sell. Anything else
 `smmSpendRun()` runs at the end of `dailyGrind()` and again at the start of `good_night()`. It can run any number of times: each run spends only what the budget still allows.
 
 1. **Positive return.** Reads `data/unrestricted_buy_map.txt` (item, what one copy is worth, how many to keep on hand). It buys an item when the mall price is under that worth, never paying more than the average sale price, best return per Meat first. When Pricegun has no sales for an item it pays no more than the current listing.
-2. **Display Case items on sale.** Considers tradeable items that have a stored Museum ranking and are short of first place, items short of the top ten first. The average sale price is trusted only when at least `smm.spend.minSales` copies sold in Pricegun's history. Each candidate is probed by buying one copy at no more than 80% of its average: the mall fills that from its cheapest listing, so a sale of only a few copies is found, which the quoted mall price (the fifth-cheapest listing) would hide. Items whose probe filled are then bought biggest discount first, to the top ten for every item before any is bought toward first place, and the copies go into the Display Case.
+2. **NPC resale.** Screens the installed KoLmafia NPC catalog for supported, accessible Meat shops. Compares pants-only batches with batches using one sleaze jelly, ranks profitable offers by projected profit per Meat committed, and recalculates quantity against the remaining daily budget immediately before buying. See the details below.
+3. **Display Case items on sale.** Considers tradeable items that have a stored Museum ranking and are short of first place, items short of the top ten first. The average sale price is trusted only when at least `smm.spend.minSales` copies sold in Pricegun's history. Each candidate is probed by buying one copy at no more than 80% of its average: the mall fills that from its cheapest listing, so a sale of only a few copies is found, which the quoted mall price (the fifth-cheapest listing) would hide. Items whose probe filled are then bought biggest discount first, to the top ten for every item before any is bought toward first place, and the copies go into the Display Case.
 
-3. **Display Case places at the average sale price.** What the budget still allows goes to the cheapest whole gaps in the Display Case: to the top ten for every item before any toward first place, the cheapest gap first (sorted by the stored mall price, so no request is made to sort them). Each copy costs no more than the item's average sale price, and only a gap the budget can close in full is bought, because part of a gap gains no place. A gap whose lookup came to nothing (no sales history, too few sales, nothing listed at or under the average) is passed over for `smm.spend.rankRetryDays` days (default 3, kept in `smm.spend.rankMiss`), so the same cheap gaps cannot use every lookup each day. `smm.spend.rankPass = false` turns this pass off. On 2026-11-24 nine such gaps (about 2.5M Meat for nine #1 places) were bought by hand after the day was over.
+4. **Display Case places at the average sale price.** What the budget still allows goes to the cheapest whole gaps in the Display Case: to the top ten for every item before any toward first place, the cheapest gap first (sorted by the stored mall price, so no request is made to sort them). Each copy costs no more than the item's average sale price, and only a gap the budget can close in full is bought, because part of a gap gains no place. A gap whose lookup came to nothing (no sales history, too few sales, nothing listed at or under the average) is passed over for `smm.spend.rankRetryDays` days (default 3, kept in `smm.spend.rankMiss`), so the same cheap gaps cannot use every lookup each day. `smm.spend.rankPass = false` turns this pass off. On 2026-11-24 nine such gaps (about 2.5M Meat for nine #1 places) were bought by hand after the day was over.
 
 Every purchase is sized by the most it may pay per copy, so the budget cannot be exceeded. The probes run in list order, one copy each, before the discounts are known; the larger purchases that follow are in discount order. In a dry run nothing is probed, so the quoted mall price stands in and small sales are not shown.
 
-Price lookups are capped per pass per run. The second pass remembers where it stopped and continues from there the next day, so the whole list is covered over several days. The step makes no Museum requests; run `dc refresh` to store more rankings.
+Price lookups are capped per pass per run. NPC resale and the Display Case sale pass remember where they stopped and continue from there next run, so the lists are covered over several days. The collection purchase passes make no Museum requests; the NPC pass may look up the jelly's ranking to protect owned copies. Run `dc refresh` to store more rankings.
+
+### NPC resale batches
+
+Demand is Pricegun's observed market sales over the **previous 14 complete UTC dates**, with zero for dates without sales and today's partial bucket excluded. At least three selling dates and `smm.spend.minSales` units are required; a single date contributing over 80% of volume is rejected as a spike. This is sampled market demand, not a promise that our shop will capture those sales.
+
+The stock ceiling is `floor(volume / 14 × min(365, npcBufferDays))`. Subtract all copies already in inventory, closet, storage, equipped or in the mall shop; Display Case copies stay out of this resale stock calculation. Thus one sale per day allows 365 total resale copies, or a batch of 300 if 65 are already held. Repeated runs cannot buy another year's stock on top of unsold copies. A lower remaining budget shrinks the batch, and a batch that no longer covers its costs is skipped.
+
+The listing price is the lower of the recent average sale price and the median of Pricegun's returned recent transaction prices, rounded down. An existing lower shop price is retained and used to calculate profitability. NPC quotes in Mafia's mall-price cache are not evidence of mall resale proceeds. Newly bought copies are listed at this price, retaining any existing per-buyer limit; old copies are not added to the listing. These are projected proceeds; prices and demand can change while stock is selling.
+
+Travoltan trousers must be in inventory or equipped and usable. Already-owned designer sweatpants or replica designer sweatpants can supply the same 5% discount instead. No equipment is bought automatically. Five Finger Discount is included when known. The script checks the exact visible item, vendor row, bulk-buy button and Meat-only price with the pants worn. Inaccessible stores, outfit conflicts, quantity-restricted catalog offers, closed holiday shops, coinmasters and special Doc Galaktik pricing are excluded rather than guessed from the old research snapshot.
+
+For a jelly batch, include both the jelly's value and the spleen it displaces. The spleen default is `1.88 × smm.TurnValue`, the historical adventure yield per spleen of a sweet spleen item; `smm.spend.npcSpleenValue` can override it, including zero when that spleen would otherwise expire unused. Only an owned spare jelly beyond the Museum reserve is consumed. Otherwise one fresh copy is explicitly bought at no more than its average sale price, on the same spending budget. Unknown jelly prices or full spleen disable jelly batches while leaving pants-only trades available. The jelly is chosen only if its net profit beats both pants-only resale and skipping the purchase.
+
+All price requests, stock checks, equipment changes and jelly acquisition finish **before chewing**. Automatic item sourcing is temporarily disabled. After confirming exactly one jelly disappeared and one spleen was used, the next game request is **one direct NPC bulk purchase of one item**. It never goes through `buy()` or falls back to the mall after chewing. Each further jelly-assisted item batch requires a fresh jelly. Previous pants and sourcing settings are restored afterward.
+
+Quantity reserves enough cash for the full pants-only charge plus any jelly acquisition, even though the expected jelly charge is lower. Actual Meat paid is booked to `_smm.spend.spent`; `_smm.spend.logAdjustment` reconciles the NPC log's potentially higher pants-only quote so `smmdaily book` does not charge the discount again as operating spend. Failed listings leave the new stock in inventory, where it prevents a duplicate restock.
+
+Before consuming or purchasing, `smm.spend.npcPending` records the item ID, quantity, expected unit cost and starting Meat. Failed/ambiguous chewing, an interrupted request, or an unexpected quantity/charge stops spending without retrying. This marker survives rollover. Check the session log, inventory, Meat and any remaining one-purchase discount; reconcile spending counters if execution was interrupted before booking, then clear the marker manually. Do not clear it just to retry an uncertain purchase.
+
+In a dry run, no pants, jelly, Meat or shop listings are changed and the NPC cursor is not advanced. Printed offers are conditional previews against the current budget, rather than a simulated shared portfolio with hypothetical purchases deducted. Offline tests cover the demand window, annual ceiling, budget arithmetic, discount choice, vendor rows, receipt checks and log reconciliation; the actual game requests remain untested until a live run.
 
 This replaces the old trigger in `secondBreakfast()` that ran `buyMallSpecials()` whenever total Meat was over 100,000,000.
 
-| Setting | Default | Meaning |
-|---|---|---|
-| `smm.spend.enabled` | true | `false` turns the step off. |
-| `smm.spend.dryRun` | false | `true` prints what would be bought and buys nothing. |
-| `smm.spend.fraction` | 0.5 | Share of the day's net that may be spent. Capped at 0.5. |
-| `smm.spend.minDiscount` | 0.2 | Discount that counts as a sale. Never under 0.2. |
-| `smm.spend.minSales` | 5 | Copies sold recently before an item's average sale price is trusted in pass 2. |
-| `smm.spend.maxLookups` | 60 | Items priced per pass per run. |
-| `smm.spend.rankPass` | true | `false` turns off pass 3, the Display Case places at the average sale price. |
+| Setting                    | Default             | Meaning                                                                                                   |
+| -------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------- |
+| `smm.spend.enabled`        | true                | `false` turns the step off.                                                                               |
+| `smm.spend.dryRun`         | false               | `true` prints what would be bought and buys nothing.                                                      |
+| `smm.spend.fraction`       | 0.5                 | Share of the day's net that may be spent. Capped at 0.5.                                                  |
+| `smm.spend.minDiscount`    | 0.2                 | Discount that counts as a sale. Never under 0.2.                                                          |
+| `smm.spend.minSales`       | 5                   | Copies sold recently before an item's average sale price is trusted for NPC resale or Display Case sales. |
+| `smm.spend.maxLookups`     | 60                  | Items priced per pass per run.                                                                            |
+| `smm.spend.rankPass`       | true                | `false` turns off Display Case places at the average sale price.                                          |
+| `smm.spend.npcResale`      | true                | `false` turns off the NPC resale pass.                                                                    |
+| `smm.spend.npcBufferDays`  | 365                 | Total resale-stock horizon, clamped to 0–365 days. Zero disables restocking.                              |
+| `smm.spend.npcSpleenValue` | `1.88 × turn value` | Opportunity cost per spleen spent on jelly, in Meat.                                                      |
 
 ## The diet's purchases
 
@@ -70,14 +94,14 @@ The Oasis block now keeps banishes back only for the banisher grinds still to do
 
 Each yes/no prompt can be answered ahead of time with `smm.dailyGrind.<name> = true` or `false`. Unset, it asks as before.
 
-| Name | Prompt |
-|---|---|
-| `sea` | Grind the sea location? |
-| `stopForBounty` | Stop for the bounty? |
-| `useBanishers` | Continue into the banisher section? `false` stops the run. |
-| `highItem` | Continue into the high item drop section? `false` stops the run. |
-| `dolphin` | Use the dolphin whistle? |
-| `gingerbreadItems` | Grind Gingerbread City items when the leaderboard can't be won? |
+| Name               | Prompt                                                           |
+| ------------------ | ---------------------------------------------------------------- |
+| `sea`              | Grind the sea location?                                          |
+| `stopForBounty`    | Stop for the bounty?                                             |
+| `useBanishers`     | Continue into the banisher section? `false` stops the run.       |
+| `highItem`         | Continue into the high item drop section? `false` stops the run. |
+| `dolphin`          | Use the dolphin whistle?                                         |
+| `gingerbreadItems` | Grind Gingerbread City items when the leaderboard can't be won?  |
 
 Other settings:
 
