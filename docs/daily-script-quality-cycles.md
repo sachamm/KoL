@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Normal game actions are separate from offline validation; the current end-of-day account was offered for information only.
 
+## Cycle 9: direct garbo buy adapter
+
+Daily garbo commands now enter `smmDailyGarbo.js`, which evaluates the installed CommonJS bundle with a copied `kolmafia` module. Its direct cash `buy` overloads call an ASH bridge that requires an active same-epoch daily run, an opening ledger and a purchase log, obtains the verified recent average, caps the unit price and sizes quantity by the remaining shared allowance. Unknown averages or no allowance authorize no purchase. Observed cash charges update operating spend immediately; the later log refresh uses the maximum and does not double-charge them. Boolean and count return conventions are preserved; coinmaster overloads retain their currency behavior. No native export is overwritten and failure never falls back to unguarded garbo.
+
+This is cooperative instrumentation, not a sandbox or universal purchasing hook. Automatic retrieval, crafting inputs, native recovery, direct URLs and delegated CLI/scripts still need broader enforcement; the closing audit remains required. The loaded upstream bundle can change, and the adapter must be revalidated after updates. Offline tests cover overloads, partial/denied fills, bad arguments, inactive/changed readiness, factory failures and the real JS/ASH bridge. An optional `smmDailyGarboLoadTest` evaluates an installed bundle against synthetic state with action functions blocked, without invoking its main. A passing load does not prove a successful live garbo day.
+
+KoLmafia's direct buy implementation dispatches the CLI purchase command; the retrieval `buyScript` hook cannot replace this boundary. The exact inspected installed-build source is [RuntimeLibrary at a40009d](https://github.com/kolmafia/kolmafia/blob/a40009d/src/main/java/net/sourceforge/kolmafia/textui/RuntimeLibrary.java). No live purchase was used to test this cycle.
+
 ## Cycle 8: rollover boundaries
 
 The engine pins its game date, ascension and account for a run, checks again after startup, recovery and worker callbacks, and refuses a completion checkpoint after that identity changes. The loaded journal is also pinned so an old in-memory journal cannot be written into a new epoch's archive. Existing old-day BEGIN records remain interrupted evidence; they are not reclassified as new-day spending or completion.
