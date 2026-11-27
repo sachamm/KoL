@@ -380,6 +380,7 @@ void smmDLGingerbread() {
 
 void smmDLForcedNoncombats() {
 	grindRufusAndTheShadowRiftsForFree();
+	if (forcedNcFailure != "") smmDTaskProblem = forcedNcFailure;
 }
 
 // ---------------------------------------------------------------------------
@@ -387,6 +388,7 @@ void smmDLForcedNoncombats() {
 
 void smmDLBeforeOverdrunk() {
 	beforeOverdrunkGoodNight();
+	if (forcedNcFailure != "") smmDTaskProblem = forcedNcFailure;
 }
 
 // Each overdrunk activity has its own journal entry in smmdaily.
@@ -423,6 +425,7 @@ void smmDLGoodNightAdv() { smmDLGoodNightRoute(); }
 // rollover check, so check again.
 void smmDLGoodNight() {
 	good_night();
+	if (forcedNcFailure != "") { smmDTaskProblem = forcedNcFailure; return; }
 	// spending the excess takes turns: not inside the rollover buffer
 	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60)
 		print("goodnight: too close to rollover to spend the adventures that would pass the cap", "orange");

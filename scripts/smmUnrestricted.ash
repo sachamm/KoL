@@ -4364,6 +4364,58 @@ int avalanchesUsed() {
 	return get_property("_mcHugeLargeAvalancheUses").to_int();
 }
 
+string forcedNcFailure;
+string forcedNcTestLaunch; // callbacks require the engine's offline test mode
+string forcedNcTestFiesta;
+
+boolean forcedNcObserved(string what, int before, int after, int expected, boolean ok) {
+	if (ok && after - before == expected) return true;
+	forcedNcFailure = what + " was not confirmed (counter " + before + " -> " + after
+		+ ", expected +" + expected + "); inspect any pending force before retrying";
+	print("forced noncombat: " + forcedNcFailure + "; no target adventure or further launch is authorized", "red");
+	return false;
+}
+
+// Each launch owns its queued consult flag only for this carrier. A failure
+// must not drain more free fights/kills or divert the next adventure to Rufus.
+boolean forcedNcTryLaunch(string key, string what, string usesPref, string carrier, AdventureRecord ar) {
+	if (carrier != "free" && carrier != "kill" && carrier != "paid") abort("unknown forced-noncombat carrier");
+	smmDRequireActiveDay();
+	string epoch = smmDEpoch();
+	int before = smmDGet(usesPref).to_int();
+	smmDSet(key, "true");
+	try {
+		if (smmDTestMode) {
+			if (forcedNcTestLaunch == "") abort("forced-noncombat test callback is required");
+			call void forcedNcTestLaunch();
+		} else if (carrier == "free") {
+			healIfRequiredWithMPRestore();
+			anyAdventure(ar);
+		} else if (carrier == "kill") burnInstaKill();
+		else grindRufusAndTheShadowRifts(1);
+	} finally { smmDSet(key, "false"); }
+	smmDRequireEpoch(epoch);
+	if (current_round() > 0 || handling_choice() || have_effect($effect[Beaten Up]) > 0) {
+		forcedNcFailure = what + " carrier did not return in a ready state; inspect the fight, choice and any pending force";
+		print("forced noncombat: " + forcedNcFailure, "red");
+		return false;
+	}
+	return forcedNcObserved(what, before, smmDGet(usesPref).to_int(), 1, true);
+}
+
+boolean forcedNcFiesta() {
+	smmDRequireActiveDay();
+	string epoch = smmDEpoch();
+	int before = smmDGet("_cinchUsed").to_int();
+	boolean ok;
+	if (smmDTestMode) {
+		if (forcedNcTestFiesta == "") abort("forced-noncombat test callback is required");
+		ok = smmDCallBool(forcedNcTestFiesta);
+	} else ok = use_skill(1, $skill[Cincho: Fiesta Exit]);
+	smmDRequireEpoch(epoch);
+	return forcedNcObserved("Fiesta Exit", before, smmDGet("_cinchUsed").to_int(), 60, ok);
+}
+
 // Spikes and Avalanches need a fight to be cast in. Once the free fights and
 // free kills are gone, one paid Shadow Rift fight still pays for itself: the
 // noncombat it forces finishes a Rufus quest, and the lodestone gives about
@@ -4374,19 +4426,11 @@ boolean forcedNcPaidFightAllowed() {
 
 // One paid Rift fight with the given key set (the consult script casts the
 // skill and clears it), then the forced noncombat and the free Rift fights.
-// Returns false when the skill was not cast.
+// Returns false when the cast or carrier's outcome could not be confirmed.
 boolean forcedNcPaidFight(string key, string what, int usedBefore, string usesPref) {
 	print("no free fight left: using a paid Shadow Rift fight to cast " + what, "green");
-	set_property(key, "true");
-	try {
-		grindRufusAndTheShadowRifts(1);
-	} finally {
-		set_property(key, "false");
-	}
-	if (get_property(usesPref).to_int() <= usedBefore) {
-		print("grindRufusAndTheShadowRiftsForFree: " + what + " was not cast in the paid fight, so the rest are left", "orange");
-		return false;
-	}
+	AdventureRecord carrier;
+	if (!forcedNcTryLaunch(key, what, usesPref, "paid", carrier)) return false;
 	grindRufusAndTheShadowRifts(1); // should be the boss
 	grindRufusAndTheShadowRiftsForFreeHelper();
 	return true;
@@ -4452,7 +4496,7 @@ void forcedNcTargets() {
 			boolean adventured = false;
 			set_property(key, t.option.to_string());
 			try {
-				use_skill($skill[Cincho: Fiesta Exit]);
+				if (!forcedNcFiesta()) return;
 				healIfRequiredWithMPRestore();
 				adventured = adv1(t.where, -1, "");
 			} finally {
@@ -4472,6 +4516,7 @@ void forcedNcTargets() {
 }
 
 void grindRufusAndTheShadowRiftsForFree() {
+	forcedNcFailure = "";
 	print("grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes available and " + cinchUsed() + " cinch used with " + cinchRestsUsed() + " cinch rests used and " + total_free_rests() + " total free rests", "green");
 
 	// FIRST, make sure we are in a known state with the quest started, no lodestone, and no Shadow Affinity buff
@@ -4488,12 +4533,10 @@ void grindRufusAndTheShadowRiftsForFree() {
 	// the spikes need the Jurassic Parka: without one, the dressup would stop the run
 	boolean ownParka = available_amount($item[Jurassic Parka]) > 0;
 	while (ownParka && spikolodonSpikesUsed() < 5 && freeCombatsAvailable() > 0 && questStage("questRufus") == 0) {
-		set_property("_smm.kSpikolodonNextCombat", "true");
 		AdventureRecord ar = chooseFreeCombat();
 		print("using free combat " + ar.toString() + " to trigger spikolodon spikes", "green");
 
-		healIfRequiredWithMPRestore();
-		anyAdventure(ar);
+		if (!forcedNcTryLaunch(kSpikolodonNextCombatKey, "spikolodon spikes", "_spikolodonSpikeUses", "free", ar)) return;
 
 		grindRufusAndTheShadowRifts(1); // should be the boss
 		grindRufusAndTheShadowRiftsForFreeHelper();
@@ -4503,9 +4546,9 @@ void grindRufusAndTheShadowRiftsForFree() {
 
 	// trigger any remaining spikes on instakills
 	while (ownParka && spikolodonSpikesUsed() < 5 && instaKillsAvailable() > 0 && questStage("questRufus") == 0) {
-		set_property("_smm.kSpikolodonNextCombat", "true");
 		print("using instakill to trigger spikolodon spikes", "green");
-		burnInstaKill();
+		AdventureRecord carrier;
+		if (!forcedNcTryLaunch(kSpikolodonNextCombatKey, "spikolodon spikes", "_spikolodonSpikeUses", "kill", carrier)) return;
 		grindRufusAndTheShadowRifts(1); // should be the boss
 		grindRufusAndTheShadowRiftsForFreeHelper();
 
@@ -4516,47 +4559,45 @@ void grindRufusAndTheShadowRiftsForFree() {
 
 	// then paid fights
 	while (ownParka && spikolodonSpikesUsed() < 5 && questStage("questRufus") == 0 && forcedNcPaidFightAllowed()) {
-		if (!forcedNcPaidFight("_smm.kSpikolodonNextCombat", "spikolodon spikes", spikolodonSpikesUsed(), "_spikolodonSpikeUses")) break;
+		if (!forcedNcPaidFight("_smm.kSpikolodonNextCombat", "spikolodon spikes", spikolodonSpikesUsed(), "_spikolodonSpikeUses")) return;
 	}
 
 	// McHUGELARGE AVALANCHE: 3 a day, cast in a fight like the spikes, forces the next noncombat
 	boolean haveSki = available_amount($item[McHugeLarge left ski]) > 0;
 	while (haveSki && avalanchesUsed() < 3 && (freeCombatsAvailable() > 0 || instaKillsAvailable() > 0) && questStage("questRufus") == 0) {
-		int before = avalanchesUsed();
-		set_property(kAvalancheNextCombatKey, "true");
+		AdventureRecord carrier;
+		string kind;
 		if (freeCombatsAvailable() > 0) {
-			AdventureRecord ar = chooseFreeCombat();
-			print("using free combat " + ar.toString() + " to cast McHugeLarge Avalanche", "green");
-			healIfRequiredWithMPRestore();
-			anyAdventure(ar);
+			carrier = chooseFreeCombat();
+			kind = "free";
+			print("using free combat " + carrier.toString() + " to cast McHugeLarge Avalanche", "green");
 		} else {
 			print("using instakill to cast McHugeLarge Avalanche", "green");
-			burnInstaKill();
+			kind = "kill";
 		}
-		set_property(kAvalancheNextCombatKey, "false");
-		if (avalanchesUsed() <= before) {
-			print("grindRufusAndTheShadowRiftsForFree: McHugeLarge Avalanche was not cast, so the rest are left", "orange");
-			break;
-		}
+		if (!forcedNcTryLaunch(kAvalancheNextCombatKey, "McHugeLarge Avalanche", "_mcHugeLargeAvalancheUses", kind, carrier)) return;
 		grindRufusAndTheShadowRifts(1); // should be the boss
 		grindRufusAndTheShadowRiftsForFreeHelper();
 		assert(questStage("questRufus") == 0, "grindRufusAndTheShadowRiftsForFree: Avalanche: we haven't started the quest!");
 	}
 	while (haveSki && avalanchesUsed() < 3 && questStage("questRufus") == 0 && forcedNcPaidFightAllowed()) {
-		if (!forcedNcPaidFight(kAvalancheNextCombatKey, "McHugeLarge Avalanche", avalanchesUsed(), "_mcHugeLargeAvalancheUses")) break;
+		if (!forcedNcPaidFight(kAvalancheNextCombatKey, "McHugeLarge Avalanche", avalanchesUsed(), "_mcHugeLargeAvalancheUses")) return;
 	}
 
 	// running out of free combats and free kills before the spikes is normal; leftover spikes are a
-	// missed opportunity, not a reason to abort the rest of the free Rufus/Cincho work and the day
+	// missed opportunity. This differs from an attempted but unconfirmed cast,
+	// which stops above before another carrier or target can consume resources.
 	cprint(ownParka && spikolodonSpikesUsed() < 5, "grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes left unused: no free combats (" + freeCombatsAvailable() + ") or free kills (" + instaKillsAvailable() + ") left to trigger them, and no paid fight (smm.forcedNC.paidTurns, adventures, sobriety)", "orange");
 
 
 	// CINCHO DE MAYO: first the day's chosen targets, then the Rift
+	if (available_amount($item[Cincho de Mayo]) <= 0) return;
 	equip($item[Cincho de Mayo]);
 	forcedNcTargets();
+	if (forcedNcFailure != "") return;
 	equip($item[Cincho de Mayo]);
 	while (readyCinch(60) && questStage("questRufus") == 0) {
-		use_skill($skill[Cincho: Fiesta Exit]);
+		if (!forcedNcFiesta()) return;
 		grindRufusAndTheShadowRifts(1); // should be the boss
 		grindRufusAndTheShadowRiftsForFreeHelper();
 
