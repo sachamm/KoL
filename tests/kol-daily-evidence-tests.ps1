@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\tools\KolDailyEvidence.ps1')
+. (Join-Path $PSScriptRoot '..\tools\KolDailyDiagnostics.ps1')
 $checks = 0
 function Assert-Evidence([bool] $Ok, [string] $Reason) { $script:checks++; if (-not $Ok) { throw $Reason } }
 $fixture = Join-Path $PSScriptRoot ('.runtime\evidence\' + [guid]::NewGuid().ToString('N'))
@@ -33,6 +34,17 @@ $good = Get-KolDailyRunEvidence $text $id $before $before 'Run' $true
 Assert-Evidence $good.candidateForLiveReview 'One ordered same-epoch completion with stable source is a review candidate'
 Assert-Evidence ($good.start.turns -eq 100 -and $good.end.turns -eq 105) 'Actual boundary counters are parsed, echoed commands are excluded'
 Assert-Evidence ($good.coverage -match 'Manual intervention.*separate review') 'Candidate evidence must not claim to prove no manual intervention'
+# Replayed history can coexist with a corrected current completion. Current
+# stops and missing completion must remain disqualifying after classification.
+$history = '00:01:02 END garbo | turns 100, adv 20, Meat 5000, MP 100 | command failed: fixture'
+$recoveredText = @($start,'errorOnAmbiguousFold => false',$history,$complete,$end) -join "`n"
+$diagnosticProblems = @($recoveredText -split "`n" | Where-Object { Test-KolDailyProblemLine $_ })
+Assert-Evidence ($diagnosticProblems.Count -eq 0) 'Historic failure and setting echo do not become current diagnostics'
+Assert-Evidence (Get-KolDailyRunEvidence $recoveredText $id $before $before 'Run' ($diagnosticProblems.Count -eq 0)).candidateForLiveReview 'Corrected completion can pass with historical journal failures'
+$heldText = $recoveredText + "`nsmmDaily: stopped after garbo: paid work remains held"
+$heldProblems = @($heldText -split "`n" | Where-Object { Test-KolDailyProblemLine $_ })
+Assert-Evidence (-not (Get-KolDailyRunEvidence $heldText $id $before $before 'Run' ($heldProblems.Count -eq 0)).candidateForLiveReview) 'Current held task still invalidates a completion claim'
+Assert-Evidence (-not (Get-KolDailyRunEvidence ($recoveredText.Replace($complete,'')) $id $before $before 'Run' $true).candidateForLiveReview) 'Ignoring history never substitutes for actual current completion'
 $invalid = @(
  @{why='missing end';text=($start+"`n"+$complete)},
  @{why='duplicate start';text=($start+"`n"+$text)},

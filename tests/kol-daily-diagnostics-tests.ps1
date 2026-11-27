@@ -19,7 +19,18 @@ $diagnosticCases = @(
  @{Line='smmDaily: conflicting fence records require reconciliation; no closet move was authorized'; Error=$true}
  @{Line='SMM_DAILY_PRICE_AUDIT UNVERIFIED'; Error=$true},
  @{Line='SMM_DAILY_PRICE_AUDIT POTENTIAL_OVERPAYMENT'; Error=$true},
- @{Line='SMM_DAILY_PRICE_AUDIT VERIFIED_REQUEST_CAPS'; Error=$false}
+ @{Line='SMM_DAILY_PRICE_AUDIT VERIFIED_REQUEST_CAPS'; Error=$false},
+ @{Line='errorOnAmbiguousFold => false'; Error=$false},
+ @{Line='> errorOnAmbiguousFold => true'; Error=$false},
+ @{Line='00:01:02 END garbo | turns 100, adv 20, Meat 5000, MP 100 | command failed: fixture; done-test still false'; Error=$false},
+ @{Line='00:01:02 STOP garbo | turns 100, adv 20, Meat 5000, MP 100 | command failed: fixture; this task remains unfinished'; Error=$false},
+ @{Line='00:01:02 NOTE close.book | turns 100, adv 20, Meat 5000, MP 100 | financial review required'; Error=$false},
+ @{Line='smmDaily: stopped after garbo: paid farming remains held; this task remains unfinished'; Error=$true},
+ @{Line='smmDaily: command failed: fixture'; Error=$true},
+ @{Line='00:01:02 END garbo | command failed: fixture'; Error=$true},
+ @{Line='00:01:02 Exception: fixture'; Error=$true},
+ @{Line='00:01:02 UNKNOWN garbo | turns 100, adv 20, Meat 5000, MP 100 | command failed: fixture'; Error=$true},
+ @{Line='errorOnAmbiguousFold => unexpected failure'; Error=$true}
 )
 foreach ($diagnosticCase in $diagnosticCases) {
  if ((Test-KolDailyProblemLine $diagnosticCase.Line) -ne $diagnosticCase.Error) { throw "Unexpected classification: $($diagnosticCase.Line)" }
