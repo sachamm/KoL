@@ -117,6 +117,14 @@ boolean smmIncomeLogCovered(string log, int offset, string anchor) {
  return offset >= 0 && log.length() >= offset && anchor.length() == min(256, offset)
   && smmIncomeSame(log.substring(max(0, offset - 256), offset), anchor);
 }
+string smmIncomeEncodedAnchor(string log, int offset) {
+ return url_encode(log.substring(max(0, offset - 256), offset));
+}
+boolean smmIncomeLogCovered(string log, int offset, string anchor, string format) {
+ if (format == "") return smmIncomeLogCovered(log, offset, anchor); // legacy single-line snapshots
+ return format == "url-tail256" && offset >= 0 && log.length() >= offset
+  && smmIncomeSame(smmIncomeEncodedAnchor(log, offset), anchor);
+}
 string smmIncomePrefix() {
  return smmDTestMode && smmIncomePrefixOverride != "" ? smmIncomePrefixOverride : "smm-income-opening-" + smmDEpoch().replace_string(":", "-");
 }
@@ -128,7 +136,8 @@ string [string] smmIncomeOpeningFrom(int cash, int fundingBase, string log, SmmI
  saved["meta:cash"] = cash.to_string();
  saved["meta:fundingBase"] = fundingBase.to_string();
  saved["meta:logOffset"] = log.length().to_string();
- saved["meta:logAnchor"] = log.substring(max(0, log.length() - 256));
+ saved["meta:logAnchorFormat"] = "url-tail256";
+ saved["meta:logAnchor"] = smmIncomeEncodedAnchor(log, log.length());
  saved["meta:shopRows"] = book.rows.to_string();
  saved["meta:shopUnknown"] = book.unknown.to_string();
  saved["meta:shopReliable"] = book.reliable.to_string();
@@ -143,7 +152,12 @@ boolean smmIncomeOpeningValid(string [string] saved) {
  foreach key in $strings[cash, fundingBase, logOffset, shopRows, shopUnknown]
   if (!saved["meta:" + key].is_integer() || saved["meta:" + key].to_int() < 0) return false;
  if (saved["meta:shopReliable"] != "true" && saved["meta:shopReliable"] != "false") return false;
- if (saved["meta:logAnchor"].length() != min(256, saved["meta:logOffset"].to_int())) return false;
+ int anchorUnits = min(256, saved["meta:logOffset"].to_int());
+ if (saved["meta:logAnchorFormat"] == "url-tail256") {
+  // Encoded ASCII avoids tabs/newlines being interpreted as map delimiters.
+  if (saved["meta:logAnchor"].length() < anchorUnits || saved["meta:logAnchor"].length() > anchorUnits * 9
+   || !create_matcher("^(?:[A-Za-z0-9.*_+~\\-]|%[0-9A-Fa-f]{2})*$", saved["meta:logAnchor"]).find()) return false;
+ } else if (saved["meta:logAnchorFormat"] != "" || saved["meta:logAnchor"].length() != anchorUnits) return false;
  int rows = saved["meta:shopUnknown"].to_int();
  foreach key, copies in saved {
   if (!key.starts_with("sale:")) continue;
@@ -209,7 +223,7 @@ void smmIncomeReport(int cash, string log) {
  SmmIncomeShopBook after = smmIncomeShopBookFrom(sales, !shop || count(sales) > 0);
  SmmIncomeShopDelta delta = smmIncomeShopDiff(before, after);
  int offset = saved["meta:logOffset"].to_int();
- boolean logComplete = smmIncomeLogCovered(log, offset, saved["meta:logAnchor"]);
+ boolean logComplete = smmIncomeLogCovered(log, offset, saved["meta:logAnchor"], saved["meta:logAnchorFormat"]);
  SmmIncomeCashEvents events = smmIncomeCashFrom(logComplete ? log.substring(offset) : "");
  if (events.unparsed > 0) logComplete = false;
  int change = cash - saved["meta:cash"].to_int();

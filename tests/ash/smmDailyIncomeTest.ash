@@ -93,6 +93,18 @@ void main() {
  saved["zz:seal"] = "complete-v1";
  saved["meta:shopRows"] = "9999";
  check(!smmIncomeOpeningValid(saved), "receipt count mismatch detects incomplete payloads");
+ smmIncomePrefixOverride = "smm-daily-test-income-multiline";
+ string longLog;
+ for i from 1 to 40 longLog += "0123456789";
+ longLog += "\r\nRound 1: Fixture wins the fight!\r\nYou gain 1,000 Meat\n> diagnostic\tquoted\n";
+ saved = smmIncomeOpeningFrom(10000, 9000, longLog, opening);
+ map_to_file(saved, smmIncomePrefix() + ".txt");
+ map_to_file(saved, smmIncomePrefix() + "-backup.txt");
+ string [string] roundTrip = smmIncomeLoadOpening();
+ check(smmIncomeOpeningValid(roundTrip), "multiline local-log anchors survive real snapshot serialization");
+ check(roundTrip["meta:logOffset"].to_int() == longLog.length() && smmIncomeLogCovered(longLog + "later", roundTrip["meta:logOffset"].to_int(), roundTrip["meta:logAnchor"], roundTrip["meta:logAnchorFormat"]), "a long CRLF/tab anchor still identifies the exact append boundary after reload");
+ check(smmIncomeLogCovered("ABCmore", 3, "ABC", ""), "legacy single-line anchor format remains readable");
+ check(!smmIncomeLogCovered("ABCmore", 3, "ABC", "unknown-format"), "unknown anchor formats never claim coverage");
  smmDTestMode = false;
  smmIncomePrefixOverride = "";
  if (failures == 0) print("PASS smmDailyIncomeTest: " + checks + " checks");
