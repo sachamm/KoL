@@ -78,6 +78,20 @@ boolean smmDTSettings =
 // ---------------------------------------------------------------------------
 // Phase 1: MP before anything casts
 
+string smmDTTestBreakfast; // only used by the engine's offline test mode
+void smmDTBreakfast() {
+ if (smmDGet("breakfastCompleted") == "true" && smmDGet("_smm.daily.breakfastDeferred") != "true") return;
+ smmDRequireActiveDay();
+ boolean ok;
+ if (smmDTestMode) {
+  if (smmDTTestBreakfast == "") abort("breakfast test callback is required");
+  ok = smmDCallBool(smmDTTestBreakfast);
+ } else ok = smmDCommand("breakfast");
+ smmDRequireActiveDay();
+ if (ok && smmDGet("breakfastCompleted") == "true") smmDSet("_smm.daily.breakfastDeferred", "false");
+ else if (smmDTaskProblem == "") smmDTaskProblem = "breakfast did not confirm its configured summons; retry after checking MP and settings";
+}
+
 // Gear is left as it is: the floor is capped at the MP the current outfit
 // holds, and second breakfast dresses for the day straight afterwards.
 void smmDTBootstrap() {
@@ -87,8 +101,8 @@ void smmDTBootstrap() {
 	smmDFreeMP(target);
 	// Breakfast summons that failed for lack of MP: KoLmafia's breakfast casts
 	// only what still has casts left, so running it again is the repair.
-	if (get_property("breakfastCompleted") != "true") {
-		unused = cli_execute("breakfast");
+	if (smmDGet("breakfastCompleted") != "true" || smmDGet("_smm.daily.breakfastDeferred") == "true") {
+		smmDTBreakfast();
 		smmDFreeMP(target);
 	}
 	string note = "MP " + before + " to " + my_mp() + " (floor " + target + ", maximum " + my_maxmp() + "), breakfastCompleted=" + get_property("breakfastCompleted");

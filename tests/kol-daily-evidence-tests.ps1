@@ -11,14 +11,14 @@ Set-Content (Join-Path $root 'relay/relay.ash') 'fixture relay'
 Set-Content (Join-Path $root 'settings/passwords.txt') 'fixture only: never read'
 $jar = Join-Path $root 'KoLmafia-00000.jar'; Set-Content $jar 'fixture jar, never executed'
 foreach ($name in 'smm-prefs.txt','smm-target-sources.txt','smmFreeCraftingMethods.txt','unrestricted_use_map.txt','unrestricted_pull_map.txt','unrestricted_buy_map.txt') { Set-Content (Join-Path $root ('data/' + $name)) 'fixture policy' }
-foreach ($name in 'Invoke-KolDaily.ps1','KolDailyDiagnostics.ps1','KolDailyOwnership.ps1','KolDailyEvidence.ps1') { Set-Content (Join-Path $runner $name) 'fixture runner' }
+foreach ($name in 'Invoke-KolDaily.ps1','KolDailyDiagnostics.ps1','KolDailyOwnership.ps1','KolDailyEvidence.ps1','KolDailyLogin.ps1') { Set-Content (Join-Path $runner $name) 'fixture runner' }
 $before = Get-KolDailySourceManifest $root $jar $runner
 $again = Get-KolDailySourceManifest $root $jar $runner
 Assert-Evidence ($before.digest -eq $again.digest) 'Capture time must not alter the content fingerprint'
-Assert-Evidence ($before.files.Count -eq 14) 'Manifest includes all selected source, policy, runner and jar files'
+Assert-Evidence ($before.files.Count -eq 15) 'Manifest includes all selected source, policy, runner and jar files'
 Set-Content (Join-Path $root 'settings/passwords.txt') 'changed ignored fixture'
 Assert-Evidence ((Get-KolDailySourceManifest $root $jar $runner).digest -eq $before.digest) 'Account settings stay outside the source manifest'
-foreach ($path in (Join-Path $root 'scripts/dependency.js'),(Join-Path $root 'data/smm-prefs.txt'),(Join-Path $runner 'Invoke-KolDaily.ps1'),$jar) {
+foreach ($path in (Join-Path $root 'scripts/dependency.js'),(Join-Path $root 'data/smm-prefs.txt'),(Join-Path $runner 'Invoke-KolDaily.ps1'),(Join-Path $runner 'KolDailyLogin.ps1'),$jar) {
  $old = Get-Content -LiteralPath $path -Raw
  Add-Content -LiteralPath $path 'changed'
  Assert-Evidence ((Get-KolDailySourceManifest $root $jar $runner).digest -ne $before.digest) "Changed source must change fingerprint: $path"
