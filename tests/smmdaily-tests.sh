@@ -82,6 +82,16 @@ out="$(mafia "smmDailyJournalGapTest")"
 if grep -q "journal gap requires reconciliation" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "unrecoverable journal gap stops before any task or recovery hook"
 else fail "journal gap did not prevent the task action"; fi
 
+# Simulated day changes must stop before another worker or checkpoint.
+for scenario in start before body active journal checkpoint; do
+ out="$(mafia "smmDailyRolloverTest $scenario")"
+ workers=0
+ [ "$scenario" != body ] || workers=1
+ if grep -q 'game day changed; no further task action' <<<"$out" && grep -q "ROLLOVER_STATE workers=$workers ended=0 wrongDay=0 done= museum=0" <<<"$out" && ! grep -q UNSAFE_NEXT_EXECUTED <<<"$out"; then
+  pass "rollover $scenario stops without new-day completion or charges"
+ else fail "rollover $scenario did not stop safely"; tail -12 <<<"$out"; fi
+done
+
 # Persistent fencing fails closed before another game move. The garbo case
 # also verifies its settings are restored despite an abort during fencing.
 for scenario in write garbo pending ambiguous corrupt conflict; do

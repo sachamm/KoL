@@ -18,6 +18,8 @@
 
 boolean smmDTestMode;
 string [string] smmDTestProps;
+string smmDTestEpoch; // tests only: simulate rollover without a live account
+string smmDRunEpoch;
 
 string smmDGet(string name) {
 	if (smmDTestMode) return (smmDTestProps contains name) ? smmDTestProps[name] : "";
@@ -77,7 +79,20 @@ boolean smmDCoreSettings =
 // planner and the spending ledger already use, so nothing has to migrate.
 
 string smmDEpoch() {
+	if (smmDTestMode && smmDTestEpoch != "") return smmDTestEpoch;
 	return today_to_string() + ":" + my_ascensions() + ":" + my_id();
+}
+
+void smmDRequireEpoch(string expected) {
+	if (expected != "" && expected != smmDEpoch())
+		abort("smmDaily: game day changed; no further task action or completion checkpoint is authorized. Inspect the interrupted run before restarting.");
+}
+
+// Separate pre-adventure invocations cannot see the engine's local variables.
+// A fresh engine run deliberately claims today's epoch; a stale active marker
+// must never authorize another adventure or recovery on a newly reset day.
+void smmDRequireActiveDay() {
+	smmDRequireEpoch(smmDRunEpoch != "" ? smmDRunEpoch : smmDGet("smm.daily.active"));
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +114,7 @@ record SmmDLine {
 };
 SmmDLine [int] smmDJournal;
 boolean smmDJournalLoaded;
+string smmDJournalEpoch;
 string smmDJournalOverride; // tests
 boolean smmDTestRejectJournalWrite; // tests: prove no action follows failed intent persistence
 
@@ -119,6 +135,8 @@ string smmDJournalArchiveFile(string epoch) {
 }
 
 void smmDJournalWrite() {
+ smmDRequireEpoch(smmDRunEpoch);
+ smmDRequireEpoch(smmDJournalEpoch);
  // Archive first: a truncated compatibility file can be recovered next run.
  if ((smmDTestMode && smmDTestRejectJournalWrite) || !map_to_file(smmDJournal, smmDJournalArchiveFile(smmDEpoch()))
   || !map_to_file(smmDJournal, smmDJournalFile()))
@@ -143,7 +161,13 @@ SmmDLine smmDLineNow(string task, string event, string note) {
 // fewer lines come back than this day has written (the file was lost, or cut
 // short), a GAP line records it instead of the day silently starting again.
 void smmDJournalLoad() {
-	if (smmDJournalLoaded) return;
+	smmDRequireEpoch(smmDRunEpoch);
+	if (smmDJournalLoaded) {
+		if (smmDJournalEpoch == "") smmDJournalEpoch = smmDEpoch();
+		smmDRequireEpoch(smmDJournalEpoch);
+		return;
+	}
+	smmDJournalEpoch = smmDEpoch();
 	smmDJournalLoaded = true;
 	SmmDLine [int] stored;
 	file_to_map(smmDJournalFile(), stored);
@@ -211,6 +235,7 @@ string smmDCheckpointNote(string note, int tries, boolean done, boolean failed, 
 }
 
 void smmDApplyCheckpoint(SmmDLine line) {
+ smmDRequireEpoch(line.epoch);
  matcher state = create_matcher("; engine-v1 ([0-9]+)\\|(true|false)\\|(true|false)\\|([0-9]+)\\|([^\\r\\n]*)$", line.note);
  if (!state.find()) return; // pre-checkpoint journals keep their existing preferences
  smmDSet("_smm.daily.tries." + line.task, state.group(1));
@@ -441,6 +466,8 @@ boolean smmDKnownSelector(string selector) {
 }
 
 void smmDRunTask(SmmDTask t) {
+	string taskEpoch = smmDEpoch();
+	smmDRequireEpoch(smmDRunEpoch);
 	string mode = smmDMode(t);
 	if (mode == "off") return;
 	if (smmDTaskDone(t)) return;
@@ -486,12 +513,16 @@ void smmDRunTask(SmmDTask t) {
 	print("smmDaily: " + t.id + " [" + mode + "] - " + t.about, "blue");
 	SmmDLine before = smmDLog(t.id, "BEGIN", smmDCheckpointNote(mode + (tries > 0 ? ", attempt " + (tries + 1) : ""), tries + 1, false, false, smmDMuseumTurnsUsed(), ""));
  smmDApplyCheckpoint(before);
+ smmDRequireEpoch(taskEpoch);
  if (smmDHookBeforeTask != "") call void smmDHookBeforeTask(t.id);
+	smmDRequireEpoch(taskEpoch);
 	call void fn();
+	smmDRequireEpoch(taskEpoch);
 	int turns = total_turns_played() - before.turns;
 	int meat = my_meat() + my_closet_meat() + my_storage_meat() - before.meat;
 	string note = "turns " + turns + ", Meat " + (meat >= 0 ? "+" : "") + meat;
 	boolean finished = smmDTaskProblem == "" && (t.done_fn == "" || smmDCallBool(t.done_fn));
+	smmDRequireEpoch(taskEpoch);
  if (smmDTaskProblem != "") {
   note += "; " + smmDTaskProblem;
   smmDStopRun = smmDTaskProblem + "; this task remains unfinished";
@@ -537,6 +568,9 @@ void smmDRun(string selector) {
 		print("smmDaily: this machine is not the runner, so this is a dry run. To run for real here: set smm.daily.runner = true", "orange");
 
 	string epoch = smmDEpoch();
+	smmDRunEpoch = epoch;
+	smmDStopRun = "";
+	try {
 	if (!dry) {
 		smmDRecoverState();
 		smmDSet("_smm.daily.complete", "");
@@ -544,9 +578,8 @@ void smmDRun(string selector) {
 		if (smmDGet("smm.daily.active") == epoch) print("smmDaily: the last run did not end cleanly.", "orange");
 		smmDSet("smm.daily.active", epoch);
 	}
-	smmDStopRun = "";
-	try {
 		if (!dry && smmDHookRunStart != "") call void smmDHookRunStart();
+		smmDRequireEpoch(epoch);
 		foreach i, t in smmDTasks {
 			if (!smmDSelected(t, selector)) continue;
 			smmDRunTask(t);
@@ -567,16 +600,14 @@ void smmDRun(string selector) {
 				print("smmDaily: stopped after " + t.id + " (smm.daily.halt).", "orange");
 				break;
 			}
-			if (epoch != smmDEpoch()) {
-				print("smmDaily: rollover passed during the run; stopping.", "orange");
-				break;
-			}
+			smmDRequireEpoch(epoch);
 		}
 	} finally {
 		if (!dry) {
 			if (smmDHookRunEnd != "") call void smmDHookRunEnd();
 			smmDSet("smm.daily.active", "");
 		}
+		smmDRunEpoch = "";
 	}
 }
 
