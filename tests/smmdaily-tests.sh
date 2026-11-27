@@ -56,11 +56,11 @@ mafia() { # mafia <gCLI command>...   The empty first line answers the login pro
 
 out="$(mafia "verify smmdaily.ash")"
 if grep -q "Script verification complete" <<<"$out"; then pass "smmdaily.ash and everything it imports compiles"
-else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend" <<<"$out" | head -20; fi
+else fail "smmdaily.ash does not compile"; tail -15 <<<"$out"; exit 1; fi
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboTest smmDailyGarboRetrieveTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboTest smmDailyGarboRetrieveTest smmDailyForcesTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
 	verdict="^[[:space:]]*(>[[:space:]]*)?PASS $t:"
 	if grep -Eq "$verdict" <<<"$out"; then pass "$(grep -E "$verdict" <<<"$out" | sed 's/^[[:space:]>]*//')"
@@ -98,6 +98,14 @@ for scenario in start before body active journal checkpoint; do
  if grep -q 'game day changed; no further task action' <<<"$out" && grep -q "ROLLOVER_STATE workers=$workers ended=0 wrongDay=0 done= museum=0" <<<"$out" && ! grep -q UNSAFE_NEXT_EXECUTED <<<"$out"; then
   pass "rollover $scenario stops without new-day completion or charges"
  else fail "rollover $scenario did not stop safely"; tail -12 <<<"$out"; fi
+done
+
+for scenario in abort epoch; do
+ expected='FORCED_LAUNCH_FIXTURE_ABORT'
+ [ "$scenario" != epoch ] || expected='game day changed; no further task action'
+ out="$(mafia "smmDailyForcesFailureTest $scenario")"
+ if grep -q "$expected" <<<"$out" && grep -q 'FORCED_LAUNCH_CLEANUP flag=false launches=1' <<<"$out" && ! grep -q 'UNSAFE_FORCE_TARGET_EXECUTED' <<<"$out"; then pass "forced launch $scenario clears its flag without dispatching a target"
+ else fail "forced launch $scenario cleanup failed"; tail -12 <<<"$out"; fi
 done
 
 # Persistent fencing fails closed before another game move. The garbo case

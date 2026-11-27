@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Normal game actions are separate from offline validation; the current end-of-day account was offered for information only.
 
+## Cycle 11: confirm scarce-resource launches before dispatch
+
+The spike loops previously sent the next adventure to the Rift without confirming a cast, and could drain more free carriers after a failed attempt. A common launch boundary now observes exactly one spike/Avalanche use, clears the queued consult flag in `finally`, checks the game epoch and requires the carrier to return out of combat/choice and without Beaten Up before dispatching a target. Failed free, free-kill and paid launches return before another launch or target. Fiesta Exit requires both a successful cast and the observed 60-Cinch charge; configured target work and the Rift loop stop on an unconfirmed result. The Cincho phase also skips an unowned belt rather than trying to equip it.
+
+The daily forced-noncombat, pre-nightcap and good-night wrappers preserve the explicit failure as an unfinished task, rather than marking a return from the worker as success. Real usage counters remain authoritative; the patch never refunds a resource. Ambiguous outcomes tell the operator to inspect any pending force before retrying.
+
+This fixes execution evidence and failure propagation. It does not choose a new strategic ordering, prove source-specific encounter eligibility, value every competing target, reserve the best carrier across all workers or establish the full Rift sequence's live return. Those allocation questions remain open under the original rubric. Synthetic callbacks in the existing offline test mode exercise the launch boundary and engine completion; expected abort/rollover cases require the flag to clear without dispatching a target. No game worker is run by these tests.
+
 ## Cycle 10: explicit garbo retrieval
 
 Garbo's explicit `retrieveItem` overloads now use accessible stock before proposing a purchase of the missing finished copies through the same price/budget bridge. The caller's `autoBuyPriceLimit` remains an additional ceiling; zero uses Mafia's 20,000 default rather than an unlimited bid, and negative ceilings prohibit a buy. Restrictive automatic-source settings remain ownership-only because the bridge cannot promise an NPC-only seller. A partial or denied fill returns false before native retrieval can source the remainder.
