@@ -68,6 +68,9 @@ void testCompletion() {
  check(smmDCompletionProblem() != "", "having a nightcap alone cannot complete unfinished tasks");
  foreach i, t in smmDTasks if (t.id.starts_with("goodnight")) smmDSet("_smm.daily.done." + t.id, smmDEpoch());
  check(smmDCompletionProblem() == "", "finished end-of-day tasks pass the task completion gate");
+ smmDSet("_smm.daily.error.close.store", "fixture: required command did not finish");
+ check(smmDCompletionProblem().contains_text("close.store"), "an unfinished repeating close worker also prevents a complete marker");
+ smmDSet("_smm.daily.error.close.store", "");
  smmDSet("_smm.daily.failed.goodnight.adv.fax", smmDEpoch());
  check(smmDCompletionProblem().contains_text("goodnight.adv.fax"), "a failed child is visible even after goodnight finishes");
  smmDSet("_smm.daily.failed.goodnight.adv.fax", "");
@@ -93,6 +96,7 @@ void testCollectionBudget() {
  check(dailyGrindCollectionTarget("oasis") == $item[none], "incidental untradeable drops do not exempt Oasis");
 }
 void testResourceOutcomes() {
+ check(smmDTPoolOwner(smmDTParsePool("glove|_powerfulGloveBatteryPowerUsed|100|item:Powerful Glove")) == "route / garbo", "Glove battery is not mistaken for an MP recovery battery");
  check(smmDailyResourceState(10, 10, "", "", "nep", false) == "used", "exhausted counter is used");
  check(smmDailyResourceState(6, 10, "server returned Party's Over", "", "nep", false).starts_with("blocked"), "closed Party is blocked, not four missed fights");
  check(smmDailyResourceState(0, 3, "", "collection tomorrow", "grinds", false).starts_with("reserved"), "declared retention has a reason");

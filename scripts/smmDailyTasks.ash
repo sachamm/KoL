@@ -313,11 +313,14 @@ string smmDTOverdrunkTurnsReady() {
 // Phase 5: close
 
 boolean smmDTUnfenceDone() {
-	return get_property(kSmmDFencedKey) == "";
+ SmmDFenceState fence = smmDFenceRead();
+ return fence.direction == 0 && fence.fenced == "";
 }
 
 void smmDTUnfence() {
 	smmDUnfence();
+ SmmDFenceState fence = smmDFenceRead();
+ if (fence.direction != 0 || fence.fenced != "") smmDTaskProblem = "fenced items remain unreconciled";
 }
 
 void smmDTBook() {
@@ -439,7 +442,8 @@ int smmDTPoolUsed(string value) {
 string smmDTPoolOwner(SmmDPool pool) {
  string pref = pool.pref.to_lower_case();
  if (pref == "timesrested" || pref.contains_text("cinch") || pref.contains_text("spikolodon") || pref.contains_text("avalanche")) return "forced.nc";
- if (pref.contains_text("restused") || pref == "nunsvisits" || pref.contains_text("battery") || pref.contains_text("licensetochill")) return "mp.bootstrap / goodnight";
+ if (pref.contains_text("restused") || pref == "nunsvisits" || pref == "_eternalcarbatteryused" || pref.contains_text("licensetochill")) return "mp.bootstrap / goodnight";
+ if (pref == "_powerfulglovebatterypowerused") return "route / garbo";
  if (pref.contains_text("hatred") || pref.contains_text("snoke") || pref.contains_text("tranquilizer") || pref.contains_text("saberforce")) return "grinds / garbo";
  if (pref.contains_text("neverendingparty")) return "nep";
  if (pref.contains_text("sweatout")) return "diet.finish";

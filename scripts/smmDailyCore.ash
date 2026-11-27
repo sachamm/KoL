@@ -499,9 +499,12 @@ void smmDRunTask(SmmDTask t) {
 	if (!finished) note += "; done-test still false";
 	boolean ranOut = smmDRanOutOfAdventures(t, turns, my_adventures());
 	if (ranOut) note += "; out of adventures, so it stays open";
+ string outcomeProblem = smmDTaskProblem;
+ if (outcomeProblem == "" && !finished) outcomeProblem = "postcondition remains false";
+ if (outcomeProblem == "" && ranOut) outcomeProblem = "out of adventures; task remains open";
  int museum = smmDMuseumTurnsUsed() + (t.museum ? max(0, turns) : 0);
  int nextTries = ranOut ? tries : (t.repeatable && finished ? 0 : tries + 1);
- smmDCheckpoint(t.id, "END", note, nextTries, finished && !ranOut && !t.repeatable, false, museum, smmDTaskProblem);
+ smmDCheckpoint(t.id, "END", note, nextTries, finished && !ranOut && !t.repeatable, false, museum, outcomeProblem);
 }
 
 // A task that began and never ended (an abort, a crash, a closed window) is
@@ -583,7 +586,7 @@ void smmDRun(string selector) {
 // Completion is an outcome, not merely a return from the command loop.
 string smmDCompletionProblem() {
  foreach i, t in smmDTasks {
-  if (smmDConfiguredMode(t) == "off" || t.repeatable) continue;
+  if (smmDConfiguredMode(t) == "off") continue;
   if (smmDGet("_smm.daily.failed." + t.id) == smmDEpoch()) return "failed task " + t.id;
   if (smmDGet("_smm.daily.error." + t.id) != "") return "unfinished task " + t.id + ": " + smmDGet("_smm.daily.error." + t.id);
  }

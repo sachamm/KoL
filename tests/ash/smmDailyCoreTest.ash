@@ -157,6 +157,7 @@ void testAttempts() {
 	fresh();
 	neverDone = true;
 	smmDRun("t.c");
+ check(smmDCompletionProblem().contains_text("unfinished task t.c"), "a returned task with a false postcondition prevents complete-day reporting");
 	smmDRun("t.c");
 	check(ran["c"] == 2, "a task whose done-test stays false is tried twice");
 	smmDRun("t.c");
@@ -173,6 +174,7 @@ void testAttempts() {
 	smmDRun("t.c");
 	check(ran["c"] == 1, "retry lets it run again");
 	check(smmDTaskDone(smmDTasks[smmDTaskIndex["t.c"]]), "and finish");
+ same(smmDGet("_smm.daily.error.t.c"), "", "successful retry clears the postcondition error");
 }
 
 void testStops() {

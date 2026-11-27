@@ -36,3 +36,9 @@ Fake-quantity tests cover lost preferences, crash after put/return, partial tran
 The information-only snapshot confirmed the practical need to distinguish producing copies from selling them when substantial stock already exists. Paid-grind selection now limits the mall premium by recent complete-date demand, a bounded liquidation horizon and a partial market share, after existing non-case stock. Remaining positive copies receive only autosell value. Negative consumed inputs keep their opportunity cost. The full signed holdings estimate remains visible, while history and collection-loss settlement use the more conservative marginal value.
 
 The implementation reuses the tested NPC demand parser and records per-item stock, demand, capacity, quote and marginal estimate outside Git. Pre-liquidity histories migrate to version 4. The model is an explicit conservative assumption, not observed sales or proof that our shop captures the assumed demand. It does not authorize purchases, sell items, or change the cash ledger. Calibration and corrected live samples remain open.
+
+## Cycle 5: unfinished outcomes remain incomplete
+
+A task returning with a false done-test now records an unfinished outcome in its checkpoint. Running out of adventures also records that the task remains open. Independent work can continue, but neither outcome can disappear behind a complete-day marker. Failed repeatable close workers also count against completion. Successful retry or a confirmed game-state completion clears the error. Unreconciled close-phase fencing becomes an explicit task failure before collection spending continues.
+
+Resource reporting distinguishes the Powerful Glove's battery from MP recovery. A raw counter is not proof of remaining available fights: the ownership/unlock requirement still applies. The information-only account checks therefore do not promote unowned or unavailable pools into resources the runner can spend.
