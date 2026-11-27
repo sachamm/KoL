@@ -2,6 +2,12 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Normal game actions are separate from offline validation; the current end-of-day account was offered for information only.
 
+## Cycle 14: verified-cost Museum gap ordering
+
+The rank-purchase pass previously bought in historical-estimate order, even after current average-price quotes reversed those costs. It also discarded gaps with absent historical prices or estimates above the budget. It now quotes a bounded rotating candidate pool before buying, sorts each rank tier by the verified whole-gap ceiling cost, and rechecks the remaining allowance and current gap before every purchase. Top-ten gaps remain ahead of first-place gaps without relying on a fixed numeric offset. The historical discovery records are preserved separately from quoted costs.
+
+The saved `smm.spend.rankCursor` prevents repeatedly unaffordable early candidates from consuming every lookup. Reporting states the quoted coverage; unquoted candidates prevent a global-cheapest claim. Listing availability can still cause partial fills, so quoted affordability is not a promise of a completed place. No cash-budget policy or rank target is changed.
+
 ## Cycle 13: guard garbo's explicit consumption
 
 The cooperative adapter now checks direct `use`, `eat`, `drink`, `overdrink` and `chew` calls against the existing Museum reserve policy. Reusable use needs one tool and does not spend a reserve copy. Ordinary consumption freezes the pre-purchase reserve; necessary replacement copies require a verified price, shared allowance and the caller's automatic-buy settings. A partial fill or protected untradeable item returns false before consumption. Finished items are retrieved through the guarded path before the native call, preventing implicit acquisition of that requested item inside these methods.
