@@ -460,6 +460,12 @@ void main() {
  testCommandFailure();
  testDurableRecovery();
 
+ fresh();
+ smmDSet("smm.daily.active", "20000101:0:0");
+ smmDRun("t.a");
+ check(ran["a"] == 1 && smmDTaskDone(smmDTasks[smmDTaskIndex["t.a"]]), "fresh run claims today despite an earlier day's stale active marker");
+ same(smmDGet("smm.daily.active"), "", "fresh run clears its active marker on exit");
+
 	fresh(); // leave an empty test journal behind
 	if (failures == 0) print("PASS smmDailyCoreTest: " + checks + " checks");
 	else print("FAILED smmDailyCoreTest: " + failures + " of " + checks + " checks", "red");

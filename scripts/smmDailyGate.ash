@@ -264,6 +264,7 @@ string smmDNextFreeMP(int missing) {
 
 // Every return value is captured: an uncaptured failure would abort the day.
 void smmDUseFreeMP(string source) {
+	smmDRequireActiveDay();
 	boolean ok = true;
 	switch (source) {
 	case "License to Chill":
@@ -272,6 +273,7 @@ void smmDUseFreeMP(string source) {
 	case "bat wings":
 		item back = equipped_item($slot[back]);
 		if (back != $item[bat wings]) ok = equip($slot[back], $item[bat wings]);
+		smmDRequireActiveDay();
 		if (ok) ok = use_skill(1, $skill[Rest upside down]);
 		if (back != $item[bat wings]) {
 			boolean restored = equip($slot[back], back); // $item[none] takes the wings off again
@@ -318,12 +320,15 @@ void smmDOverdrunkMP(int target) {
  int limit = smmDailyPurchaseLimit(npc_price(medicine), smmSpendAveragePrice(medicine));
  if (limit <= 0) return;
  for attempt from 1 upto 15 {
+  smmDRequireActiveDay();
   if (my_mp() >= target) break;
   int left = smmDSettingInt("combatMpBudget") - get_property("_smm.daily.combatMpSpent").to_int();
   if (left < limit || smmSpendBudget() < limit || my_meat() < limit) break;
   int copiesBefore = item_amount(medicine);
   int meatBefore = my_meat();
+  smmDRequireActiveDay();
   int bought = buy(1, medicine, limit);
+  smmDRequireActiveDay();
   int paid = max(0, meatBefore - my_meat());
   set_property("_smm.daily.combatMpSpent", get_property("_smm.daily.combatMpSpent").to_int() + paid);
   if (bought <= 0 || item_amount(medicine) <= copiesBefore) break;
@@ -337,6 +342,7 @@ void smmDOverdrunkMP(int target) {
 // Free recovery first; only the bounded overdrunk fallback may buy medicine.
 // Campsite rests are never used.
 void smmDCombatPrepare() {
+	smmDRequireActiveDay();
 	if (get_property("smm.daily.active") == "" || current_round() > 0 || handling_choice()) return;
 	string grind = get_property("_smm.grind.active");
  if (grind != "" && smmDailyFundedTurnsLeft(total_turns_played(), get_property("_smm.grind.startTurns").to_int(), get_property("_smm.grind.turnLimit").to_int()) == 0)
@@ -345,6 +351,7 @@ void smmDCombatPrepare() {
  smmDOverdrunkMP(min(my_maxmp(), 100));
 	int target = smmDailyCombatHpTarget(my_maxhp());
 	for attempt from 1 upto 8 {
+		smmDRequireActiveDay();
 		if (my_hp() >= target) break;
 		int before = my_hp();
 		boolean healed = false;

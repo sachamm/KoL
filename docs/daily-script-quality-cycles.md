@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Normal game actions are separate from offline validation; the current end-of-day account was offered for information only.
 
+## Cycle 8: rollover boundaries
+
+The engine pins its game date, ascension and account for a run, checks again after startup, recovery and worker callbacks, and refuses a completion checkpoint after that identity changes. The loaded journal is also pinned so an old in-memory journal cannot be written into a new epoch's archive. Existing old-day BEGIN records remain interrupted evidence; they are not reclassified as new-day spending or completion.
+
+Separate pre-adventure calls check the persistent active epoch before legacy preparation. Known free-MP and overdrunk recovery boundaries also check it before further consumption. A deliberate fresh run can claim today despite yesterday's stale marker. This is a boundary guard, not a server transaction: it cannot cancel an arbitrary third-party request already in flight, classify an uncertain cross-rollover result, or prevent all internal actions in an external worker. Inspect such a run before restarting; persistent fence recovery remains available.
+
+Synthetic expected-abort tests change the epoch in startup, the before-task hook and the worker, and exercise stale active state, cached journal writes and old completion replay. They require no subsequent worker, END record, done marker or new Museum charge. The regular engine suite also checks a successful fresh start with an old marker. These tests do not establish a corrected unattended live day.
+
 ## Cycle 1: persistent intent, explicit failure and exclusive ownership
 
 - A journal write failure stops before both the task body and its MP/recovery hook. A dated archive is written first and can recover a truncated compatibility journal. Prior epochs retain their own archives rather than only the latest previous day.
