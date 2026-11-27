@@ -103,6 +103,33 @@ boolean smmGuardItemStealEligible(location where) {
  return eligible;
 }
 
+boolean smmGuardGardenHoldReported;
+boolean smmGuardBlackRoseEligible() {
+ smmGuardReady();
+ item seed = $item[black garden rose];
+ int [item] camp = get_campground();
+ if ((camp contains seed) || get_property("_garbo_blackRoseFightsDone") == "true") return true;
+ int accessible = available_amount(seed);
+ int owned = smmMuseumOwnedCopies(seed);
+ int reserved = smmMuseumReservedCopies(seed);
+ smmGuardReady();
+ if (seed.reusable) reserved = 0;
+ boolean eligible = smmGuardInputAvailable(1, accessible, owned, reserved, 0, 0, 0, 0, false);
+ int configured = get_property("autoBuyPriceLimit").to_int();
+ boolean buying = seed.tradeable && configured >= 0 && get_property("autoSatisfyWithMall") == "true" && get_property("autoSatisfyWithNPCs") == "true";
+ if (!eligible && buying) {
+  float average = smmSpendAveragePrice(seed);
+  int quote = mall_price(seed);
+  eligible = smmGuardInputAvailable(1, accessible, owned, reserved, configured == 0 ? 20000 : configured, average, quote, smmSpendBudget(), true);
+ }
+ smmGuardReady();
+ if (!eligible && !smmGuardGardenHoldReported) {
+  print("smmDaily: Black Rose Garden fights held: no usable seed within Museum, price and allowance rules; other daily work can continue", "orange");
+  smmGuardGardenHoldReported = true;
+ }
+ return eligible;
+}
+
 int smmGuardConsumptionQuantity(int quantity, item it, boolean usingItem) {
  return usingItem && it.reusable ? min(1, max(0, quantity)) : max(0, quantity);
 }

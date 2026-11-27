@@ -107,17 +107,18 @@ exports.createModule = function (native, policy) {
   return wrapped;
 };
 
-exports.loadWorker = function (source, wrapped, routeEligible) {
+exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible) {
   if (typeof source !== "string" || source.trim() === "") throw new Error("smmDaily: garbo source is missing");
   const module = { exports: {} };
   // Return the bundle's actual zone objects, without rewriting its selector
   // or changing its prices. The optional hook is checked before main can run.
-  const zones = Function("require", "module", "exports", source + "\n;return typeof itemStealZones === 'undefined' ? null : itemStealZones;")(function (name) {
+  const hooks = Function("require", "module", "exports", source + "\n;return {zones: typeof itemStealZones === 'undefined' ? null : itemStealZones, garden: typeof refreshBlackRoseGardenMonsters === 'function' && typeof cachedBlackRoseGardenMonsters !== 'undefined' ? {refresh:refreshBlackRoseGardenMonsters, replace:function(fn){refreshBlackRoseGardenMonsters=fn;}, clear:function(){cachedBlackRoseGardenMonsters=[];}} : null};")(function (name) {
     if (name !== "kolmafia") throw new Error("smmDaily: unsupported garbo dependency: " + name);
     return wrapped;
   }, module, module.exports);
   if (typeof module.exports.main !== "function") throw new Error("smmDaily: garbo has no CommonJS main export");
   if (routeEligible !== undefined) {
+    const zones = hooks.zones;
     if (typeof routeEligible !== "function" || !Array.isArray(zones) || !wrapped.Location)
       throw new Error("smmDaily: unsupported garbo item-steal eligibility hook");
     const target = wrapped.Location.get("The Stately Pleasure Dome");
@@ -127,6 +128,15 @@ exports.loadWorker = function (source, wrapped, routeEligible) {
       throw new Error("smmDaily: unsupported garbo absinthe route shape");
     const zone = matches[0], original = zone.isOpen;
     zone.isOpen = function () { return original.apply(this, arguments) && routeEligible(zone.location); };
+  }
+  if (gardenEligible !== undefined) {
+    if (typeof gardenEligible !== "function" || !hooks.garden)
+      throw new Error("smmDaily: unsupported garbo Black Rose Garden hook");
+    const garden = hooks.garden;
+    garden.replace(function () {
+      if (!gardenEligible()) { garden.clear(); return; }
+      return garden.refresh.apply(this, arguments);
+    });
   }
   return module.exports.main;
 };

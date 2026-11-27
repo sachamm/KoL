@@ -12,7 +12,9 @@ exports.main = function (args) {
     consumptionQuantity: function (quantity, item, usingItem) { return bridge.smmGuardConsumptionQuantity(quantity, item, usingItem); }
   });
   const source = String(km.fileToBuffer("scripts/garbage-collector/garbo.js"));
-  const worker = adapter.loadWorker(source, wrapped, function (where) { return bridge.smmGuardItemStealEligible(where); });
+  const worker = adapter.loadWorker(source, wrapped,
+    function (where) { return bridge.smmGuardItemStealEligible(where); },
+    function () { return bridge.smmGuardBlackRoseEligible(); });
   adapter.runWorker(worker, args, km, {
     ready: function () { bridge.smmGuardReady(); },
     barfHold: function () { return bridge.smmGuardBarfHold(); }
