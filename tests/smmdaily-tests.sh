@@ -60,7 +60,7 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboTest smmDailyGarboRetrieveTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
 	verdict="^[[:space:]]*(>[[:space:]]*)?PASS $t:"
 	if grep -Eq "$verdict" <<<"$out"; then pass "$(grep -E "$verdict" <<<"$out" | sed 's/^[[:space:]>]*//')"
@@ -77,6 +77,10 @@ done
 out="$(mafia "smmDailyGarbo -10")"
 if grep -q 'guarded garbo requires a logged-in active daily run' <<<"$out"; then pass "guarded garbo refuses a logged-out or inactive run before loading its worker"
 else fail "guarded garbo did not refuse the inactive run"; tail -12 <<<"$out"; fi
+
+out="$(mafia "smmDailyGarboAbortTest")"
+if grep -q 'SMM_RETRIEVAL_FIXTURE_ABORT' <<<"$out" && grep -q 'SMM_RETRIEVAL_FIXTURE_FENCED true' <<<"$out" && grep -q 'SMM_RETRIEVAL_FIXTURE_RESTORED true' <<<"$out" && ! grep -qE 'UNSAFE_(RETRIEVAL|BUY)_EXECUTED' <<<"$out"; then pass "real ASH abort restores fixture retrieval settings before any transfer"
+else fail "retrieval ASH abort did not restore settings safely"; tail -12 <<<"$out"; fi
 
 out="$(mafia "smmDailyJournalFailureTest")"
 if grep -q "could not write the journal" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "journal failure stops before the task action"
