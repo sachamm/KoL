@@ -7,7 +7,9 @@ exports.main = function (args) {
   bridge.smmGuardReady();
   const wrapped = adapter.createModule(km, {
     ready: function () { bridge.smmGuardReady(); },
-    buy: function (quantity, item, limit) { return bridge.smmGuardBuy(quantity, item, limit); }
+    buy: function (quantity, item, limit) { return bridge.smmGuardBuy(quantity, item, limit); },
+    consume: function (quantity, item, usingItem) { return bridge.smmGuardConsume(quantity, item, usingItem); },
+    consumptionQuantity: function (quantity, item, usingItem) { return bridge.smmGuardConsumptionQuantity(quantity, item, usingItem); }
   });
   const source = String(km.fileToBuffer("scripts/garbage-collector/garbo.js"));
   const worker = adapter.loadWorker(source, wrapped);

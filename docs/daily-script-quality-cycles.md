@@ -2,6 +2,12 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Normal game actions are separate from offline validation; the current end-of-day account was offered for information only.
 
+## Cycle 13: guard garbo's explicit consumption
+
+The cooperative adapter now checks direct `use`, `eat`, `drink`, `overdrink` and `chew` calls against the existing Museum reserve policy. Reusable use needs one tool and does not spend a reserve copy. Ordinary consumption freezes the pre-purchase reserve; necessary replacement copies require a verified price, shared allowance and the caller's automatic-buy settings. A partial fill or protected untradeable item returns false before consumption. Finished items are retrieved through the guarded path before the native call, preventing implicit acquisition of that requested item inside these methods.
+
+This does not cover crafting ingredients, ancillary consumption, direct URLs or delegated workers. The adapter is cooperative instrumentation, not a sandbox. Unknown ranks keep existing copies reserved, and the existing per-item `smm.IR.museumSpend.<id>` override remains explicit. No production action was used to test this boundary. Scores require the post-merge evidence and remain separate from live outcomes.
+
 ## Cycle 12: apply demand limits before paid-route selection
 
 The IoTM route previously credited surplus at a discounted listing even when existing stock exhausted likely demand; the grind's later report used a stricter model. Route reward valuation now applies the same completed-sale capacity after non-case stock, caps the premium by observed average/median and the conservative listing quote, and uses autosell for remaining or unverified surplus. Inputs keep their opportunity cost. Retained copies receive a separate known Museum replacement value, without adding sale credit for the same copy. Untradeable outputs do not receive unexecuted conversion proceeds.
