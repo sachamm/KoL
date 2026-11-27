@@ -3,6 +3,7 @@ notify TQuilla;
 since r26718;
 
 import <smmAutomation.ash>;
+import <smmFantasyTargets.ash>
 
 string __fr_version = "0.1";
 
@@ -15,7 +16,6 @@ Grind FantasyRealms.
 */
 
 
-import <smmFantasyTargets.ash>
 item gTargetItem;
 
 void printHelp() {

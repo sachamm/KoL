@@ -54,9 +54,11 @@ mafia() { # mafia <gCLI command>...   The empty first line answers the login pro
 
 # --- 1. everything compiles --------------------------------------------------
 
-out="$(mafia "verify smmdaily.ash")"
-if grep -q "Script verification complete" <<<"$out"; then pass "smmdaily.ash and everything it imports compiles"
-else fail "smmdaily.ash does not compile"; tail -15 <<<"$out"; exit 1; fi
+for entry in smmdaily.ash fr.ash; do
+ out="$(mafia "verify $entry")"
+ if grep -q "Script verification complete" <<<"$out"; then pass "$entry and everything it imports compiles"
+ else fail "$entry does not compile"; tail -15 <<<"$out"; exit 1; fi
+done
 
 # --- 2. the ASH tests --------------------------------------------------------
 

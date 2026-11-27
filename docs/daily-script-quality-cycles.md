@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 16: compile dynamic workers before login
+
+The explicitly authorized supervised run resumed an existing `deeds` checkpoint, then aborted when `LOVprep` called `fr quest`. FantasyRealm's shared target import appeared after a global declaration, where ASH parsed it as an unknown variable. The same failure reproduced logged out in r29462 and r29482; it was not specific to the newly installed client. Moving the import into the initial import block fixes standalone compilation.
+
+The offline suite now verifies `fr.ash` as well as the main entry point. The Windows runner additionally verifies `smmdaily.ash`, `fr.ash`, `diet.ash` and `smmPreAdventure.ash` with its actual selected jar before any login. It requires four real completion lines and a successful, non-timeout process; partial output, echoed markers and nonzero exits cannot authorize login. This catches dynamically called workers that the main static import graph does not compile.
+
+The failed attempt ended with an error and idle timeout, stable source, no matching end boundary and no complete marker. Cleanup restored login flags and removed the settings guard. It is not a qualifying fresh unattended day, and the missing end boundary does not prove zero resource use. Existing completed tasks, counters and spending are preserved for an explicit retry of `deeds` after integration. The corrected four-entry preflight passed logged out on r29482; the offline suite passed 1251 assertions and 18 refusal/abort scenarios, and Windows checks passed 118 cases. Further live results require the corrected rerun.
+
 ## Cycle 15: breakfast after the opening baseline
 
 A fresh-day authorized information login confirmed usable adventures, sobriety, no encounter and no fence. Login automatically updated public dependencies, so the new garbo bundle was checked with synthetic state and action functions blocked; its main was never called. Shared utility source matched the offline dependency. No daily worker had run.
