@@ -18,18 +18,24 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.20/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.25/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
 | Whole day unattended | 2 | 0.8 | 1.60 |
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
-| Scarce resources protected and aimed | 1.5 | 1.2 | 1.35 |
+| Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
 | Paid adventures allocated well | 1.5 | 0.4 | 1.0 |
 | Spending rules | 1 | 0.7 | 0.75 |
 | Museum progress | 1 | 0.7 | 0.85 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.20** |
+| **Total** | **10** | **6.0** | **8.25** |
+
+### Quality cycle 3: post-merge assessment
+
+[PR #36](https://github.com/sachamm/KoL/pull/36), merged as `37cdee7fa027613344556c755ee3e29055674ff4`, raises scarce-resource protection by **0.05**, taking provisional code quality to **8.25/10**. Persistent write-ahead ownership now covers closet-transfer crash windows, preference loss and partial returns without taking original closet stock. Corrupt, conflicting and ambiguous records stop work; missing copies remain recorded. Forced-noncombat allocation and live economics still limit this criterion, and safety is not awarded full marks.
+
+Post-merge checks passed **970 ASH assertions**, both compilations, plan/static checks, six expected fence abort/cleanup scenarios and both journal abort regressions. Windows checks passed **35 evidence cases, 16 diagnostic cases and 18 ownership checks**. A separately authorized information login disabled breakfast, exported account snapshots outside Git and closed without spending adventures or resources. It does not establish an unattended day. Live performance remains **6.0/10**; **9.9 is not achieved**.
 
 ### Quality cycle 2: post-merge assessment
 
