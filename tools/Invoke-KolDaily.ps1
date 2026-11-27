@@ -58,6 +58,7 @@ $status = [ordered]@{
   log = $logFile; jarBefore = $null; jarAfter = $null; jarUpdate = $null; gitUpdate = $null
   closedProcesses = 0; movedStaleScripts = @(); mafiaExitCode = $null; timedOut = $false
   loggedIn = $false; errors = @(); warnings = @(); smmdailyLines = @()
+  compileCheck = $null
   runId = $runId; evidenceFile = $evidenceFile; sourceDigest = $null; sourceStable = $null; candidateForLiveReview = $false
   customLoginCommands = ($AfterLoginCommands.Count -gt 0)
 }
@@ -240,6 +241,14 @@ try {
     } else { $status.gitUpdate = 'ok' }
   }
   Remove-StaleScripts
+  # Dynamic CLI workers are not part of smmdaily's static import graph.
+  # Verify them with the actual selected jar before any account login.
+  $compileResult = Invoke-MafiaCli 'verify' @('verify smmdaily.ash','verify fr.ash','verify diet.ash','verify smmPreAdventure.ash') 20
+  Add-Content $logFile "----- compilation output -----`r`n$($compileResult.Text)`r`n-----------------------------" -Encoding utf8
+  $compileProblem = Get-KolDailyCompileProblem $compileResult 4
+  if ($compileProblem) { $status.compileCheck = 'failed'; throw $compileProblem }
+  $status.compileCheck = 'passed'
+  Write-Log 'Four daily entry points compiled with the selected Mafia jar before login.'
   $sourceBefore = Get-KolDailySourceManifest $MafiaRoot (Join-Path $MafiaRoot (Get-NewestJar).Name) $PSScriptRoot
   $status.sourceDigest = $sourceBefore.digest
   # Persist the source identity before any login or custom command can act.

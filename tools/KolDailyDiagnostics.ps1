@@ -1,4 +1,13 @@
 # Pure classification: macro definitions are normal output, actual failures are not.
+function Get-KolDailyCompileProblem {
+ param($Result, [int] $Expected)
+ if ($null -eq $Result -or $Expected -lt 1) { return 'Missing compilation evidence.' }
+ if ($Result.TimedOut -or $Result.ExitCode -ne 0) { return 'Compilation process did not finish successfully.' }
+ $completed = [regex]::Matches([string]$Result.Text, '(?m)^[\t >]*Script verification complete\.[\t ]*\r?$').Count
+ if ($completed -ne $Expected) { return "Compilation confirmed $completed of $Expected entry points; no login is authorized." }
+ return ''
+}
+
 function Test-KolDailyProblemLine {
  param([AllowEmptyString()][string] $Line)
  $dailyLine = ($Line -replace '^\s*>\s*', '').Trim()

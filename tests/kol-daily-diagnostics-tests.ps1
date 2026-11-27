@@ -24,10 +24,26 @@ $diagnosticCases = @(
 foreach ($diagnosticCase in $diagnosticCases) {
  if ((Test-KolDailyProblemLine $diagnosticCase.Line) -ne $diagnosticCase.Error) { throw "Unexpected classification: $($diagnosticCase.Line)" }
 }
+$complete = "Script verification complete.`n> Script verification complete.`nScript verification complete.`r`nScript verification complete."
+$compileCases = @(
+ @{Result=[pscustomobject]@{Text=$complete;TimedOut=$false;ExitCode=0};Error=$false},
+ @{Result=[pscustomobject]@{Text='Unknown variable import';TimedOut=$false;ExitCode=0};Error=$true},
+ @{Result=[pscustomobject]@{Text='Script verification complete.';TimedOut=$false;ExitCode=0};Error=$true},
+ @{Result=[pscustomobject]@{Text=($complete+"`nScript verification complete.");TimedOut=$false;ExitCode=0};Error=$true},
+ @{Result=[pscustomobject]@{Text=$complete;TimedOut=$true;ExitCode=0};Error=$true},
+ @{Result=[pscustomobject]@{Text=$complete;TimedOut=$false;ExitCode=1};Error=$true},
+ @{Result=[pscustomobject]@{Text=(@('ash print("Script verification complete.");') * 4 -join "`n");TimedOut=$false;ExitCode=0};Error=$true},
+ @{Result=$null;Error=$true}
+)
+foreach ($compileCase in $compileCases) {
+ $problem = Get-KolDailyCompileProblem $compileCase.Result 4
+ if ([bool]$problem -ne $compileCase.Error) { throw 'Compilation gate accepted incomplete or failed evidence.' }
+}
 $runnerTokens = $null; $runnerErrors = $null
 $null = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot '..\tools\Invoke-KolDaily.ps1'), [ref]$runnerTokens, [ref]$runnerErrors)
 if ($runnerErrors.Count) { throw ($runnerErrors | Out-String) }
 $runnerText = Get-Content (Join-Path $PSScriptRoot '..\tools\Invoke-KolDaily.ps1') -Raw
 if ($runnerText.IndexOf('Enter-KolDailyOwnership $MafiaRoot') -lt 0 -or $runnerText.IndexOf('Enter-KolDailyOwnership $MafiaRoot') -gt $runnerText.IndexOf('Stop-Mafia', $runnerText.IndexOf('Daily runner starting:'))) { throw 'Ownership must precede process handling' }
 if (-not $runnerText.Contains('finally { Exit-KolDailyOwnership $ownership }')) { throw 'Ownership must release even if status writing fails' }
-Write-Output "PASS kol-daily-diagnostics: $($diagnosticCases.Count) cases; runner parses; exclusive ownership guard preserved"
+if ($runnerText.IndexOf('$compileResult = Invoke-MafiaCli') -gt $runnerText.IndexOf('Enter-KolDailyLoginGuard $MafiaRoot')) { throw 'Compilation must pass before login settings and account actions' }
+Write-Output "PASS kol-daily-diagnostics: $($diagnosticCases.Count + $compileCases.Count) cases; runner parses; compilation and exclusive ownership guards preserved"
