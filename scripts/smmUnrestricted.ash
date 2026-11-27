@@ -751,6 +751,7 @@ string kGrindTurnsTotalKey = "_smm.grind.turnsTotal";
 int gGrindTurnMark;
 int gGrindMeatMark;
 int [item] gGrindInventoryMark;
+int [item] gGrindResaleStockMark;
 int gGrindLogMark;
 int gGrindCollectionLossMark;
 
@@ -759,20 +760,20 @@ string dailyGrindSessionLog() {
  return count(logs) > 0 ? logs[0] : "";
 }
 
-// Version 3 replaces listing-only and positive-holdings histories. Clear
-// their estimates once before selecting future farming.
+// Version 4 adds marginal demand/backlog limits to version 3's signed physical
+// accounting. Histories without these limits cannot select future farming.
 string kGrindValueVersionKey = "smm.grind.valueVersion";
 boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread];
 
 void dailyGrindMigrateHistory() {
-	if (get_property(kGrindValueVersionKey) == "3") return;
+	if (get_property(kGrindValueVersionKey) == "4") return;
 	foreach name in kDailyGrindNames {
 		foreach key in $strings[histTurns, histValue, histRuns, histMuseumAt, histMuseumItems]
 			set_property("smm.grind." + key + "." + name, "");
   set_property("_smm.grind.counted." + name, "");
 	}
-	set_property(kGrindValueVersionKey, "3");
-	print("dailyGrind: cleared the grind history, which counted equipment moves and omitted consumed inputs", "orange");
+	set_property(kGrindValueVersionKey, "4");
+	print("dailyGrind: cleared pre-liquidity grind history; marginal estimates now account for demand and existing stock", "orange");
 }
 
 int dailyGrindMinDays() {
@@ -880,7 +881,7 @@ boolean dailyGrindMayRun(string name) {
 		return false;
 	}
 	// history from before the sale-price valuation is cleared at the next grind, and never skips one before that
-	boolean honestHistory = get_property(kGrindValueVersionKey) == "3";
+	boolean honestHistory = get_property(kGrindValueVersionKey) == "4";
 	int runs = get_property("smm.grind.histRuns." + name).to_int();
 	if (preset != "true" && honestHistory && runs >= min(dailyGrindEarlyDays(), dailyGrindMinDays())) {
 		int perTurn = dailyGrindReturnPerTurn(name);
@@ -915,6 +916,9 @@ void dailyGrindBegin() {
  gGrindTurnMark = total_turns_played();
  gGrindMeatMark = my_meat() + my_closet_meat() + my_storage_meat();
  gGrindInventoryMark = dailyGrindHoldings();
+ clear(gGrindResaleStockMark);
+ int [item] displayed = get_display();
+ foreach it, amount in gGrindInventoryMark gGrindResaleStockMark[it] = max(0, amount - displayed[it]);
  gGrindLogMark = dailyGrindSessionLog().length();
  gGrindCollectionLossMark = get_property("_smm.grind.collectionLoss").to_int();
 }
@@ -964,12 +968,32 @@ int dailyGrindItemValue(item it) {
 	return dailyGrindItemValueFrom(true, historical_price(it), smmSpendAveragePrice(it), autosell_price(it));
 }
 
+int dailyGrindLiquidationDays() {
+ string setting = get_property("smm.dailyGrind.liquidationDays");
+ return setting == "" ? 7 : min(30, max(0, setting.to_int()));
+}
+
+float dailyGrindMarketShare() {
+ string setting = get_property("smm.dailyGrind.marketShare");
+ return setting == "" ? 0.1 : min(0.25, max(0.0, setting.to_float()));
+}
+
+SmmNRMarket dailyGrindMarket(item it) {
+ if (!it.tradeable) return new SmmNRMarket();
+ int average = floor(smmSpendAveragePrice(it));
+ SmmNRMarket market = smmNRMarketFrom(smmSpendMarketResponses[it], average, now_to_int() / 86400000);
+ if (market.volume < smmSpendMinSales()) market.valid = false;
+ if (market.valid) market.price = dailyGrindItemValueFrom(true, historical_price(it), market.price, autosell_price(it));
+ return market;
+}
+
 
 void dailyGrindEnd(string name) {
  int turns = total_turns_played() - gGrindTurnMark;
  int meat = my_meat() + my_closet_meat() + my_storage_meat() - gGrindMeatMark;
  int itemValue = 0;
  int nativeValue = 0;
+ int liquidValue = 0;
  boolean museumGain = false;
  string museumIds = "";
  string log = dailyGrindSessionLog();
@@ -987,13 +1011,23 @@ void dailyGrindEnd(string name) {
   if (delta == 0) continue;
   int price = dailyGrindItemValue(it);
   int signedValue = delta > 0 ? delta * price : -ceil(min(1000000000.0, smmMuseumOwnedValue(it, -delta)));
+  SmmNRMarket market = dailyGrindMarket(it);
+  int capacity = market.valid ? smmDailyLiquidCapacity(market.volume, dailyGrindLiquidationDays(), dailyGrindMarketShare()) : 0;
+  int marginalValue = delta > 0 ? smmDailyLiquidValue(delta, gGrindResaleStockMark[it], capacity, market.price, autosell_price(it)) : signedValue;
   itemValue += signedValue;
+  liquidValue += marginalValue;
   nativeValue += min(max(0, delta), receipts[it].nativeDrops) * price;
   evidence[it, "before"] = gGrindInventoryMark[it];
   evidence[it, "after"] = after[it];
   evidence[it, "delta"] = delta;
   evidence[it, "unitEstimate"] = price;
   evidence[it, "signedValue"] = signedValue;
+  evidence[it, "marginalValue"] = marginalValue;
+  evidence[it, "marketVolume14Days"] = market.volume;
+  evidence[it, "marketValid"] = market.valid ? 1 : 0;
+  evidence[it, "marginalSalePrice"] = market.price;
+  evidence[it, "saleCapacity"] = capacity;
+  evidence[it, "existingResaleStock"] = gGrindResaleStockMark[it];
   evidence[it, "acquired"] = receipts[it].acquired;
   evidence[it, "nativeDrops"] = receipts[it].nativeDrops;
   evidence[it, "requestedBuys"] = receipts[it].requestedBuys;
@@ -1007,7 +1041,7 @@ void dailyGrindEnd(string name) {
   print("dailyGrind: could not write the " + name + " item receipt", "red");
  if (!completeLog) print("dailyGrind: session log shortened; native-drop classification is incomplete", "orange");
  set_property("_smm.grind.active", "");
- if (turns <= 0 && meat == 0 && itemValue == 0) {
+ if (turns <= 0 && meat == 0 && itemValue == 0 && liquidValue == 0) {
   int held = get_property("_smm.grind.reserved." + name).to_int();
   int priorLoss = held > 0 ? min(held, max(0, total_turns_played() - get_property("_smm.grind.start." + name).to_int()) * kTurnValue) : 0;
   set_property("_smm.grind.collectionCommitted", max(0, get_property("_smm.grind.collectionCommitted").to_int() - held) + priorLoss);
@@ -1019,11 +1053,12 @@ void dailyGrindEnd(string name) {
  set_property("_smm.grind.meat." + name, get_property("_smm.grind.meat." + name).to_int() + meat);
  set_property("_smm.grind.items." + name, get_property("_smm.grind.items." + name).to_int() + itemValue);
  set_property("_smm.grind.native." + name, get_property("_smm.grind.native." + name).to_int() + nativeValue);
+ set_property("_smm.grind.liquid." + name, get_property("_smm.grind.liquid." + name).to_int() + liquidValue);
  set_property(kGrindTurnsTotalKey, get_property(kGrindTurnsTotalKey).to_int() + turns);
  if (target != $item[none]) {
   int reservedTurns = get_property("_smm.grind.reserved." + name).to_int() > 0
    ? max(turns, total_turns_played() - get_property("_smm.grind.start." + name).to_int()) : turns;
-  int loss = max(0, reservedTurns * kTurnValue - meat - itemValue);
+  int loss = max(0, reservedTurns * kTurnValue - meat - liquidValue);
   int reserved = get_property("_smm.grind.reserved." + name).to_int();
   if (reserved > 0) {
    set_property("_smm.grind.collectionCommitted", max(0, get_property("_smm.grind.collectionCommitted").to_int() - reserved) + loss);
@@ -1041,13 +1076,13 @@ void dailyGrindEnd(string name) {
   set_property("_smm.grind.counted." + name, "true");
  }
  set_property("smm.grind.histTurns." + name, histTurns + turns);
- set_property("smm.grind.histValue." + name, histValue + meat + itemValue);
+ set_property("smm.grind.histValue." + name, histValue + meat + liquidValue);
  if (museumGain) {
   set_property("smm.grind.histMuseumAt." + name, histRuns);
   set_property("smm.grind.histMuseumItems." + name, museumIds);
  }
  print("dailyGrind: " + name + " took " + turns + " turns, Meat " + meat + ", signed inventory estimate " + itemValue
-  + ", native retained loot estimate " + nativeValue + "; estimates are not realized sales", "blue");
+  + ", native retained loot estimate " + nativeValue + ", marginal liquidation estimate " + liquidValue + "; estimates are not realized sales", "blue");
 }
 
 void printDailyGrindLedger() {
@@ -1058,9 +1093,10 @@ void printDailyGrindLedger() {
 		if (turns <= 0 && perTurn < 0) continue;
 		int meat = get_property("_smm.grind.meat." + name).to_int();
 		int items = get_property("_smm.grind.items." + name).to_int();
+		int liquid = get_property("_smm.grind.liquid." + name).to_int();
 		print(name + ": today " + turns + " turns, Meat " + meat + ", signed inventory estimate " + items + ", native retained loot estimate " + get_property("_smm.grind.native." + name)
-			+ (turns > 0 ? " (" + ((meat + items) / turns) + " per turn)" : "")
-			+ "; over " + get_property("smm.grind.histRuns." + name).to_int() + " logged days " + perTurn + " per turn"
+			+ ", marginal liquidation estimate " + liquid + (turns > 0 ? " (" + ((meat + liquid) / turns) + " selection value per turn)" : "")
+			+ "; over " + get_property("smm.grind.histRuns." + name).to_int() + " logged days " + perTurn + " selection value per turn"
 			+ (dailyGrindMuseumRecent(name) ? ", named collection target funded" : ""));
 	}
 	print("total paid turns: " + get_property(kGrindTurnsTotalKey).to_int());

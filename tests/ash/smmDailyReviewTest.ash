@@ -47,6 +47,20 @@ void testPrices() {
  check(smmDailyPurchaseLimit(500, -1) == 0, "bad average fails closed");
  check(smmDailyPurchaseLimit(0, 300) == 0, "zero allowance cannot buy");
 }
+
+void testMarginalLiquidity() {
+ check(smmDailyLiquidCapacity(1400, 7, 0.1) == 70, "capacity uses fourteen complete dates, a seven-day horizon and ten percent share");
+ check(smmDailyLiquidCapacity(1400, 999, 1.0) == 750, "horizon and market share cannot imply market monopoly");
+ check(smmDailyLiquidCapacity(1400, 0, 0.1) == 0 && smmDailyLiquidCapacity(0, 7, 0.1) == 0, "zero horizon or unknown demand gives no sale capacity");
+ check(smmDailyLiquidValue(100, 15, 20, 1000, 20) == 6900, "only five copies have capacity beyond the existing backlog");
+ check(smmDailyLiquidValue(100, 20, 20, 1000, 20) == 2000, "full backlog values incremental copies at autosell");
+ check(smmDailyLiquidValue(100, 50000, 20, 1000, 20) == 2000, "large unsold stock cannot inflate a new grind's expected proceeds");
+ check(smmDailyLiquidValue(100, 0, 200, 1000, 20) == 100000, "liquid output can retain the conservative sale price");
+ check(smmDailyLiquidValue(100, 0, 20, 10, 20) == 2000, "a poor sale quote never erases the autosell floor");
+ check(smmDailyLiquidValue(100, 0, 0, 0, 0) == 0, "unknown demand and no autosell manufacture no income");
+ check(smmDailyLiquidValue(0, 0, 200, 1000, 20) == 0 && smmDailyLiquidValue(-1, 0, 200, 1000, 20) == 0, "no positive copies yield no liquidation value");
+ check(smmDailyLiquidValue(1000000000, 0, 1000000000, 1000000000, 20) == 1000000000, "large estimates saturate safely");
+}
 void testCompletion() {
  smmDTestMode = true;
  clear(smmDTestProps);
@@ -86,7 +100,7 @@ void testResourceOutcomes() {
  check(smmDailyResourceState(4, 5, "", "", "grinds", false).starts_with("unspent"), "a spare saber use is not automatically waste");
 }
 void main() {
- testCombatPolicy(); testReceipts(); testPrices(); testCompletion(); testCollectionBudget(); testResourceOutcomes();
+ testCombatPolicy(); testReceipts(); testPrices(); testMarginalLiquidity(); testCompletion(); testCollectionBudget(); testResourceOutcomes();
  if (failures == 0) print("PASS smmDailyReviewTest: " + checks + " checks");
  else print("FAILED smmDailyReviewTest: " + failures + " of " + checks + " checks", "red");
 }

@@ -34,3 +34,15 @@ string smmDailyResourceState(int used, int limit, string blocked, string reserve
 	if (reserved != "") return "reserved: " + reserved;
 	return "unspent: " + owner + " has no confirmed profitable use recorded";
 }
+
+// Marginal sale capacity after existing stock, not the value of an unlimited
+// number of copies at one observed sale price. Never assumes market monopoly.
+int smmDailyLiquidCapacity(int marketVolume14Days, int horizonDays, float share) {
+ return max(0, floor(min(1000000000.0, max(0, marketVolume14Days) / 14.0 * min(30, max(0, horizonDays)) * min(0.25, max(0.0, share)))));
+}
+
+int smmDailyLiquidValue(int quantity, int existingStock, int capacity, int salePrice, int autosell) {
+ int q = max(0, quantity);
+ int liquid = min(q, max(0, capacity - max(0, existingStock)));
+ return floor(min(1000000000.0, q * max(0.0, autosell) + liquid * max(0.0, salePrice - max(0, autosell))));
+}
