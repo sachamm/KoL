@@ -589,9 +589,11 @@ void smmSpendMuseumSales() {
 // Pass 3: Museum places at no more than the average sale price. What the
 // budget still allows after the first two passes goes to the cheapest whole
 // gaps: to the top ten for every item before any toward first place, the
-// cheapest gap first (estimated at the stored mall price, so no request is
-// made to sort them). Rule 3 holds: nothing is paid above the average sale
-// price. Only whole gaps are bought, because part of a gap gains no place.
+// cheapest verified quote first within the bounded lookup pool. Historical
+// prices only seed discovery order, never purchase order or affordability.
+// Rule 3 holds: nothing is paid above the average sale
+// price. Only gaps whose full ceiling cost fits are attempted; limited
+// listings can still cause partial fills, which do not establish a place.
 // On 2026-11-24 nine such gaps (about 2.5M Meat for nine #1 places) were
 // bought by hand after the day was over.
 boolean smmSpendRankPassOn() { return get_property("smm.spend.rankPass") != "false"; }
@@ -601,11 +603,46 @@ record SmmSpendGap {
 	int quantity;
 	int estimate;
 	boolean toTen;
+	int limit;
 };
 
-// Sorting key: every top-ten gap before any first-place gap, cheapest first.
-int smmSpendGapOrder(boolean toTen, int estimate) {
-	return (toTen ? 0 : 1000000000000) + max(0, estimate);
+// Separate tiers avoid a fixed numeric offset putting a very large top-ten
+// gap behind a first-place gap. Quoted costs replace discovery estimates.
+SmmSpendGap [int] smmSpendRankOrder(SmmSpendGap [int] gaps, boolean quoted) {
+	SmmSpendGap [int] ten;
+	SmmSpendGap [int] first;
+	foreach i, gap in gaps {
+		if (gap.quantity <= 0 || (quoted && gap.limit <= 0)) continue;
+		SmmSpendGap ranked; // ASH record assignment aliases the original record
+		ranked.it = gap.it;
+		ranked.quantity = gap.quantity;
+		ranked.estimate = quoted ? gap.quantity * gap.limit : gap.estimate;
+		ranked.limit = gap.limit;
+		ranked.toTen = gap.toTen;
+		if (ranked.toTen) ten[count(ten)] = ranked;
+		else first[count(first)] = ranked;
+	}
+	sort ten by value.estimate;
+	sort first by value.estimate;
+	SmmSpendGap [int] ordered;
+	foreach i, gap in ten ordered[count(ordered)] = gap;
+	foreach i, gap in first ordered[count(ordered)] = gap;
+	return ordered;
+}
+
+// Discovery continues after the last examined item; a bounded quote pool
+// cannot silently starve later candidates behind stale or unaffordable ones.
+SmmSpendGap [int] smmSpendRankScan(SmmSpendGap [int] gaps, int cursor) {
+	int start = 0;
+	foreach i, gap in gaps if (gap.it.to_int() == cursor) start = i + 1;
+	SmmSpendGap [int] ordered;
+	foreach i, gap in gaps if (i >= start) ordered[count(ordered)] = gap;
+	foreach i, gap in gaps if (i < start) ordered[count(ordered)] = gap;
+	return ordered;
+}
+
+boolean smmSpendRankAffordable(SmmSpendGap gap, int budget) {
+	return gap.quantity > 0 && gap.limit > 0 && gap.quantity <= max(0, budget) / gap.limit;
 }
 
 // A gap whose lookup came to nothing (no sales history, too few sales, nothing
@@ -656,41 +693,51 @@ void smmSpendMuseumRanks() {
 		int missing = smmMuseumMissing(it, goal);
 		if (missing < 1) continue;
 		int price = historical_price(it);
-		if (price <= 0) continue;
 		int toTen = smmSpendTenGap(it);
 		SmmSpendGap gap;
 		gap.it = it;
 		gap.toTen = toTen > 0;
 		gap.quantity = toTen > 0 ? toTen : missing;
-		gap.estimate = gap.quantity * price;
+		gap.estimate = gap.quantity * max(0, price);
 		gaps[count(gaps)] = gap;
 	}
-	sort gaps by smmSpendGapOrder(value.toTen, value.estimate);
-	print("Spending: " + count(gaps) + " Display Case gaps to price at their average sale price, cheapest first", "blue");
+	gaps = smmSpendRankOrder(gaps, false);
+	gaps = smmSpendRankScan(gaps, get_property("smm.spend.rankCursor").to_int());
+	print("Spending: " + count(gaps) + " Display Case gaps; quoting at most " + smmSpendMaxLookups() + " before ordering purchases by verified cost", "blue");
 
 	int today = smmSpendToday();
 	int retryDays = smmSpendRankRetryDays();
 	int [int] misses = smmSpendRankMisses(get_property(kSmmSpendRankMissKey));
 	int lookups = 0;
+	SmmSpendGap [int] quoted;
 	foreach i, gap in gaps {
 		int budget = smmSpendBudget();
 		if (budget < 1 || lookups >= smmSpendMaxLookups()) break;
-		if (gap.estimate > budget) continue; // cannot close this gap today
 		int id = gap.it.to_int();
 		if (!smmSpendRankDue(misses[id], today, retryDays)) continue; // looked at lately, came to nothing
 		lookups += 1;
+		if (!smmSpendDryRun()) set_property("smm.spend.rankCursor", id);
 		misses[id] = today; // cleared below when it buys
 		float average = smmSpendAveragePrice(gap.it);
 		if (average <= 0 || smmSpendSalesVolume(gap.it) < smmSpendMinSales()) continue;
-		SmmSpendOffer offer;
-		offer.it = gap.it;
-		offer.average = floor(average);
-		offer.limit = floor(average); // rule 3: never above the average sale price
-		offer.quantity = gap.quantity;
-		if (offer.limit < 1 || offer.quantity * offer.limit > budget) {
-			remove misses[id]; // affordable on another day, not a dead end
+		gap.limit = floor(average);
+		quoted[count(quoted)] = gap;
+	}
+	quoted = smmSpendRankOrder(quoted, true);
+	print("Spending: " + count(quoted) + " verified gaps from " + lookups + " quotes; cheapest within each quoted rank tier, not a global optimum", "blue");
+	foreach i, gap in quoted {
+		int id = gap.it.to_int();
+		// Earlier purchases and transfers may have changed both stock and cash.
+		gap.quantity = gap.toTen ? smmSpendTenGap(gap.it) : smmMuseumMissing(gap.it, smmMuseumGoal(gap.it));
+		if (!smmSpendRankAffordable(gap, smmSpendBudget())) {
+			remove misses[id]; // retry when this whole gap becomes affordable
 			continue;
 		}
+		SmmSpendOffer offer;
+		offer.it = gap.it;
+		offer.average = gap.limit;
+		offer.limit = gap.limit; // rule 3: never above the verified average sale price
+		offer.quantity = gap.quantity;
 		// KoLmafia has no ASH call for how many copies are listed under a price, so
 		// a gap can be bought only in part. Those copies still go in the case and
 		// shrink the gap; the rest waits the retry window, so it cannot take the
