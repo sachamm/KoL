@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 26: permanent menu items and confirmed contract starts
+
+Cycle 25 merged in [PR #75](https://github.com/sachamm/KoL/pull/75), `aa91c18010d1151a6610e04659556ab7d236d2a1`. Post-merge checks passed 1430 assertions (1207 ASH + 223 JavaScript), 18 refusal/abort scenarios and 118 Windows cases. Its native retry excluded blocked sandworm carriers and progressed through daily fights, then entered an unbounded local Guzzlr loop: protected-tablet use returned false, and upstream retried without confirming contract state. A normal console interruption ended the owned process with exit 130 and stable source, without an end boundary.
+
+Native preference journals replayed all 57 resource observations with zero mismatches; snapshot files alone had appeared stale. No resource counters were rewritten. Recovery compared 33 borrowed settings against the earliest captured baseline, restored 30, returned fenced quantities and refreshed booking. The private log parser was corrected to include changes whose new value is empty. A native tablet request with leave option 5 proved unchanged ownership, adventures and total turns, with choice 1412 closed afterward. Recovery files and account state remain outside Git.
+
+The narrow item-use policy now treats the Guzzlr tablet as a permanent menu item, while preserving ordinary consumption reserves. An optional adapter postcondition runs for native use results and pre-request denials alike. Guzzlr contract decisions 2–4 require a true result and confirmed started/step1 quest; otherwise execution stops before a second loop iteration. Leave/abandon and unrelated items are unaffected. Twenty-seven logged-out synthetic cases cover successful contracts, nonconsumption, native failure, stale/absent quest state, denied inputs and missing stock. Integration/native results are recorded after execution; scores remain 8.70 provisional code / 6.0 demonstrated live.
+
 ## Cycle 25: unavailable drum carriers must not consume skip retries
 
 The next native attempt accepted fractional ceilings, then performed 125 sandworm task attempts with 375 rejected/partial-quantity messages after drum supply could not fill under the guard. Upstream caps skips per task at 20 and had advanced to fax setup before the owned process was stopped; the result is an interrupted test, not an infinite-loop proof. Stable source alone does not compensate for exit -1 and a missing end boundary.

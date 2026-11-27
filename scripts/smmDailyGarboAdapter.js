@@ -113,17 +113,21 @@ exports.createModule = function (native, policy) {
       if (args.length < 1 || args.length > 2 || !(item instanceof native.Item) || !integer(quantity))
         throw new Error("smmDaily: unsupported " + name + " arguments");
       if (quantity <= 0 || item === native.Item.get("none")) return true;
-      if (!policy.consume(quantity, item, name === "use")) return false;
+      function finish(result) {
+        if (name === "use" && policy.afterUse) policy.afterUse(item, result);
+        return result;
+      }
+      if (!policy.consume(quantity, item, name === "use")) return finish(false);
       // Supplying the finished item first prevents implicit native sourcing
       // inside these consumption calls from escaping the purchase guard.
       // Bare Mafia JS items do not expose ASH proxy-record metadata reliably.
       const needed = policy.consumptionQuantity(quantity, item, name === "use");
       if (!integer(needed) || needed < 1 || needed > quantity) throw new Error("smmDaily: invalid consumption quantity");
-      if (!wrapped.retrieveItem(needed, item)) return false;
+      if (!wrapped.retrieveItem(needed, item)) return finish(false);
       policy.ready();
       const result = native[name](quantity, item);
       policy.ready();
-      return result;
+      return finish(result);
     };
   });
   return wrapped;

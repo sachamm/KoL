@@ -172,8 +172,25 @@ boolean smmGuardBlackRoseEligible(int configured) {
  return eligible;
 }
 
+boolean smmGuardUsePreservesItem(item it) {
+ // Native r29482 marks the tablet as usable, not reusable. Its use opens
+ // choice 1412 without consuming the tablet (verified on the live client).
+ return it.reusable || it == $item[Guzzlr tablet];
+}
+
+boolean smmGuardMenuConfirmed(item it, int decision, boolean ok, string quest) {
+ if (it != $item[Guzzlr tablet] || decision < 2 || decision > 4) return true;
+ return ok && (quest == "started" || quest == "step1");
+}
+
+void smmGuardAfterUse(item it, boolean ok) {
+ smmGuardReady();
+ if (!smmGuardMenuConfirmed(it, get_property("choiceAdventure1412").to_int(), ok, get_property("questGuzzlr")))
+  abort("smmDaily: Guzzlr contract start unconfirmed; stopped before another menu attempt");
+}
+
 int smmGuardConsumptionQuantity(int quantity, item it, boolean usingItem) {
- return usingItem && it.reusable ? min(1, max(0, quantity)) : max(0, quantity);
+ return usingItem && smmGuardUsePreservesItem(it) ? min(1, max(0, quantity)) : max(0, quantity);
 }
 
 // Freeze the reserve before acquiring replacement copies. Recomputing an
@@ -182,7 +199,7 @@ int smmGuardConsumptionQuantity(int quantity, item it, boolean usingItem) {
 // normalized value prohibits replacement buys; it is never a default sentinel.
 boolean smmGuardConsume(int quantity, item it, boolean usingItem, int limit) {
  smmGuardReady();
- if (quantity <= 0 || it == $item[none] || (usingItem && it.reusable)) return true;
+ if (quantity <= 0 || it == $item[none] || (usingItem && smmGuardUsePreservesItem(it))) return true;
  int reserved = smmMuseumReservedCopies(it);
  smmGuardReady();
  if (reserved <= 0) return true; // ordinary finished-item retrieval handles acquisition

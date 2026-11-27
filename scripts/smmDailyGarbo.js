@@ -11,7 +11,8 @@ exports.main = function (args) {
     consume: function (quantity, item, usingItem) {
       return bridge.smmGuardConsume(quantity, item, usingItem, adapter.automaticBuyLimit(km.getProperty("autoBuyPriceLimit")));
     },
-    consumptionQuantity: function (quantity, item, usingItem) { return bridge.smmGuardConsumptionQuantity(quantity, item, usingItem); }
+    consumptionQuantity: function (quantity, item, usingItem) { return bridge.smmGuardConsumptionQuantity(quantity, item, usingItem); },
+    afterUse: function (item, result) { bridge.smmGuardAfterUse(item, result); }
   });
   const source = String(km.fileToBuffer("scripts/garbage-collector/garbo.js"));
   const worker = adapter.loadWorker(source, wrapped,

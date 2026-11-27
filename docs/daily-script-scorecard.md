@@ -31,6 +31,14 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 26: distinguish permanent menu use and verify contract acceptance
+
+[PR #75](https://github.com/sachamm/KoL/pull/75) merged as `aa91c18010d1151a6610e04659556ab7d236d2a1`. Post-merge checks passed **1430 assertions: 1207 ASH and 223 JavaScript**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows cases**. The native retry passed the sandworm eligibility gates without attempting blocked carriers, continued through daily fights, then repeatedly tried to start a Guzzlr contract because the Museum consumption guard incorrectly treated tablet navigation as consuming a protected copy. The owned process was interrupted normally: stable source, exit 130, no end boundary and no completed day.
+
+Native r29482 journals preserved all **57 checked resource values**, with zero mismatches after replay; no counters were rewritten. Recovery restored the earliest captured values of **33 borrowed settings** across the interrupted attempts (30 required changes), returned the durable fence and reconciled purchase booking. The recovery-log parser now includes changes to an empty string. The native tablet probe opened and left choice 1412 successfully with item ownership, adventures and total turns unchanged and no open choice. Private recovery evidence remains outside Git.
+
+The guard now recognizes this verified permanent menu item for `use` only. Contract choices 2–4 must return successfully with an active native quest (`started` or `step1`); denial, failed retrieval, a false request or an unconfirmed quest stops before upstream can repeat the menu loop. Leave/abandon choices and ordinary consumables retain their behavior. Twenty-seven synthetic menu checks cover these paths; exact integration and native retry results follow after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**; the intervened day is not a qualifying unattended outcome.
+
 ### Quality cycle 25: gate unavailable sandworm carriers and recover interruption
 
 The fractional-limit fix passed natively. Garbo then retried sandworm tasks after capped drum-machine acquisitions returned no fill: the log contains 125 sandworm task attempts and 375 no-fill messages. Upstream has a 20-skip limit per carrier; this was excessive bounded retrying, not proof of an infinite loop. The process had progressed to fax setup by the time the owned test process was stopped. Its evidence has stable source, exit -1 and no end boundary; it is an interrupted test, not a completed day.
