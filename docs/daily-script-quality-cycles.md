@@ -4,13 +4,15 @@ The target is 9.9 under the existing scorecard rubric. A new code assessment doe
 
 ## Cycle 15: breakfast after the opening baseline
 
-A fresh-day authorized information login confirmed 168 adventures, zero drunkenness, no encounter and no fence. Login automatically updated public dependencies, so the new garbo bundle was checked with synthetic state and action functions blocked; its main was never called. Shared utility source matched the offline dependency. No daily worker had run.
+A fresh-day authorized information login confirmed usable adventures, sobriety, no encounter and no fence. Login automatically updated public dependencies, so the new garbo bundle was checked with synthetic state and action functions blocked; its main was never called. Shared utility source matched the offline dependency. No daily worker had run.
 
 The Windows runner previously allowed automatic breakfast before its evidence boundary and `day.open`. It now journals and borrows only four automatic-login flags while Mafia is stopped, preventing breakfast and source updates during login. Cleanup stops any remaining owned child before atomic restoration; a later run recovers an interrupted guard. The journal contains no credentials, and restoration preserves unrelated preferences written by Mafia. The new module is included in source fingerprints.
 
 Native inspection also reproduced a stale `breakfastCompleted=true` after a no-breakfast login. Run mode now sets an explicit daily deferral marker; `mp.bootstrap` dispatches explicit breakfast after the opening snapshot even when that stale marker says complete. It clears deferral only after a successful command and native confirmation. Failed or unconfirmed summons leave the task unfinished. Plan mode does not set deferral. Other configured login hooks remain outside the evidence window.
 
 A native guarded information login kept turns, adventures, HP, MP and drunkenness unchanged, retained a stable source fingerprint and restored all selected original flags. Offline tests cover interrupted settings, malformed journals, unrelated preference preservation and deferred/failed/retried breakfast. No resource-spending outcome is claimed from those checks.
+
+PR #63 merged as `3318e0f3125252f996c2b50b6bf5e2de0563b93d`. Post-merge checks passed 1251 assertions (1142 ASH, 109 JavaScript), 18 refusal/abort scenarios, both compilations and planning/static checks. Windows tests passed 110 checks, including 37 login-guard cases. The eight breakfast checks also passed in isolated r29481. Installed public scripts and all five runner modules match the merge. No daily resource-spending worker was started in this assessment; the score remains 8.70 provisional code / 6.0 demonstrated live.
 
 ## Cycle 14: verified-cost Museum gap ordering
 

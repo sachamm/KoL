@@ -31,6 +31,16 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 15: deferred breakfast and stable login, score unchanged
+
+[PR #63](https://github.com/sachamm/KoL/pull/63), merged as `3318e0f3125252f996c2b50b6bf5e2de0563b93d`, moves automatic breakfast behind the daily opening evidence. The stopped-process runner journals and temporarily disables only global/account breakfast and Git/SVN login updates, restores them after its child terminates, and recovers interrupted settings before a later login. The journal contains only selected boolean rows. All five runner modules are fingerprinted.
+
+A native no-breakfast login reproduced `breakfastCompleted=true` from prior state. A run-only deferral marker now makes `mp.bootstrap` execute explicit breakfast after `day.open` despite that stale value. Successful command and native completion are both required to clear deferral; failure keeps breakfast unfinished. Plan mode does not set the marker. Configured login hooks other than automatic breakfast remain outside the recorded window.
+
+The exact source merge passed **1251 assertions: 1142 ASH and 109 JavaScript**, **18 refusal/abort scenarios**, both compilations and planning/static checks. Windows tests passed **37 login + 36 evidence + 19 diagnostics + 18 ownership = 110 checks**. The eight breakfast checks also passed in isolated r29481. An authorized native information login retained stable source and unchanged observed resources, restored all selected original flags, and removed its guard journal. The newly updated garbo bundle loaded with synthetic state and actions blocked; its main was never called. Installed daily source and all five runner modules match the merge and compile while logged out.
+
+Scores remain **8.70/10 provisional code / 6.0/10 demonstrated live**. These checks establish the observed login and dispatch boundaries, not breakfast resource output or a corrected unattended day. No resource-spending daily worker was started for this assessment. **9.9 remains unachieved.**
+
 ### Quality cycle 14: verified-cost Museum gap ordering
 
 [PR #61](https://github.com/sachamm/KoL/pull/61), merged as `2658170c71424db052e7894a7ecd22779cb4fb38`, separates rank-pass quotes from purchases. Current verified whole-gap ceiling costs determine purchase order within top-ten and first-place tiers; missing or high historical estimates no longer exclude affordable candidates. A persistent discovery cursor rotates the bounded quote pool, and each purchase rechecks current stock and the remaining whole-gap allowance. Reports disclose the quoted coverage and do not claim a global optimum over unquoted gaps.
