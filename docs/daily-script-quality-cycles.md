@@ -8,6 +8,8 @@ The rank-purchase pass previously bought in historical-estimate order, even afte
 
 The saved `smm.spend.rankCursor` prevents repeatedly unaffordable early candidates from consuming every lookup. Reporting states the quoted coverage; unquoted candidates prevent a global-cheapest claim. Listing availability can still cause partial fills, so quoted affordability is not a promise of a completed place. No cash-budget policy or rank target is changed.
 
+PR #61 merged as `2658170c71424db052e7894a7ecd22779cb4fb38`. The exact merge passed 1243 assertions (1134 ASH, 109 JavaScript), 18 refusal/abort scenarios, both compilations and planning/static checks, plus 72 Windows checks. The 21 new ordering checks also passed in isolated r29481. Installed public source matches the merge and both `smmdaily.ash` and `smmSpend.ash` compile logged out. No purchase or case transfer was used. Museum code credit rises 0.05 for the corrected selection behavior, giving 8.70 provisional code; demonstrated live stays 6.0.
+
 ## Cycle 13: guard garbo's explicit consumption
 
 The cooperative adapter now checks direct `use`, `eat`, `drink`, `overdrink` and `chew` calls against the existing Museum reserve policy. Reusable use needs one tool and does not spend a reserve copy. Ordinary consumption freezes the pre-purchase reserve; necessary replacement copies require a verified price, shared allowance and the caller's automatic-buy settings. A partial fill or protected untradeable item returns false before consumption. Finished items are retrieved through the guarded path before the native call, preventing implicit acquisition of that requested item inside these methods.
@@ -109,7 +111,7 @@ A logged-out r29481 probe inspected the native JavaScript `buy` export: it is no
 
 Cycles 9–10 now install an adapter for direct buys and explicit finished-item retrieval through a copied import rather than modifying native exports. Implicit sourcing inside other native methods, direct creation, purchase URLs, delegated CLI/scripts and recovery/crafting costs still require broader enforcement with complete bookkeeping and fail-closed behavior on unsupported paths. Merely wrapping `cli_execute("garbo")`, or changing garbo's valuation overrides, does not establish a universal purchase ceiling.
 
-The current score is 8.65 provisional code / 6.0 demonstrated live after cycle 12's marginal paid-route values and corrected ownership evidence. The 9.9 objective remains open. The next evidence gate is corrected unattended days with source provenance, reconciled spending and quantities, calibrated marginal values and fresh confirmed Museum results. The adopted acceptance milestone is five consecutive qualifying days; the manual/legacy day and information-only login/plan/audit are not qualifying runs. Do not relabel them or increase the score to meet the target.
+The current score is 8.70 provisional code / 6.0 demonstrated live after cycle 14's verified-cost Museum ordering. The 9.9 objective remains open. The next evidence gate is corrected unattended days with source provenance, reconciled spending and quantities, calibrated marginal values and fresh confirmed Museum results. The adopted acceptance milestone is five consecutive qualifying days; the manual/legacy day and information-only login/plan/audit are not qualifying runs. Do not relabel them or increase the score to meet the target.
 
 ## Cycle 7: observed cash sources without inventing profit
 

@@ -18,7 +18,7 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.65/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.70/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
@@ -27,9 +27,17 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
 | Paid adventures allocated well | 1.5 | 0.4 | 1.20 |
 | Spending rules | 1 | 0.7 | 0.90 |
-| Museum progress | 1 | 0.7 | 0.85 |
+| Museum progress | 1 | 0.7 | 0.90 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.65** |
+| **Total** | **10** | **6.0** | **8.70** |
+
+### Quality cycle 14: verified-cost Museum gap ordering
+
+[PR #61](https://github.com/sachamm/KoL/pull/61), merged as `2658170c71424db052e7894a7ecd22779cb4fb38`, separates rank-pass quotes from purchases. Current verified whole-gap ceiling costs determine purchase order within top-ten and first-place tiers; missing or high historical estimates no longer exclude affordable candidates. A persistent discovery cursor rotates the bounded quote pool, and each purchase rechecks current stock and the remaining whole-gap allowance. Reports disclose the quoted coverage and do not claim a global optimum over unquoted gaps.
+
+Museum code credit rises **0.05**, from **0.85 to 0.90**, for correcting a demonstrated purchase-selection error: the regression now selects a 20-Meat verified top-ten gap despite its 4000-Meat historical estimate, ahead of a historically cheap gap now costing 1000. Provisional code quality is **8.70/10**; demonstrated live performance stays **6.0/10**. This proves the modeled ordering and eligibility boundary, not an achieved place or the cheapest actual listing portfolio. Unknown rankings, unquoted alternatives, partial fills and fresh confirmed Museum outcomes still prevent full credit. The rubric is unchanged.
+
+Post-merge checks on the exact source merge passed **1243 assertions: 1134 ASH and 109 JavaScript**, **18 refusal/abort scenarios**, both compilations and planning/static checks. Windows diagnostics, evidence and ownership passed **19 + 35 + 18 = 72 checks**. The 21 new ordering tests also passed in isolated r29481, including stale-price reversal, record aliasing, rank tiers beyond the former numeric offset, cursor coverage and changing whole-gap affordability. Installed public source matches the merge; `smmdaily.ash` and `smmSpend.ash` compile while logged out. No native purchase, Display Case transfer or daily worker was run. **9.9 remains unachieved.**
 
 ### Quality cycle 13: explicit garbo consumption, score unchanged
 
