@@ -1786,29 +1786,33 @@ void grindMolehillMountain() {
 
 void grindToothFairy() {
 	print("grindToothFairy", "green");
-	if (!canAugustSkill(22))
+	if (!canAugustSkill(22) || !have_skill($skill[Aug. 22nd: Tooth Fairy Day!])) {
+		smmAdventureUnavailableReason = "Tooth Fairy Day is unavailable";
 		return;
+	}
 
 	burnMP();
 	automate_dressup($location[none], "100 exp", "default", "mainstat, -equip Kramco Sausage-o-Matic&trade;, -equip \"i voted!\" sticker, -equip Everfull Dart Holster, -equip mafia thumb ring");
 	healIfRequiredWithMPRestore();
 	restore_mp(100);
 
-	use_skill($skill[Aug. 22nd: Tooth Fairy Day!]);
+	smmStartFreeSkillFight($skill[Aug. 22nd: Tooth Fairy Day!]);
 }
 
 
 void grindCatDay() {
 	print("grindCatDay", "green");
-	if (!canAugustSkill(8))
+	if (!canAugustSkill(8) || !have_skill($skill[Aug. 8th: Cat Day!])) {
+		smmAdventureUnavailableReason = "Cat Day is unavailable";
 		return;
+	}
 
 	burnMP();
 	automate_dressup($location[none], "100 exp", "default", "mainstat, -equip Kramco Sausage-o-Matic&trade;, -equip \"i voted!\" sticker, -equip Everfull Dart Holster, -equip mafia thumb ring");
 	healIfRequiredWithMPRestore();
 	restore_mp(100);
 
-	use_skill($skill[Aug. 8th: Cat Day!]);
+	smmStartFreeSkillFight($skill[Aug. 8th: Cat Day!]);
 }
 
 
@@ -4125,7 +4129,7 @@ void burnFreeCombats() {
 
 	while (freeCombatsAvailable() > 0) {
 		AdventureRecord ar = chooseFreeCombat();
-		anyAdventure(ar);
+		assert(anyAdventure(ar), "burnFreeCombats: unavailable carrier: " + smmAdventureUnavailableReason);
 	}
 
 // 	grindGlitchSeasonReward();
@@ -4374,6 +4378,34 @@ int avalanchesUsed() {
 string forcedNcFailure;
 string forcedNcTestLaunch; // callbacks require the engine's offline test mode
 string forcedNcTestFiesta;
+boolean forcedNcCarrierUnavailable;
+string [string] forcedNcRejectedFree;
+AdventureRecord [int] forcedNcTestFreeData;
+AdventureRecord forcedNcTestCarrier;
+string forcedNcTestRefresh;
+
+string forcedNcCarrierKey(AdventureRecord ar) {
+	return ar.funcString + "|" + ar.locationToUse.to_int() + "|" + ar.itemToUse.to_int() + "|" + ar.skillToUse.to_int();
+}
+
+AdventureRecord [int] forcedNcFreeData() {
+	AdventureRecord [int] data = smmDTestMode ? forcedNcTestFreeData : freeCombatData();
+	AdventureRecord [int] eligible;
+	foreach i, ar in data {
+		if (forcedNcRejectedFree contains forcedNcCarrierKey(ar)) continue;
+		if (!smmDTestMode && ar.skillToUse != $skill[none] && !have_skill(ar.skillToUse)) continue;
+		eligible[count(eligible)] = ar;
+	}
+	return eligible;
+}
+
+int forcedNcFreeCount() { return count(forcedNcFreeData()); }
+AdventureRecord forcedNcChooseFree() { return forcedNcFreeData()[0]; }
+
+boolean forcedNcRefreshAfterDecline() {
+	if (smmDTestMode) return forcedNcTestRefresh == "" || smmDCallBool(forcedNcTestRefresh);
+	return cli_execute("refresh status");
+}
 
 boolean forcedNcObserved(string what, int before, int after, int expected, boolean ok) {
 	if (ok && after - before == expected) return true;
@@ -4390,9 +4422,15 @@ boolean forcedNcTryLaunch(string key, string what, string usesPref, string carri
 	smmDRequireActiveDay();
 	string epoch = smmDEpoch();
 	int before = smmDGet(usesPref).to_int();
+	string encounter = smmDGet("lastEncounter");
+	string forcers = smmDGet("noncombatForcers");
+	boolean unclaimed;
+	forcedNcCarrierUnavailable = false;
+	smmAdventureUnavailableReason = "";
 	smmDSet(key, "true");
 	try {
 		if (smmDTestMode) {
+			forcedNcTestCarrier = ar;
 			if (forcedNcTestLaunch == "") abort("forced-noncombat test callback is required");
 			call void forcedNcTestLaunch();
 		} else if (carrier == "free") {
@@ -4400,10 +4438,29 @@ boolean forcedNcTryLaunch(string key, string what, string usesPref, string carri
 			anyAdventure(ar);
 		} else if (carrier == "kill") burnInstaKill();
 		else grindRufusAndTheShadowRifts(1);
+		unclaimed = smmDGet(key) == "true";
 	} finally { smmDSet(key, "false"); }
 	smmDRequireEpoch(epoch);
 	if (current_round() > 0 || handling_choice() || have_effect($effect[Beaten Up]) > 0) {
 		forcedNcFailure = what + " carrier did not return in a ready state; inspect the fight, choice and any pending force";
+		print("forced noncombat: " + forcedNcFailure, "red");
+		return false;
+	}
+	if (carrier == "free" && smmAdventureUnavailableReason != "" && unclaimed
+		&& smmDGet(usesPref).to_int() == before && smmDGet("lastEncounter") == encounter
+		&& forcers == "" && smmDGet("noncombatForcers") == "") {
+		// Only an explicit no-fight rejection can reselect. Refresh is read-only;
+		// a changed counter, pending force or unready state still requires review.
+		boolean refreshed = forcedNcRefreshAfterDecline();
+		smmDRequireEpoch(epoch);
+		if (refreshed && smmDGet(usesPref).to_int() == before && smmDGet("lastEncounter") == encounter && smmDGet("noncombatForcers") == ""
+			&& current_round() == 0 && !handling_choice() && have_effect($effect[Beaten Up]) == 0) {
+			forcedNcRejectedFree[forcedNcCarrierKey(ar)] = smmAdventureUnavailableReason;
+			forcedNcCarrierUnavailable = true;
+			print("forced noncombat: free carrier unavailable: " + smmAdventureUnavailableReason + "; reselecting without dispatching a target", "orange");
+			return false;
+		}
+		forcedNcFailure = "could not reconcile a declined free carrier; inspect its counter and pending force";
 		print("forced noncombat: " + forcedNcFailure, "red");
 		return false;
 	}
@@ -4524,6 +4581,7 @@ void forcedNcTargets() {
 
 void grindRufusAndTheShadowRiftsForFree() {
 	forcedNcFailure = "";
+	clear(forcedNcRejectedFree);
 	print("grindRufusAndTheShadowRiftsForFree: " + (5 - spikolodonSpikesUsed()) + " spikolodon spikes available and " + cinchUsed() + " cinch used with " + cinchRestsUsed() + " cinch rests used and " + total_free_rests() + " total free rests", "green");
 
 	// FIRST, make sure we are in a known state with the quest started, no lodestone, and no Shadow Affinity buff
@@ -4539,11 +4597,14 @@ void grindRufusAndTheShadowRiftsForFree() {
 	// trigger spikes on free combats
 	// the spikes need the Jurassic Parka: without one, the dressup would stop the run
 	boolean ownParka = available_amount($item[Jurassic Parka]) > 0;
-	while (ownParka && spikolodonSpikesUsed() < 5 && freeCombatsAvailable() > 0 && questStage("questRufus") == 0) {
-		AdventureRecord ar = chooseFreeCombat();
+	while (ownParka && spikolodonSpikesUsed() < 5 && forcedNcFreeCount() > 0 && questStage("questRufus") == 0) {
+		AdventureRecord ar = forcedNcChooseFree();
 		print("using free combat " + ar.toString() + " to trigger spikolodon spikes", "green");
 
-		if (!forcedNcTryLaunch(kSpikolodonNextCombatKey, "spikolodon spikes", "_spikolodonSpikeUses", "free", ar)) return;
+		if (!forcedNcTryLaunch(kSpikolodonNextCombatKey, "spikolodon spikes", "_spikolodonSpikeUses", "free", ar)) {
+			if (forcedNcCarrierUnavailable) continue;
+			return;
+		}
 
 		grindRufusAndTheShadowRifts(1); // should be the boss
 		grindRufusAndTheShadowRiftsForFreeHelper();
@@ -4571,18 +4632,21 @@ void grindRufusAndTheShadowRiftsForFree() {
 
 	// McHUGELARGE AVALANCHE: 3 a day, cast in a fight like the spikes, forces the next noncombat
 	boolean haveSki = available_amount($item[McHugeLarge left ski]) > 0;
-	while (haveSki && avalanchesUsed() < 3 && (freeCombatsAvailable() > 0 || instaKillsAvailable() > 0) && questStage("questRufus") == 0) {
+	while (haveSki && avalanchesUsed() < 3 && (forcedNcFreeCount() > 0 || instaKillsAvailable() > 0) && questStage("questRufus") == 0) {
 		AdventureRecord carrier;
 		string kind;
-		if (freeCombatsAvailable() > 0) {
-			carrier = chooseFreeCombat();
+		if (forcedNcFreeCount() > 0) {
+			carrier = forcedNcChooseFree();
 			kind = "free";
 			print("using free combat " + carrier.toString() + " to cast McHugeLarge Avalanche", "green");
 		} else {
 			print("using instakill to cast McHugeLarge Avalanche", "green");
 			kind = "kill";
 		}
-		if (!forcedNcTryLaunch(kAvalancheNextCombatKey, "McHugeLarge Avalanche", "_mcHugeLargeAvalancheUses", kind, carrier)) return;
+		if (!forcedNcTryLaunch(kAvalancheNextCombatKey, "McHugeLarge Avalanche", "_mcHugeLargeAvalancheUses", kind, carrier)) {
+			if (forcedNcCarrierUnavailable) continue;
+			return;
+		}
 		grindRufusAndTheShadowRifts(1); // should be the boss
 		grindRufusAndTheShadowRiftsForFreeHelper();
 		assert(questStage("questRufus") == 0, "grindRufusAndTheShadowRiftsForFree: Avalanche: we haven't started the quest!");
