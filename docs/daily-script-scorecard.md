@@ -18,18 +18,28 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.60/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.65/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
 | Whole day unattended | 2 | 0.8 | 1.65 |
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
-| Paid adventures allocated well | 1.5 | 0.4 | 1.15 |
+| Paid adventures allocated well | 1.5 | 0.4 | 1.20 |
 | Spending rules | 1 | 0.7 | 0.90 |
 | Museum progress | 1 | 0.7 | 0.85 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.60** |
+| **Total** | **10** | **6.0** | **8.65** |
+
+### Quality cycle 12: marginal value before paid-route selection
+
+[PR #56](https://github.com/sachamm/KoL/pull/56) applies completed-sale demand and existing stock to the IoTM route's reward estimates, rather than only reporting a stricter value after a grind. The regression changes the solver's paid-turn choice away from saturated production. Known retained Museum copies remain separate from surplus, consumed inputs keep their opportunity prices, and stock changes invalidate queued values. Batching respects both price tiers and rank milestones. Unknown demand and surplus beyond forecast capacity receive autosell value; untradeable outputs receive no unexecuted conversion proceeds. The forecast score is explicitly not realized profit or a joint liquidation portfolio.
+
+The native information comparison found a separate ownership defect: the old snapshot omitted the active familiar's equipment. [PR #57](https://github.com/sachamm/KoL/pull/57), merged as `e24c0057b97593d1253ecd2c0be266a52a31cd4a`, corrects canonical equipped counts and includes free pulls. History version 6 excludes the older incomplete ownership bases. The exact proposed body reconciled **12,103 client-known item rows with zero mismatches** during an authorized information login. A stockpiled-item observation also confirmed valid market evidence and an autosell-only marginal surplus estimate. Character resources were unchanged within each information check; breakfast settings and temporary public code/probe files were restored. Account snapshots remain outside Git.
+
+Final post-merge checks on `e24c0057b97593d1253ecd2c0be266a52a31cd4a` passed **1186 assertions: 1113 ASH and 73 JavaScript**, including **23 route-liquidity checks**, plus **18 refusal/abort scenarios**, both compilations and planning/static checks. Windows checks passed **19 diagnostics, 35 evidence and 18 ownership cases**. The valuation cases also passed in isolated r29481. Installed production sources match the verified code and compiled while logged out.
+
+Paid-allocation code credit rises **0.05 to 1.20/1.5**, taking provisional code quality to **8.65/10**. This is credit for using constrained marginal values at selection time, not for the number of tests or a realized economic gain. Other criteria and the **6.0/10 live score** stay unchanged. Joint portfolio allocation, conversion bundles, market-share calibration, third-party economics and corrected unattended outcomes remain open. **9.9 is not achieved.**
 
 ### Quality cycle 11: confirmed forced-noncombat launches, score unchanged
 
