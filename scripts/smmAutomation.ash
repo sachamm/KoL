@@ -371,6 +371,102 @@ string chooseFamiliar(string selector, location aLocation, monster aMonster, str
 
 
 
+record SmmMapWaitState {
+	int choice;
+	int decision;
+	boolean decisionAvailable;
+	boolean fight;
+	boolean mapping;
+	boolean canAdventure;
+	boolean beaten;
+};
+SmmMapWaitState smmMapTestState;
+string smmMapTestAction; // callback and state require the engine's offline test mode
+string smmMapFailure;
+
+SmmMapWaitState readMapWaitState() {
+	if (smmDTestMode) return smmMapTestState;
+	SmmMapWaitState state;
+	state.choice = handling_choice() ? last_choice() : 0;
+	state.fight = current_round() > 0;
+	state.mapping = get_property("mappingMonsters").to_boolean();
+	state.canAdventure = my_adventures() > 0;
+	state.beaten = isBeatenUp();
+	if (state.choice >= 1467 && state.choice <= 1475) {
+		string configured = get_property("choiceAdventure" + state.choice);
+		state.decision = configured.is_integer() ? configured.to_int() : 0;
+		string [int] options = available_choice_options();
+		state.decisionAvailable = options contains state.decision;
+	}
+	return state;
+}
+
+string smmMapHold(string why) {
+	smmMapFailure = why;
+	print("mapping held: " + why + "; no further mapping action was sent", "orange");
+	return "";
+}
+
+string smmMapAction(string action, int decision, location where) {
+	smmDRequireActiveDay();
+	string page;
+	if (smmDTestMode) {
+		if (smmMapTestAction == "") abort("mapping test callback is required");
+		page = call string smmMapTestAction(action, decision, where);
+	} else if (action == "choice") page = run_choice(decision);
+	else if (action == "combat") page = run_combat();
+	else if (action == "adventure") page = advURL(where);
+	else abort("unknown mapping action");
+	smmDRequireActiveDay();
+	return page;
+}
+
+// A known single-step interruption, using the user's configured and currently
+// offered decision. Unknown choices and unavailable skip options stay open.
+boolean smmMapRecoverInterrupt() {
+	SmmMapWaitState state = readMapWaitState();
+	if (!state.mapping || state.choice < 1467 || state.choice > 1475 || state.decision <= 0 || !state.decisionAvailable) {
+		smmMapHold("choice " + state.choice + " is not a configured, available June Cleaver interruption of an active map");
+		return false;
+	}
+	int before = state.choice;
+	int decision = state.decision;
+	string page = smmMapAction("choice", decision, $location[none]);
+	if (readMapWaitState().choice == before) {
+		smmMapHold("choice " + before + " remained open after its configured decision");
+		return false;
+	}
+	SmmMapWaitState after = readMapWaitState();
+	if (after.beaten || after.fight || (!after.mapping && after.choice != 1435)) {
+		smmMapHold("the interruption did not leave a ready active map");
+		return false;
+	}
+	print("mapping: resolved June Cleaver choice " + before + " with configured option " + decision, "blue");
+	return true;
+}
+
+boolean smmMapAvailable(boolean active, int used) { return active || (used >= 0 && used < 3); }
+
+string smmAwaitMapChoice(location where, string page) {
+	smmMapFailure = "";
+	for transition from 0 upto 8 {
+		SmmMapWaitState state = readMapWaitState();
+		if (state.beaten) return smmMapHold("Beaten Up after an interruption");
+		if (state.choice == 1435 && page.contains_text("Leading Yourself Right to Them")) return page;
+		if (transition == 8) return smmMapHold("eight encounter transitions did not reach the mapping choice");
+		if (!state.mapping) return smmMapHold("the pending map is no longer active");
+		if (state.choice != 0) {
+			if (!smmMapRecoverInterrupt()) return "";
+			page = "";
+		} else if (state.fight) {
+			page = smmMapAction("combat", 0, where);
+			if (readMapWaitState().fight) return smmMapHold("the interrupting combat did not finish");
+		} else if (state.canAdventure) page = smmMapAction("adventure", 0, where);
+		else return smmMapHold("no adventures remain to reach the mapping choice");
+	}
+	return smmMapHold("eight encounter transitions did not reach the mapping choice");
+}
+
 string runMapChoice(string aPage, monster aMonster) {
 	assert(aPage.contains_text("Leading Yourself Right to Them"), "runMapChoice: we aren't in the map choice adventure");
 
@@ -1961,21 +2057,21 @@ boolean targetMob(location aLocation, monster [] target_monsters, skill skillToU
 			boolean chainedFight = false;
 
 			// DIRECT TARGET map the monsters, time-spinner
-			if (!tracking
+			if (get_property("mappingMonsters").to_boolean() || (!tracking
 				&& monsterQueueCopies(target_monsters[0]) == 1 //  no extra copies in the queue
-				&& unbanishedNonTargets >= 1) {
+				&& unbanishedNonTargets >= 1)) {
 
-				if (to_int(get_property("_monstersMapped")) < 3) {
+				if (smmMapAvailable(get_property("mappingMonsters").to_boolean(), get_property("_monstersMapped").to_int())) {
 					print("targetMob: mapping (map the monsters) target monster: " + target_monsters[0], "green");
-					if (!to_boolean(get_property("mappingMonsters")))
+					if (!to_boolean(get_property("mappingMonsters"))) {
+						smmDRequireActiveDay();
 						if (!use_skill(1, $skill[Map the Monsters]))
 							abort("tried to cast map the monsters but it didn't work!");
-					aPage = advURL(aLocation);
-					while (!handling_choice()) { // we didn't get to the map choice
-						// probably a wandering monster
-						run_combat();
-						aPage = advURL(aLocation);
+						smmDRequireActiveDay();
 					}
+					aPage = smmMapAction("adventure", 0, aLocation);
+					aPage = smmAwaitMapChoice(aLocation, aPage);
+					if (aPage == "") return false;
 					runMapChoice(aPage, target_monsters[0]);
 					chainedFight = true;
 
