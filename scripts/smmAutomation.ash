@@ -1485,6 +1485,26 @@ string toString(AdventureRecord advRecord) {
 }
 
 
+string smmAdventureUnavailableReason;
+boolean smmAdventureLimitReply(string reply) {
+	return reply == "Summon limit exceeded." || reply == "Summon limit exceeded";
+}
+
+// A known declined summon is distinct from an ambiguous failed request. Never
+// call a combat runner on the previous fight page after this explicit reply.
+void smmStartFreeSkillFight(skill source) {
+	if (!have_skill(source)) {
+		smmAdventureUnavailableReason = source + " is not available to this character";
+		return;
+	}
+	string encounter = get_property("lastEncounter");
+	smmDRequireActiveDay();
+	string reply = use_skill(source);
+	smmDRequireActiveDay();
+	if (smmAdventureLimitReply(reply) && current_round() == 0 && !handling_choice() && get_property("lastEncounter") == encounter)
+		smmAdventureUnavailableReason = source + " reached its summon limit without an encounter";
+}
+
 // adventures at advRecord (a location, item or skill) including all pre-adventure checks but NOT finishing the turn
 string getToAdventure(AdventureRecord advRecord) {
     // if we have a function string, call it first, as it might do things like dress up for the adventure
@@ -1514,8 +1534,14 @@ string getToAdventure(AdventureRecord advRecord) {
 // adventures at advRecord (a location, item or skill) including all pre- and post-adventure stuff
 boolean anyAdventure(AdventureRecord advRecord) {
     print("anyAdventure: going to " + toString(advRecord), "green");
+	smmAdventureUnavailableReason = "";
 	smmDCombatPrepare();
 	string result = getToAdventure(advRecord);
+	if (smmAdventureUnavailableReason != "") {
+		print("anyAdventure: no encounter started: " + smmAdventureUnavailableReason, "orange");
+		return false;
+	}
+	if (smmDTestMode) abort("native adventure runner is blocked in offline test mode");
 	result += run_turn();
 	assert(!postAdventure(), "anyAdventure: goals were satisfied, aborting");
 	return true;
@@ -2436,7 +2462,10 @@ string startFreeCombat() {
 	assert(freeCombatsAvailable() > 0, "startFreeCombat: no free combats available");
  
 	AdventureRecord freeCombat = chooseFreeCombat();
-	return getToAdventure(freeCombat);
+	smmAdventureUnavailableReason = "";
+	string page = getToAdventure(freeCombat);
+	assert(smmAdventureUnavailableReason == "", "startFreeCombat: unavailable carrier: " + smmAdventureUnavailableReason);
+	return page;
 }
 
 string freeCombatAdventure(string script) {

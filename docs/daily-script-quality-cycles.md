@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 19: distinguish a declined free carrier from an unconfirmed force
+
+The corrected healing retry passed Gingerbread City and the paid route confirmed Display Case deposits, including the acquired li'l ghost costume. It then reached forced noncombats. Two Avalanche uses were confirmed; the next Cat Day carrier returned the native `Summon limit exceeded.` reply without a new encounter or counter increment. The strict launch guard stopped before dispatching a target. This run ended normally with stable source and incomplete evidence, rather than being reported as a complete day.
+
+A known declined summon now returns before the native combat runner and post-adventure processing. Forced-noncombat selection can exclude that carrier for the current sequence only when the consult flag was unclaimed, the encounter and usage counter are unchanged, no force was pending, and a read-only refresh confirms readiness. It then selects another eligible free carrier or proceeds to the existing fallback. Unknown failures, changed counters, pending forces, claimed consult flags and inconsistent refreshes still hold. General free-fight workers stop rather than loop on a declined carrier. No spending cap, HP threshold, force counter or done marker is reset.
+
+The force suite adds 19 assertions (52 total), including bounded rejection/reselection, exhausted pools, direct declined-provider return, pending/claimed/changed-state refusals and failed refreshes. The existing abort and rollover cleanup cases remain. These cases passed in isolated r29482, as did the four production entry-point compilations; the offline suite and 118 Windows cases passed before integration. Exact post-merge verification and the next native retry are recorded in the scorecard. Scores remain 8.70 provisional code / 6.0 demonstrated live: partial recovery and deposits do not prove a fresh unattended day, profit or a fresh Museum rank.
+
 ## Cycle 18: heal high-HP outfits to the unchanged readiness target
 
 The next corrected run acquired the ghost costume and advanced through later grinds to Gingerbread City. Its pre-adventure HP gate then stopped after eight successful Cocoon casts, each restoring 1000 HP. The fixed eight-cast limit could not reach the existing 60%-of-final-outfit HP target on a high-HP outfit; the error incorrectly implied all recovery was exhausted.
