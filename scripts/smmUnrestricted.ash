@@ -760,10 +760,10 @@ string dailyGrindSessionLog() {
  return count(logs) > 0 ? logs[0] : "";
 }
 
-// Version 5 includes free-pull storage in version 4's marginal demand/backlog
-// accounting. Transfers from that container must not manufacture income.
+// Version 6 includes free pulls and canonical equipped counts (active and
+// inactive familiars). Ownership transfers must not manufacture income.
 string kGrindValueVersionKey = "smm.grind.valueVersion";
-string kGrindValueVersion = "5";
+string kGrindValueVersion = "6";
 boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread];
 
 void dailyGrindMigrateHistory() {
@@ -774,7 +774,7 @@ void dailyGrindMigrateHistory() {
   set_property("_smm.grind.counted." + name, "");
 	}
 	set_property(kGrindValueVersionKey, kGrindValueVersion);
-	print("dailyGrind: cleared obsolete grind history; marginal estimates include demand, backlog and free-pull ownership", "orange");
+	print("dailyGrind: cleared obsolete grind history; marginal estimates include demand, backlog and complete equipped/free-pull ownership", "orange");
 }
 
 int dailyGrindMinDays() {
@@ -906,10 +906,15 @@ int [item] dailyGrindHoldings() {
  foreach it, amount in get_storage() held[it] += amount;
  foreach it, amount in get_free_pulls() held[it] += amount;
  foreach it, amount in get_shop() held[it] += amount;
+ boolean [item] equipped;
  foreach sl in $slots[]
-  if (sl != $slot[none] && sl != $slot[familiar] && equipped_item(sl) != $item[none]) held[equipped_item(sl)] += 1;
+  if (sl != $slot[none] && equipped_item(sl) != $item[none]) equipped[equipped_item(sl)] = true;
  foreach fam, it in all_familiar_equipped_equipment()
-  if (it != $item[none]) held[it] += 1;
+  if (it != $item[none]) equipped[it] = true;
+ // The helper above excludes the active familiar; its item came from the
+ // familiar slot. Count each item type once through Mafia's canonical count,
+ // including inactive familiars and excluding consumed installed parts.
+ foreach it in equipped held[it] += equipped_amount(it, true);
  return held;
 }
 
