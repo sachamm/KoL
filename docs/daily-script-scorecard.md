@@ -31,6 +31,14 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.60** |
 
+### Quality cycle 11: confirmed forced-noncombat launches, score unchanged
+
+[PR #54](https://github.com/sachamm/KoL/pull/54), merged as `4c2cf271ecffe7800e65708b211c29e9e8c17d74`, fixes a concrete scarce-resource execution defect: the spike loops could dispatch the next Rift adventure without confirming a cast and then consume more carriers after failure. Free-fight, free-kill and paid launches now require one observed use, clear their queued consult flag in `finally`, check epoch and carrier readiness, and stop before another launch/target when unconfirmed. Fiesta Exit requires the successful cast result and the observed 60-Cinch charge. The daily wrappers retain the failure as unfinished; an unowned Cincho no longer reaches the belt-equipping phase.
+
+The exact merge passed **1163 assertions: 1090 ASH and 73 JavaScript**, including **33 launch checks**, plus **18 refusal/abort scenarios**, both compilations and planning/static checks. Windows verification passed **19 diagnostics, 35 evidence and 18 ownership checks**. The new launch cases and flag cleanup on abort/rollover also passed in isolated r29481. Both installed production files match the merge and compile while logged out. No live login, launch, target adventure or resource-spending worker was run in this cycle.
+
+The score stays **8.60/10 provisional code / 6.0/10 demonstrated live**. Confirming a cast prevents assuming a force exists; it does not prove that the carrier was the best one, the target was eligible for that source, or the entire Rift sequence out-earned competing collection targets. Cross-worker reservations, source-specific target values and corrected unattended outcomes remain open. No strategic-allocation points are awarded for this failure-handling fix. **9.9 remains unachieved.**
+
 ### Quality cycle 10: explicit retrieval and native cleanup, score unchanged
 
 [PR #52](https://github.com/sachamm/KoL/pull/52), merged as `0b4e9a222c31347ec3c08b7040d1a9981ee6b84a`, guards garbo's explicit `retrieveItem` calls as well as direct buys. Accessible stock is used first; missing finished copies need the existing verified price and shared allowance, within the caller's ceiling. Partial or denied fills cannot fall through to automatic sourcing. An owned transfer temporarily disables automatic purchase sources and `buyScript`, rechecks stock and epoch, and restores all five original settings even after an ASH abort through the JS bridge. A bare-native `none`-item compatibility defect was reproduced and corrected before merge.
