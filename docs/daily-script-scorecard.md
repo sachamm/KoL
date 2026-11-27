@@ -18,18 +18,24 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.25/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.40/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
 | Whole day unattended | 2 | 0.8 | 1.60 |
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
-| Paid adventures allocated well | 1.5 | 0.4 | 1.0 |
+| Paid adventures allocated well | 1.5 | 0.4 | 1.15 |
 | Spending rules | 1 | 0.7 | 0.75 |
 | Museum progress | 1 | 0.7 | 0.85 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.25** |
+| **Total** | **10** | **6.0** | **8.40** |
+
+### Quality cycle 4: post-merge assessment
+
+[PR #38](https://github.com/sachamm/KoL/pull/38), merged as `f57ce0f627e2a196a025a74eeb666dd8b190ecdc`, raises paid-turn allocation by **0.15** for demand- and backlog-limited marginal value. Provisional code quality is **8.40/10**. History and collection-loss settlement no longer assume every extra copy can sell at the average quote. Full signed inventory estimates remain diagnostic. The assumed market share and liquidation horizon still require calibration; realized sales and fresh grind samples remain missing.
+
+The full post-merge suite passed **981 ASH assertions** (131 core, 612 gate, 22 fence, 7 dressup, 94 diet, 60 review, 55 NPC resale), both compilations, plan/static checks and eight expected journal/fence abort scenarios. Windows checks passed **35 evidence cases, 16 diagnostic cases and 18 ownership checks**. All four verified runner modules were installed with a backup. The installed Mafia project was updated to this exact merge; compilation and the live-state plan passed in r29481 with unchanged turns, adventures, cash, HP and MP before/after inspection. Automatic breakfast was disabled and restored for that login. No daily worker was run. Live performance remains **6.0/10** and the **9.9 target remains open**.
 
 ### Quality cycle 3: post-merge assessment
 
@@ -96,7 +102,7 @@ Commands: `tests/smmdaily-tests.sh` and `tests/kol-daily-diagnostics-tests.ps1`.
 - A fresh live day must validate combat, recovery, task boundaries and the complete marker together. Missing safe recovery or an affordable spell still causes a deliberate stop.
 - Third-party direct purchases are booked and audited; this code cannot universally intercept them. The medicine fallback can also refuse when no verified average is available.
 - The adventure guard covers the automation paths and configured pre-adventure hook. Arbitrary third-party requests bypassing both cannot be stopped by it. Collection reservations conservatively charge other turns played during an interruption.
-- A correct inventory estimate is not realized sales or a liquidity model. Farm history still needs useful samples; 4,500 Meat/adventure remains provisional. Profitable bulk resale still depends on actual demand and future sales.
+- A marginal liquidation model is not realized sales. Its horizon and market-share assumptions need calibration, farm history needs useful corrected samples, and one-off resource gains still need marginal attribution; 4,500 Meat/adventure remains provisional. Profitable bulk resale still depends on future sales.
 - Forced-noncombat targeting remains partly configured rather than globally optimized. Resource dispositions identify blocked or unspent capacity without establishing every best alternative.
 - Case-count increases are confirmed; threshold crossings use cached competitors. Fresh rankings are required to confirm current places and successful rank defense.
 
