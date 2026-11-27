@@ -31,6 +31,26 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 18: high-HP healing, score unchanged pending the retry
+
+[PR #67](https://github.com/sachamm/KoL/pull/67), merged as `ca7d4691cc7ab1bbb83af49e88e3dac48346c5a3`, removes an eight-cast cutoff from combat healing. The live attempt reached Gingerbread City, then stopped after eight confirmed Cocoon casts of 1000 HP each, still below the unchanged 60%-of-final-outfit target. Healing now continues only while a known skill is affordable with current MP and each successful cast increases HP. Failed casts, no progress and insufficient MP stop further healing; no MP purchase or rest is added by this loop.
+
+The exact merge passed **1285 assertions: 1176 ASH and 109 JavaScript**, **18 refusal/abort scenarios**, main/FantasyRealm/diet compilation and planning/static checks, plus **118 Windows checks** (27 diagnostics, 36 evidence, 37 login, 18 ownership). Thirteen new healing checks and all four production entry points also passed in isolated r29482. Installed public source matches the merge and compiles logged out. The targeted native healing retry is outside this assessment cutoff; the preceding run is terminal with stable source and incomplete evidence.
+
+### Quality cycle 17: recover the interrupted third map
+
+[PR #66](https://github.com/sachamm/KoL/pull/66), merged as `b804c1893544e76c090d452e9a1bfb8b1fd3a3bb`, handles configured, currently offered June Cleaver choices and wandering fights while awaiting the actual mapping choice. It bounds transitions and stops on unknown or unavailable choices, unfinished combat, Beaten Up, lost mapping or exhausted adventures. An already active third map is reused despite an exhausted casting counter, without recasting.
+
+Post-merge checks passed **1272 assertions: 1163 ASH and 109 JavaScript**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows checks**. The 21 mapping checks also passed in isolated r29482. Native recovery submitted the inspected configured choice, used one available skip and retained the active map without incrementing its cast counter. A follow-up check identified the remaining refresh screen as the locket, which the existing runner cleanup handles. The subsequent retry **acquired the li'l ghost costume** and advanced through later grinds. This proves an owned acquisition, not a Display Case deposit or a fresh Museum rank. That run later stopped at the healing limit described above.
+
+### Quality cycle 16: compile dynamic workers before login
+
+[PR #65](https://github.com/sachamm/KoL/pull/65), merged as `30efc5b9ca933654d39677fc416ceca1f22fd4fa`, moves FantasyRealm's target import into its import block and verifies dynamically called workers before login. The authorized live test resumed an existing day at `deeds`, then exposed the late import through `fr quest`. The same error reproduced logged out on r29462 and r29482. The runner now requires four real successful compilation results for the main script, FantasyRealm, the diet and the pre-adventure hook before account actions.
+
+The exact merge passed **1251 assertions**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows checks**; all four installed entry points compiled on r29482. The corrected native retry passed `deeds`, then exposed the mapping interruption fixed in cycle 17. Each failed attempt ended with stable source but incomplete evidence; none is a qualifying fresh unattended day.
+
+Scores remain **8.70/10 provisional code / 6.0/10 demonstrated live** through these assessments. The fixes restore intended behavior and provide useful partial native evidence, but do not establish a corrected unattended day, reconciled resource profit or fresh confirmed Museum ranks. **9.9 remains unachieved.**
+
 ### Quality cycle 15: deferred breakfast and stable login, score unchanged
 
 [PR #63](https://github.com/sachamm/KoL/pull/63), merged as `3318e0f3125252f996c2b50b6bf5e2de0563b93d`, moves automatic breakfast behind the daily opening evidence. The stopped-process runner journals and temporarily disables only global/account breakfast and Git/SVN login updates, restores them after its child terminates, and recovers interrupted settings before a later login. The journal contains only selected boolean rows. All five runner modules are fingerprinted.
