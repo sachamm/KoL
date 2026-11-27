@@ -1,5 +1,5 @@
 // Persistent transfers with fake game quantities; no server requests.
-import <smmDailyFence.ash>
+import <smmDailyTasks.ash>
 int checks;
 int failures;
 void check(boolean ok, string reason) { checks += 1; if (!ok) { failures += 1; print("FAIL: " + reason, "red"); } }
@@ -130,6 +130,21 @@ void main() {
  movesBefore = smmDFenceTestMoves;
  smmDUnfence();
  check(smmDFenceTestMoves == movesBefore && smmDFenceTestCloset[it] == 4, "newer settled backup wins over an older pending primary without a duplicate return");
+
+ freshFence();
+ smmDFenceLoad();
+ SmmDFenceState missingReturn = smmDFenceCopy(smmDFenceCurrent);
+ missingReturn.fenced = it.to_int() + ":2";
+ smmDFenceSave(missingReturn);
+ smmDSet(kSmmDFencedKey, ""); // a lost/edited compatibility cache is not proof
+ check(!smmDTUnfenceDone(), "unfence completion reads persistent ownership rather than the preference cache");
+ smmDJournalOverride = "smm-daily-test-fence-worker.txt";
+ smmDJournalLoaded = true;
+ smmDHookBeforeTask = "";
+ smmDSet("smm.daily.runner", "true");
+ smmDRunTask(smmDTasks[smmDTaskIndex["close.unfence"]]);
+ check(smmDStopRun != "" && smmDGet("_smm.daily.error.close.unfence") != "", "missing stock stops the close worker before any collection-spending task");
+ check(smmDFenceTestMoves == 0, "missing stock cannot manufacture a return request");
 
  freshFence();
  if (failures == 0) print("PASS smmDailyFenceTest: " + checks + " checks");
