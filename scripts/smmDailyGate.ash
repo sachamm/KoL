@@ -338,6 +338,49 @@ void smmDOverdrunkMP(int target) {
  }
 }
 
+record SmmDHealingState {
+ int hp;
+ int mp;
+ boolean cocoon;
+ boolean walrus;
+ int cocoonCost;
+ int walrusCost;
+};
+SmmDHealingState smmDTestHealingState;
+string smmDTestHealAction; // only used by the engine's offline test mode
+
+SmmDHealingState smmDReadHealingState() {
+ if (smmDTestMode) return smmDTestHealingState;
+ SmmDHealingState state;
+ state.hp = my_hp(); state.mp = my_mp();
+ state.cocoon = have_skill($skill[Cannelloni Cocoon]); state.cocoonCost = mp_cost($skill[Cannelloni Cocoon]);
+ state.walrus = have_skill($skill[Tongue of the Walrus]); state.walrusCost = mp_cost($skill[Tongue of the Walrus]);
+ return state;
+}
+
+boolean smmDHealToTarget(int target) {
+ // Every successful iteration strictly increases HP toward a fixed target.
+ // Affordability is rechecked before each cast; this never buys MP or rests.
+ while (true) {
+  SmmDHealingState state = smmDReadHealingState();
+  if (state.hp >= target) return true;
+  skill healer = $skill[none];
+  if (state.cocoon && state.cocoonCost >= 0 && state.mp >= state.cocoonCost) healer = $skill[Cannelloni Cocoon];
+  else if (state.walrus && state.walrusCost >= 0 && state.mp >= state.walrusCost) healer = $skill[Tongue of the Walrus];
+  if (healer == $skill[none]) return false;
+  int before = state.hp; // snapshot scalar: ASH record assignment aliases
+  smmDRequireActiveDay();
+  boolean healed;
+  if (smmDTestMode) {
+   if (smmDTestHealAction == "") abort("healing test callback is required");
+   healed = call boolean smmDTestHealAction(healer);
+  } else healed = use_skill(1, healer);
+  smmDRequireActiveDay();
+  if (!healed || smmDReadHealingState().hp <= before) return false;
+ }
+ return false;
+}
+
 // Called after the final outfit change, immediately before opening a fight.
 // Free recovery first; only the bounded overdrunk fallback may buy medicine.
 // Campsite rests are never used.
@@ -350,20 +393,10 @@ void smmDCombatPrepare() {
  smmDFreeMP(min(my_maxmp(), max(100, smmDSettingInt("mpLow"))));
  smmDOverdrunkMP(min(my_maxmp(), 100));
 	int target = smmDailyCombatHpTarget(my_maxhp());
-	for attempt from 1 upto 8 {
-		smmDRequireActiveDay();
-		if (my_hp() >= target) break;
-		int before = my_hp();
-		boolean healed = false;
-		if (have_skill($skill[Cannelloni Cocoon]) && my_mp() >= mp_cost($skill[Cannelloni Cocoon]))
-			healed = use_skill(1, $skill[Cannelloni Cocoon]);
-		else if (have_skill($skill[Tongue of the Walrus]) && my_mp() >= mp_cost($skill[Tongue of the Walrus]))
-			healed = use_skill(1, $skill[Tongue of the Walrus]);
-		if (!healed || my_hp() <= before) break;
-	}
+ boolean healingReady = smmDHealToTarget(target);
  smmDOverdrunkMP(min(my_maxmp(), 100));
-	if (my_hp() < target)
-		abort("smmDaily: combat preparation needs " + target + " HP after dressing (have " + my_hp() + "); no safe free recovery remains");
+	if (!healingReady || my_hp() < target)
+		abort("smmDaily: combat preparation needs " + target + " HP after dressing (have " + my_hp() + "); further affordable healing was not confirmed");
 }
 
 // Before each task: no task starts nearly out of MP while a free restore is

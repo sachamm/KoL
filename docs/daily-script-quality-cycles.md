@@ -2,6 +2,12 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 18: heal high-HP outfits to the unchanged readiness target
+
+The next corrected run acquired the ghost costume and advanced through later grinds to Gingerbread City. Its pre-adventure HP gate then stopped after eight successful Cocoon casts, each restoring 1000 HP. The fixed eight-cast limit could not reach the existing 60%-of-final-outfit HP target on a high-HP outfit; the error incorrectly implied all recovery was exhausted.
+
+Healing now continues while a known skill is affordable with current MP and each successful cast strictly increases HP toward the fixed target. It rechecks affordability and epoch before another cast, stops immediately on failure or no progress, and neither buys MP nor rests. The 60% threshold and the separately capped existing MP fallback are unchanged. Synthetic tests use generic HP/MP fixtures, cover targets requiring more than eight casts, and verify MP exhaustion, unknown skills, failed/no-progress casts, affordable Walrus fallback and zero-cost progress bounds. The failed run is terminal with stable source and incomplete evidence; it is not a qualifying unattended day.
+
 ## Cycle 17: mapping interruptions and the active third cast
 
 The corrected live retry passed `deeds` and progressed through several grinds, then stopped in `ghostCostume`: a June Cleaver noncombat arrived before the expected mapping choice. The old loop stopped at any choice and asserted that it was the map. Native inspection found choice 1468, the user's configured option 4 available, and an active map even though the cast counter was already three. Login's charsheet refresh was redirected to that pending choice, so the transient zero player ID was not treated as authority to make an unvalidated decision.
