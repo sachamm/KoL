@@ -182,10 +182,10 @@ void testFence() {
 }
 
 void testGarbo() {
-	same(smmDTGarboCommand(10, ""), "garbo -10", "garbo leaves N turns");
-	same(smmDTGarboCommand(0, ""), "garbo -1", "never 'garbo 0' or a bare 'garbo': those mean no limit");
-	same(smmDTGarboCommand(-5, ""), "garbo -1", "a negative setting cannot become a positive turn count");
-	same(smmDTGarboCommand(25, "nobarf"), "garbo -25 nobarf", "extra arguments follow the turn count");
+	same(smmDTGarboCommand(10, ""), "smmDailyGarbo -10", "garbo leaves N turns");
+	same(smmDTGarboCommand(0, ""), "smmDailyGarbo -1", "never 'garbo 0' or a bare 'garbo': those mean no limit");
+	same(smmDTGarboCommand(-5, ""), "smmDailyGarbo -1", "a negative setting cannot become a positive turn count");
+	same(smmDTGarboCommand(25, "nobarf"), "smmDailyGarbo -25 nobarf", "extra arguments follow the turn count");
 	same(smmDTGarboArgsProblem(""), "", "no extra arguments is fine");
 	same(smmDTGarboArgsProblem("nobarf"), "", "a harmless argument is allowed");
 	check(smmDTGarboArgsProblem("ascend") != "", "ascend is refused");
@@ -201,9 +201,9 @@ void testGarbo() {
 	// the second garbo run stops at the diet's stop point
 	check(smmDTStopPoint("") == 0 && smmDTStopPoint("x") == 0 && smmDTStopPoint("-3") == 0, "no usable stop point holds nothing back");
 	check(smmDTStopPoint("17") == 17, "the stop point diet.ash recorded");
-	same(smmDTGarboFinalCommand(0, ""), "garbo", "with nothing to hold, the last garbo run spends every adventure");
-	same(smmDTGarboFinalCommand(17, ""), "garbo -17", "otherwise it leaves the stop point");
-	same(smmDTGarboFinalCommand(17, "nobarf"), "garbo -17 nobarf", "extra arguments follow");
+	same(smmDTGarboFinalCommand(0, ""), "smmDailyGarbo", "with nothing to hold, the last garbo run spends every adventure");
+	same(smmDTGarboFinalCommand(17, ""), "smmDailyGarbo -17", "otherwise it leaves the stop point");
+	same(smmDTGarboFinalCommand(17, "nobarf"), "smmDailyGarbo -17 nobarf", "extra arguments follow");
 	same(smmDTDietCommand("execute"), "call diet.ash execute yes", "diet.ash is told yes: smmdaily never waits on a question");
 }
 

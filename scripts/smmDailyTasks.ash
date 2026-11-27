@@ -171,7 +171,7 @@ string smmDTGarboArgsProblem(string args) {
 
 // Always an explicit negative number: "garbo 0" and a bare "garbo" mean no limit.
 string smmDTGarboCommand(int leaveTurns, string args) {
-	return "garbo -" + max(1, leaveTurns) + (args != "" ? " " + args : "");
+	return "smmDailyGarbo -" + max(1, leaveTurns) + (args != "" ? " " + args : "");
 }
 
 string smmDTGarboReady() {
@@ -245,7 +245,7 @@ int smmDTStopPoint(string stored) {
 }
 
 string smmDTGarboFinalCommand(int stopAt, string args) {
-	return (stopAt > 0 ? "garbo -" + stopAt : "garbo") + (args != "" ? " " + args : "");
+	return (stopAt > 0 ? "smmDailyGarbo -" + stopAt : "smmDailyGarbo") + (args != "" ? " " + args : "");
 }
 
 string smmDTGarboFinalReady() {

@@ -42,7 +42,7 @@ KOLUTILS="${SMM_KOLUTILS:-$RUNTIME/ext/KoLUtils}"
 fetch Voting-Booth https://github.com/Ezandora/Voting-Booth.git
 fetch Bastille https://github.com/Ezandora/Bastille.git Release
 
-ln -sf "$REPO"/scripts/* "$REPO"/tests/ash/*.ash "$KOLUTILS"/scripts/*.ash \
+ln -sf "$REPO"/scripts/* "$REPO"/tests/ash/*.ash "$REPO"/tests/ash/*.js "$KOLUTILS"/scripts/*.ash \
 	"$RUNTIME/ext/Voting-Booth/Release/scripts/VotingBooth.ash" "$RUNTIME/ext/Bastille/scripts/bastille.ash" "$RUNTIME/scripts/"
 ln -sf "$RUNTIME"/ext/Bastille/relay/* "$RUNTIME/relay/"
 ln -sf "$REPO"/data/* "$RUNTIME/data/"
@@ -60,7 +60,7 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
 	verdict="^[[:space:]]*(>[[:space:]]*)?PASS $t:"
 	if grep -Eq "$verdict" <<<"$out"; then pass "$(grep -E "$verdict" <<<"$out" | sed 's/^[[:space:]>]*//')"
@@ -74,6 +74,10 @@ for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest 
 done
 
 # The expected abort proves intent must reach disk before a task can act.
+out="$(mafia "smmDailyGarbo -10")"
+if grep -q 'guarded garbo requires a logged-in active daily run' <<<"$out"; then pass "guarded garbo refuses a logged-out or inactive run before loading its worker"
+else fail "guarded garbo did not refuse the inactive run"; tail -12 <<<"$out"; fi
+
 out="$(mafia "smmDailyJournalFailureTest")"
 if grep -q "could not write the journal" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "journal failure stops before the task action"
 else fail "journal failure did not prevent the task action"; fi
