@@ -104,7 +104,7 @@ boolean smmGuardItemStealEligible(location where) {
 }
 
 boolean smmGuardGardenHoldReported;
-boolean smmGuardBlackRoseEligible() {
+boolean smmGuardBlackRoseEligible(int configured) {
  smmGuardReady();
  item seed = $item[black garden rose];
  int [item] camp = get_campground();
@@ -115,12 +115,11 @@ boolean smmGuardBlackRoseEligible() {
  smmGuardReady();
  if (seed.reusable) reserved = 0;
  boolean eligible = smmGuardInputAvailable(1, accessible, owned, reserved, 0, 0, 0, 0, false);
- int configured = get_property("autoBuyPriceLimit").to_int();
- boolean buying = seed.tradeable && configured >= 0 && get_property("autoSatisfyWithMall") == "true" && get_property("autoSatisfyWithNPCs") == "true";
+ boolean buying = seed.tradeable && configured > 0 && get_property("autoSatisfyWithMall") == "true" && get_property("autoSatisfyWithNPCs") == "true";
  if (!eligible && buying) {
   float average = smmSpendAveragePrice(seed);
   int quote = mall_price(seed);
-  eligible = smmGuardInputAvailable(1, accessible, owned, reserved, configured == 0 ? 20000 : configured, average, quote, smmSpendBudget(), true);
+  eligible = smmGuardInputAvailable(1, accessible, owned, reserved, configured, average, quote, smmSpendBudget(), true);
  }
  smmGuardReady();
  if (!eligible && !smmGuardGardenHoldReported) {
@@ -136,7 +135,9 @@ int smmGuardConsumptionQuantity(int quantity, item it, boolean usingItem) {
 
 // Freeze the reserve before acquiring replacement copies. Recomputing an
 // unknown-rank reserve after buying would reserve the replacements as well.
-boolean smmGuardConsume(int quantity, item it, boolean usingItem) {
+// The JS boundary normalizes the native numeric setting once. A nonpositive
+// normalized value prohibits replacement buys; it is never a default sentinel.
+boolean smmGuardConsume(int quantity, item it, boolean usingItem, int limit) {
  smmGuardReady();
  if (quantity <= 0 || it == $item[none] || (usingItem && it.reusable)) return true;
  int reserved = smmMuseumReservedCopies(it);
@@ -144,8 +145,7 @@ boolean smmGuardConsume(int quantity, item it, boolean usingItem) {
  if (reserved <= 0) return true; // ordinary finished-item retrieval handles acquisition
  int missing = smmGuardConsumptionMissing(quantity, smmMuseumOwnedCopies(it), reserved);
  if (missing > 0 && it.tradeable && get_property("autoSatisfyWithMall") == "true" && get_property("autoSatisfyWithNPCs") == "true") {
-  int limit = get_property("autoBuyPriceLimit").to_int();
-  if (limit >= 0) smmGuardBuy(missing, it, limit == 0 ? 20000 : limit);
+  if (limit > 0) smmGuardBuy(missing, it, limit);
  }
  smmGuardReady();
  if (smmGuardConsumptionMissing(quantity, smmMuseumOwnedCopies(it), reserved) == 0) return true;

@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 24: normalize fractional acquisition ceilings at one boundary
+
+The corrected native retry passed garden discovery and task readiness, then giant-sandworm preparation supplied a legitimate fractional automatic-buy ceiling. The adapter had accepted only integer strings and stopped before acquisition. The stable-source attempt returned fenced items, retained its paid-work hold and ended incomplete.
+
+The JavaScript boundary now accepts bounded finite numeric ceilings, including scientific notation, and floors positive decimal digits before passing an integer into ASH. This avoids inconsistent cross-runtime string coercions and rounding a sub-Meat amount up to a payable Meat. Only an explicit numeric zero uses the native default; negative and positive sub-Meat/underflowed amounts cannot buy. Malformed/nonfinite/out-of-range values still refuse. Retrieval, Museum replacement consumption and garden forecasts share this normalization; the typed bridge does not reinterpret zero as a default. Existing average-price and shared-allowance gates remain in place.
+
+Twenty-eight parser/typed-bridge assertions and three additional retrieval cases cover ordinary fractions, exact zero, sub-Meat values, binary-rounding boundaries, exponents, underflow, negatives and invalid/bounded inputs. These, existing consumption tests, four entry-point compilations and the action-blocked installed-bundle load passed on isolated r29482. Exact integration/native results are added to the scorecard after execution; scores remain unchanged.
+
 ## Cycle 23: include the independent garden planting task
 
 The cycle 22 native retry passed discovery without consuming the protected seed, then upstream's separate `Plant Black Rose Garden` task attempted that same input and failed its guard. The discovery-only hook had missed this second entry point. The stable-source run returned every fenced copy, retained the paid-work hold and ended incomplete after more free daily work.

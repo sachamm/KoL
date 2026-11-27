@@ -8,13 +8,15 @@ exports.main = function (args) {
   const wrapped = adapter.createModule(km, {
     ready: function () { bridge.smmGuardReady(); },
     buy: function (quantity, item, limit) { return bridge.smmGuardBuy(quantity, item, limit); },
-    consume: function (quantity, item, usingItem) { return bridge.smmGuardConsume(quantity, item, usingItem); },
+    consume: function (quantity, item, usingItem) {
+      return bridge.smmGuardConsume(quantity, item, usingItem, adapter.automaticBuyLimit(km.getProperty("autoBuyPriceLimit")));
+    },
     consumptionQuantity: function (quantity, item, usingItem) { return bridge.smmGuardConsumptionQuantity(quantity, item, usingItem); }
   });
   const source = String(km.fileToBuffer("scripts/garbage-collector/garbo.js"));
   const worker = adapter.loadWorker(source, wrapped,
     function (where) { return bridge.smmGuardItemStealEligible(where); },
-    function () { return bridge.smmGuardBlackRoseEligible(); });
+    function () { return bridge.smmGuardBlackRoseEligible(adapter.automaticBuyLimit(km.getProperty("autoBuyPriceLimit"))); });
   adapter.runWorker(worker, args, km, {
     ready: function () { bridge.smmGuardReady(); },
     barfHold: function () { return bridge.smmGuardBarfHold(); }
