@@ -18,7 +18,7 @@ function Get-KolDailySourceManifest {
   if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing installed policy table: $name" }
   $entries += [pscustomobject]@{path=('data/' + $name);sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()}
  }
- foreach ($name in 'Invoke-KolDaily.ps1','KolDailyDiagnostics.ps1','KolDailyOwnership.ps1','KolDailyEvidence.ps1') {
+ foreach ($name in 'Invoke-KolDaily.ps1','KolDailyDiagnostics.ps1','KolDailyOwnership.ps1','KolDailyEvidence.ps1','KolDailyLogin.ps1') {
   $path = Join-Path $RunnerRoot $name
   $entries += [pscustomobject]@{path=('runner/' + $name);sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()}
  }
@@ -67,7 +67,7 @@ function Get-KolDailyRunEvidence {
  if ($incomplete.Count) { $issues += 'An incomplete result was reported' }
  [pscustomobject]@{schemaVersion=1;runId=$RunId;candidateForLiveReview=($issues.Count -eq 0);issues=$issues
   start=$start;end=$end;sourceStable=$stable;sourceBefore=$Before;sourceAfter=$After
-  coverage='After login through the runner end boundary. Login breakfast can precede this window. Manual intervention, resource reconciliation, realized earnings and Museum ranks require separate review.'}
+  coverage='After login through the runner end boundary. Automatic breakfast is deferred to the recorded daily flow; other configured login hooks can precede this window. Manual intervention, resource reconciliation, realized earnings and Museum ranks require separate review.'}
 }
 
 function Write-KolDailyJson {

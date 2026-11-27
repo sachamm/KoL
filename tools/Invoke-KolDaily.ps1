@@ -6,7 +6,8 @@
   3. Runs `git update` (sachamm/KoL, KoLUtils and the other git installs) logged out,
      and moves aside scripts the repo no longer ships that would shadow new ones
      (diet.js after diet.ash replaced it).
-  4. Starts KoLmafia in CLI mode, logs in with the saved password (`login Tquilla`),
+  4. Defers automatic breakfast to day.open/mp.bootstrap and freezes login updates;
+     starts KoLmafia in CLI mode, logs in with the saved password (`login Tquilla`),
      runs `smmdaily run`, then `smmdaily status` and the journal tail, and exits.
   5. Writes a log and a status file (runlogs\daily\latest.json) listing anything
      that looks like an error, for the scheduled check to report.
@@ -14,7 +15,8 @@
   No password is stored here: `login <name>` uses the password KoLmafia saved
   when "save password" was ticked in the GUI.
 
-  -Mode Plan still logs in (KoLmafia login breakfast may act), then prints the plan.
+  -Mode Plan still logs in with automatic breakfast disabled, then prints the plan.
+  Other configured login hooks can act; Plan is not a read-only account API.
   For read-only inspection use the existing session; do not start this runner.
   -SkipJarUpdate / -SkipGitUpdate skip those steps.
 #>
@@ -203,6 +205,7 @@ function Remove-StaleScripts {
 . (Join-Path $PSScriptRoot 'KolDailyDiagnostics.ps1')
 . (Join-Path $PSScriptRoot 'KolDailyOwnership.ps1')
 . (Join-Path $PSScriptRoot 'KolDailyEvidence.ps1')
+. (Join-Path $PSScriptRoot 'KolDailyLogin.ps1')
 function Find-Problems([string] $text, [string] $phase) {
  foreach ($line in ($text -split "\r?\n")) {
   if (Test-KolDailyProblemLine $line) { $script:status.errors += "[$phase] $($line.Trim())" }
@@ -243,10 +246,15 @@ try {
   Write-KolDailyJson $evidenceFile ([ordered]@{schemaVersion=1;runId=$runId;state='before-login';sourceBefore=$sourceBefore;candidateForLiveReview=$false})
   Save-Status
 
+  # Mafia is stopped and both leases are held. Restore an interrupted guard,
+  # then borrow only login flags; explicit breakfast runs after day.open.
+  Enter-KolDailyLoginGuard $MafiaRoot $Username
+
   $smm = if ($Mode -eq 'Run') { 'smmdaily run' } else { 'smmdaily plan' }
   $cmds = @(
     "login $Username",
     ('ash if (my_name().to_lower_case() != "' + $Username.ToLowerInvariant() + '") abort("DAILY-RUNNER: wrong or missing account");'),
+    $(if ($Mode -eq 'Run') { 'set _smm.daily.breakfastDeferred = true' }),
     (New-KolDailyBoundaryCommand $runId 'START'),
     'ash print("DAILY-RUNNER: logged in as " + my_name() + ", day " + today_to_string() + ", rollover in " + (rollover() - now_to_int() / 1000) / 60 + " min");'
     # An open Combat Lover's Locket screen (choice 1463) left from manual play makes smmdaily refuse to start;
@@ -278,6 +286,8 @@ catch {
 }
 finally {
  try {
+  try { Stop-Mafia; $null = Restore-KolDailyLoginGuard $MafiaRoot }
+  catch { Write-Log "Could not restore automatic-login settings: $_" 'ERROR' }
   $status.finished = (Get-Date).ToString('o')
   if ($Mode -eq 'Run' -and $r.Text -notmatch '(?m)^>?\s*SMM_DAILY_RESULT COMPLETE\s*$') {
     Write-Log 'smmdaily did not confirm a complete day; inspect the journal for failed, blocked or unfinished tasks.' 'ERROR'

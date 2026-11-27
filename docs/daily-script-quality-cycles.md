@@ -1,6 +1,16 @@
 # Daily script quality cycles
 
-The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Normal game actions are separate from offline validation; the current end-of-day account was offered for information only.
+The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
+
+## Cycle 15: breakfast after the opening baseline
+
+A fresh-day authorized information login confirmed 168 adventures, zero drunkenness, no encounter and no fence. Login automatically updated public dependencies, so the new garbo bundle was checked with synthetic state and action functions blocked; its main was never called. Shared utility source matched the offline dependency. No daily worker had run.
+
+The Windows runner previously allowed automatic breakfast before its evidence boundary and `day.open`. It now journals and borrows only four automatic-login flags while Mafia is stopped, preventing breakfast and source updates during login. Cleanup stops any remaining owned child before atomic restoration; a later run recovers an interrupted guard. The journal contains no credentials, and restoration preserves unrelated preferences written by Mafia. The new module is included in source fingerprints.
+
+Native inspection also reproduced a stale `breakfastCompleted=true` after a no-breakfast login. Run mode now sets an explicit daily deferral marker; `mp.bootstrap` dispatches explicit breakfast after the opening snapshot even when that stale marker says complete. It clears deferral only after a successful command and native confirmation. Failed or unconfirmed summons leave the task unfinished. Plan mode does not set deferral. Other configured login hooks remain outside the evidence window.
+
+A native guarded information login kept turns, adventures, HP, MP and drunkenness unchanged, retained a stable source fingerprint and restored all selected original flags. Offline tests cover interrupted settings, malformed journals, unrelated preference preservation and deferred/failed/retried breakfast. No resource-spending outcome is claimed from those checks.
 
 ## Cycle 14: verified-cost Museum gap ordering
 
