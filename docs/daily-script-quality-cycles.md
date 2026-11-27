@@ -95,7 +95,7 @@ A logged-out r29481 probe inspected the native JavaScript `buy` export: it is no
 
 Cycles 9–10 now install an adapter for direct buys and explicit finished-item retrieval through a copied import rather than modifying native exports. Implicit sourcing inside other native methods, direct creation, purchase URLs, delegated CLI/scripts and recovery/crafting costs still require broader enforcement with complete bookkeeping and fail-closed behavior on unsupported paths. Merely wrapping `cli_execute("garbo")`, or changing garbo's valuation overrides, does not establish a universal purchase ceiling.
 
-The current score is 8.60 provisional code / 6.0 demonstrated live after cycle 9's direct-buy boundary. The 9.9 objective remains open. The next evidence gate is corrected unattended days with source provenance, reconciled spending and quantities, calibrated marginal values and fresh confirmed Museum results. The adopted acceptance milestone is five consecutive qualifying days; the manual/legacy day and information-only login/plan/audit are not qualifying runs. Do not relabel them or increase the score to meet the target.
+The current score is 8.65 provisional code / 6.0 demonstrated live after cycle 12's marginal paid-route values and corrected ownership evidence. The 9.9 objective remains open. The next evidence gate is corrected unattended days with source provenance, reconciled spending and quantities, calibrated marginal values and fresh confirmed Museum results. The adopted acceptance milestone is five consecutive qualifying days; the manual/legacy day and information-only login/plan/audit are not qualifying runs. Do not relabel them or increase the score to meet the target.
 
 ## Cycle 7: observed cash sources without inventing profit
 
