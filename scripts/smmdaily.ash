@@ -85,6 +85,9 @@ void main(string command) {
 	case "fence-status":
 		smmDFenceStatus();
 		break;
+	case "income":
+		smmIncomeReport(smmSpendLiquidMeat(), smmDTodaysLog());
+		break;
 	case "settings":
 		smmDPrintSettings();
 		break;
@@ -95,6 +98,6 @@ void main(string command) {
 		print("smmDaily: cleared the run lock. Finished tasks, daily counters and spending were kept.");
 		break;
 	default:
-		abort("Use smmdaily plan | dry | run [phase|task] | status | journal [n] | retry <task> | book | audit | fence-status | unfence | settings | reset");
+		abort("Use smmdaily plan | dry | run [phase|task] | status | journal [n] | retry <task> | book | audit | income | fence-status | unfence | settings | reset");
 	}
 }

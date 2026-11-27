@@ -15,6 +15,10 @@ The day's net is the Meat held now, minus the opening figure, with this script's
 
 Only Meat is counted: items gained are not valued until they sell. Anything else that moves Meat between two runs (a gift, a manual Display Case purchase) lands in the next day's net too.
 
+The cash budget is not labeled as verified resource profit. `day.open` now records a separate observation boundary: current cash, a local-session-log anchor and normalized shop receipts. The closing report separates observed new shop proceeds, cash gains following combat wins, other logged gains/losses, pre-observation cash and remaining unexplained movements. It preserves duplicate receipts and detects lost anchors, unparsed history and changed local-log boundaries. Buyer names are not stored in the new normalized evidence.
+
+This observation window begins after login, so it cannot reconstruct overnight income, login breakfast, old-stock cost basis or every unlogged purchase/transfer. An unavailable opening does not turn the full historical shop log into today's income. `SMM_DAILY_INCOME_COVERAGE OBSERVED_WINDOW` means the specified window's source records were retained, while `RESOURCE_PROFIT UNVERIFIED` remains explicit. Shop proceeds are gross receipts, not earnings. The budget continues to follow the existing cash-basis policy, including overnight shop sales; no new exclusion of those proceeds is inferred.
+
 ## The spending step
 
 `smmSpendRun()` runs at the end of `dailyGrind()` and again at the start of `good_night()`. It can run any number of times: each run spends only what the budget still allows.
