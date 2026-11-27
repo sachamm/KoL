@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 22: optional garden discovery must respect seed reserves
+
+The live retry confirmed that the absinthe eligibility hook let other item-steal encounters run. It then stopped during Black Rose Garden monster discovery: the consumption guard refused the protected seed, while upstream expected planting to succeed. All fenced copies returned, source remained stable and the run ended incomplete with its paid-work hold intact.
+
+The cooperative loader now validates and wraps the inspected garden-discovery function/cache. Discovery checks whether the garden is installed or its work already finished; otherwise a read-only input forecast uses accessible supply, Museum reserves, automatic-source permissions and unchanged purchase/allowance limits. An unavailable optional garden clears only its in-memory candidate list so unrelated daily work can proceed. It never marks native garden uses complete. Actual planting failures and failed readiness checks continue to stop the worker. This is a narrow inspected hook, not universal seed swapping or a replacement for live validation after upstream updates.
+
+Thirteen factory assertions cover denied and later-eligible supply, stale cached monster lists, readiness/planting failures, missing or incompatible hooks, original behavior without instrumentation and unchanged native completion flags. They and the existing route cases, four entry-point compilations and an action-blocked load of the installed public bundle passed on isolated r29482. Exact post-merge and native evidence will be recorded after execution; scores remain unchanged.
+
 ## Cycle 21: filter an unfulfillable item-steal prerequisite before selection
 
 The native retry successfully bypassed the blocked Dinsey access purchase using the daily-work mode. It performed daily-item work and free encounters, then the item-steal selector chose the Stately Pleasure Dome and its absinthe prerequisite could not be purchased under the existing guard. The exception was labelled combat-related by an upstream wrapper, but arose in preparation before entering that route. The stable-source run ended incomplete with a matching end boundary, no paid turns in that attempt, its paid-work hold intact and all fenced stock returned.

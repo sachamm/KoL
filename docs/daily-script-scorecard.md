@@ -31,13 +31,21 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 22: optional garden fights respect protected planting stock
+
+The next native retry confirmed the absinthe eligibility hook: it selected other item-steal encounters instead of retrying the unsuppliable prerequisite. It then reached Black Rose Garden discovery, whose attempted planting was correctly refused because the seed was protected. Upstream treated that refusal as fatal. The stable-source attempt ended incomplete with its paid-work hold and all fenced stock returned.
+
+Garden discovery now checks usable seed supply first. Installed garden access and already finished discovery retain the original behavior. Otherwise the same supply, Museum reserve, automatic-source, price and allowance rules apply. An unavailable optional garden gets an empty in-memory monster list, allowing other daily work to continue; no native daily-used flag is fabricated. Readiness failures and actual planting failures still propagate. This cooperative hook validates the inspected private discovery function/cache and must be rechecked on upstream changes.
+
+Thirteen synthetic factory checks, the existing 24 route cases, four entry-point compilations and the action-blocked structural load of the installed public bundle passed on isolated r29482. Integration checks and further native results follow after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**; the full day, economics and qualifying unattended sequence are still unproved.
+
 ### Quality cycle 21: exclude an unsuppliable item-steal prerequisite
 
 The next native attempt selected the supported daily-work mode, completed daily-item work and several free encounters, then failed before entering an item-steal route because its absinthe acquisition could not fill under the guard. The boundary recorded no paid turns during this attempt. Source stayed stable, the paid-work hold survived, and all fenced items returned; the daily task and nightcap remained unfinished. Upstream's estimated item proceeds are not treated as realized profit.
 
 The cooperative loader now adds an eligibility check to the actual Stately Pleasure Dome entry before its original selector ranks routes. The forecast includes accessible input, Museum replacements, permitted automatic sources, verified average, current quote, upstream acquisition ceiling and the shared allowance. An unsuppliable prerequisite yields to another originally eligible route; existing effects or supplied surplus remain usable. Prices and the original ranking function are unchanged. Real acquisition/consumption remains guarded, and a later failed fill still stops. This is one inspected route hook, not universal third-party purchasing coverage. Missing, duplicated or changed hook structure refuses loading before main.
 
-Twenty-four synthetic input/selection assertions and the existing adapter/access cases passed on isolated r29482. A public copy of the actual installed bundle passed the structural load test with synthetic state and actions blocked; its main was never called in that check. Four entry points compiled. Exact integration checks and native results follow after execution. Scores stay **8.70 provisional code / 6.0 demonstrated live**.
+Twenty-four synthetic input/selection assertions and the existing adapter/access cases passed on isolated r29482. A public copy of the actual installed bundle passed the structural load test with synthetic state and actions blocked; its main was never called in that check. [PR #71](https://github.com/sachamm/KoL/pull/71) merged as `82ae143f25d0a14946f9bd20966f3b078247d06a`. Post-merge verification passed **1362 assertions: 1199 ASH and 163 JavaScript**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows cases**. Installed source matched the tested merge and compiled logged out at all four entry points. The next native run confirmed alternate selection and exposed the optional garden failure above. Scores stay **8.70 provisional code / 6.0 demonstrated live**.
 
 ### Quality cycle 20: run daily work when paid access is held
 
