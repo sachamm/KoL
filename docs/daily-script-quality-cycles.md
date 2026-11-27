@@ -8,6 +8,8 @@ The next corrected run acquired the ghost costume and advanced through later gri
 
 Healing now continues while a known skill is affordable with current MP and each successful cast strictly increases HP toward the fixed target. It rechecks affordability and epoch before another cast, stops immediately on failure or no progress, and neither buys MP nor rests. The 60% threshold and the separately capped existing MP fallback are unchanged. Synthetic tests use generic HP/MP fixtures, cover targets requiring more than eight casts, and verify MP exhaustion, unknown skills, failed/no-progress casts, affordable Walrus fallback and zero-cost progress bounds. The failed run is terminal with stable source and incomplete evidence; it is not a qualifying unattended day.
 
+PR #67 merged as `ca7d4691cc7ab1bbb83af49e88e3dac48346c5a3`. Post-merge checks passed 1285 assertions (1176 ASH, 109 JavaScript), 18 refusal/abort scenarios, compilation/planning/static checks and 118 Windows checks. The 13 healing checks and all four production entry points also passed in isolated r29482. Installed public source matches the merge. No score increase is assigned before the corrected native retry.
+
 ## Cycle 17: mapping interruptions and the active third cast
 
 The corrected live retry passed `deeds` and progressed through several grinds, then stopped in `ghostCostume`: a June Cleaver noncombat arrived before the expected mapping choice. The old loop stopped at any choice and asserted that it was the map. Native inspection found choice 1468, the user's configured option 4 available, and an active map even though the cast counter was already three. Login's charsheet refresh was redirected to that pending choice, so the transient zero player ID was not treated as authority to make an unvalidated decision.
@@ -16,6 +18,8 @@ The mapping wait now distinguishes its actual choice from known June Cleaver int
 
 Twenty-one isolated r29482 checks cover the native failure sequence, reuse of an active third map, configured choice handling, bounded wandering, failed decisions, unavailable skips, loss of mapping and the final transition boundary. The failed retry is terminal with stable source and incomplete evidence; it is not a qualifying unattended day. Resource counters and completed tasks remain intact for the corrected retry. Live recovery and the complete-day outcome remain unverified at this point.
 
+PR #66 merged as `b804c1893544e76c090d452e9a1bfb8b1fd3a3bb`. The exact merge passed 1272 assertions (1163 ASH, 109 JavaScript), 18 refusal/abort scenarios, compilation/planning/static checks and 118 Windows checks. Native recovery subsequently resolved the configured June Cleaver decision, used one skip and preserved the active third map. The remaining refresh screen was the locket, handled by the runner's existing cleanup. The next retry acquired the ghost costume and advanced to later grinds before encountering cycle 18's healing cutoff. Acquisition is not a claim of a case deposit or Museum rank.
+
 ## Cycle 16: compile dynamic workers before login
 
 The explicitly authorized supervised run resumed an existing `deeds` checkpoint, then aborted when `LOVprep` called `fr quest`. FantasyRealm's shared target import appeared after a global declaration, where ASH parsed it as an unknown variable. The same failure reproduced logged out in r29462 and r29482; it was not specific to the newly installed client. Moving the import into the initial import block fixes standalone compilation.
@@ -23,6 +27,8 @@ The explicitly authorized supervised run resumed an existing `deeds` checkpoint,
 The offline suite now verifies `fr.ash` as well as the main entry point. The Windows runner additionally verifies `smmdaily.ash`, `fr.ash`, `diet.ash` and `smmPreAdventure.ash` with its actual selected jar before any login. It requires four real completion lines and a successful, non-timeout process; partial output, echoed markers and nonzero exits cannot authorize login. This catches dynamically called workers that the main static import graph does not compile.
 
 The failed attempt ended with an error and idle timeout, stable source, no matching end boundary and no complete marker. Cleanup restored login flags and removed the settings guard. It is not a qualifying fresh unattended day, and the missing end boundary does not prove zero resource use. Existing completed tasks, counters and spending are preserved for an explicit retry of `deeds` after integration. The corrected four-entry preflight passed logged out on r29482; the offline suite passed 1251 assertions and 18 refusal/abort scenarios, and Windows checks passed 118 cases. Further live results require the corrected rerun.
+
+PR #65 merged as `30efc5b9ca933654d39677fc416ceca1f22fd4fa`. The exact merge passed the same 1251 assertions, 18 refusal/abort scenarios and 118 Windows checks; all four installed entry points compiled logged out. The subsequent native retry passed `deeds` and exposed the separate mapping interruption described in cycle 17.
 
 ## Cycle 15: breakfast after the opening baseline
 
