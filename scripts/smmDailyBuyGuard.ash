@@ -70,6 +70,39 @@ int smmGuardConsumptionMissing(int quantity, int owned, int reserved) {
  return max(0, max(0, quantity) - max(0, owned - max(0, reserved)));
 }
 
+boolean smmGuardInputAvailable(int quantity, int accessible, int owned, int reserved, int requested, float average, int quote, int budget, boolean buying) {
+ int missing = max(max(0, quantity - max(0, accessible)), smmGuardConsumptionMissing(quantity, owned, reserved));
+ if (missing == 0) return true;
+ if (!buying || quote <= 0) return false;
+ SmmGuardOffer offer = smmGuardOfferFor(missing, requested, average, budget);
+ return offer.quantity == missing && quote <= offer.limit;
+}
+
+boolean smmGuardStealHoldReported;
+boolean smmGuardItemStealEligible(location where) {
+ smmGuardReady();
+ if (where != $location[The Stately Pleasure Dome] || have_effect($effect[Absinthe-Minded]) > 0) return true;
+ item input = $item[tiny bottle of absinthe];
+ int accessible = available_amount(input);
+ int owned = smmMuseumOwnedCopies(input);
+ int reserved = smmMuseumReservedCopies(input);
+ smmGuardReady();
+ if (smmGuardInputAvailable(1, accessible, owned, reserved, 0, 0, 0, 0, false)) return true;
+ float average = smmSpendAveragePrice(input);
+ int quote = mall_price(input);
+ // The inspected upstream prerequisite requests at most twice the current
+ // quote; the real buy still enforces both that ceiling and the average.
+ int requested = min(2000000000.0, max(0.0, quote * 2.0)).to_int();
+ boolean eligible = smmGuardInputAvailable(1, accessible, owned, reserved, requested, average, quote, smmSpendBudget(),
+  get_property("autoSatisfyWithMall") == "true" && get_property("autoSatisfyWithNPCs") == "true");
+ smmGuardReady();
+ if (!eligible && !smmGuardStealHoldReported) {
+  print("smmDaily: item-steal route held at " + where + "; absinthe cannot be supplied within the price/shared cap while preserving Museum copies; selecting another eligible route", "orange");
+  smmGuardStealHoldReported = true;
+ }
+ return eligible;
+}
+
 int smmGuardConsumptionQuantity(int quantity, item it, boolean usingItem) {
  return usingItem && it.reusable ? min(1, max(0, quantity)) : max(0, quantity);
 }

@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 21: filter an unfulfillable item-steal prerequisite before selection
+
+The native retry successfully bypassed the blocked Dinsey access purchase using the daily-work mode. It performed daily-item work and free encounters, then the item-steal selector chose the Stately Pleasure Dome and its absinthe prerequisite could not be purchased under the existing guard. The exception was labelled combat-related by an upstream wrapper, but arose in preparation before entering that route. The stable-source run ended incomplete with a matching end boundary, no paid turns in that attempt, its paid-work hold intact and all fenced stock returned.
+
+The cooperative factory now returns the bundle's actual item-steal zone objects and validates one expected Pleasure Dome entry before allowing main. It decorates that entry's eligibility predicate; a read-only forecast checks supply and Museum replacements against the same automatic-source permissions, average-price ceiling, upstream requested limit and shared allowance. A denied input removes that route from the original ranking rather than changing prices, disabling the purchase guard or retrying an uncertain action. Existing Absinthe-Minded access needs no new input. Missing/duplicate/changed hook structure or a failed policy check holds. This narrow hook must be revalidated when upstream changes and does not claim universal prerequisite handling.
+
+Twenty-four input and real-factory selection assertions cover protected stock, inaccessible stock, replacement funding, unknown/above-cap prices, alternate selection and later re-eligibility, policy errors and incompatible hook shapes. These and existing adapter/access tests passed on isolated r29482, with four entry-point compilations. The actual public installed bundle also loaded against synthetic state with actions blocked and the hook validated; main was never called in that compatibility check. Integration and live results are recorded in the scorecard after execution. Scores remain unchanged.
+
 ## Cycle 20: paid access must not block the daily-work mode
 
 The next native retry completed forced noncombats, then garbo's initial Dinsey ticket acquisition failed without a fill. Guarded information checks confirmed the current quote was above the verified average-price ceiling. All fenced copies returned and the stable-source run ended incomplete with a matching end boundary. This is an enforced spending rule, not permission to raise the ceiling.
