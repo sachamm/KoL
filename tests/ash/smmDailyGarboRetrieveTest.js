@@ -61,7 +61,12 @@ exports.main = function () {
   check(s.module.retrieveItem(item) === true && s.buys[0][2] === 20000, "zero ceiling uses the native default, never unlimited");
   s = fixture(0, 0, 1); s.props.autoBuyPriceLimit = "-1";
   check(s.module.retrieveItem(item) === false && s.buys.length === 0, "negative purchase ceiling prohibits buying");
-  s = fixture(0, 0, 1); s.props.autoBuyPriceLimit = "2.5";
+  s = fixture(0, 0, 1); s.props.autoBuyPriceLimit = "23.75";
+  check(s.module.retrieveItem(item) === true && s.buys[0][2] === 23, "fractional upstream ceiling rounds down before the guarded buy");
+  check(s.props.autoBuyPriceLimit === "23.75", "fractional caller setting is preserved");
+  s = fixture(0, 0, 1); s.props.autoBuyPriceLimit = "0.5";
+  check(s.module.retrieveItem(item) === false && s.buys.length === 0 && s.transfers === 0, "sub-Meat positive ceiling cannot turn into the default buy allowance");
+  s = fixture(0, 0, 1); s.props.autoBuyPriceLimit = "2.5oops";
   throws(function () { s.module.retrieveItem(item); }, "malformed ceiling stops before buying");
   check(s.buys.length === 0 && s.transfers === 0, "invalid ceiling has no actions");
   s = fixture(0, 1, 0); s.falseTransfer = true;

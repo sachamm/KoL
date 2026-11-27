@@ -6,6 +6,31 @@ function integer(value) {
   return typeof value === "number" && isFinite(value) && Math.floor(value) === value && Math.abs(value) <= 2147483647;
 }
 
+function automaticBuyLimit(configured) {
+  const match = typeof configured === "string" && /^(-?)([0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE]([+-]?[0-9]+))?$/.exec(configured);
+  if (!match) throw new Error("smmDaily: invalid automatic buy price limit");
+  const amount = Number(configured);
+  if (!isFinite(amount) || amount < -2147483648 || amount > 2147483647)
+    throw new Error("smmDaily: invalid automatic buy price limit");
+  // Underflow of a nonzero amount must never become the zero/default sentinel.
+  if (amount === 0 && /[1-9]/.test(match[2])) return match[1] === "-" ? -1 : 0;
+  if (amount < 0) return -1;
+  if (amount === 0) return 20000;
+  // Floor decimal digits directly: binary rounding must not turn a ceiling
+  // just below one Meat into permission to spend one Meat.
+  const digits = match[2].replace(".", ""), first = digits.search(/[1-9]/);
+  const dot = match[2].indexOf(".");
+  const places = (dot < 0 ? match[2].length : dot) + (match[3] ? Number(match[3]) : 0) - first;
+  if (places <= 0) return 0;
+  if (places > 10) throw new Error("smmDaily: invalid automatic buy price limit");
+  let whole = digits.substring(first, first + places);
+  while (whole.length < places) whole += "0";
+  const limit = Number(whole);
+  if (!integer(limit)) throw new Error("smmDaily: invalid automatic buy price limit");
+  return limit;
+}
+exports.automaticBuyLimit = automaticBuyLimit;
+
 exports.createModule = function (native, policy) {
   const wrapped = {};
   Object.getOwnPropertyNames(native).forEach(function (name) { wrapped[name] = native[name]; });
@@ -47,12 +72,9 @@ exports.createModule = function (native, policy) {
       // Respect ownership-only retrieval and restrictive automatic-source
       // settings. The direct-buy bridge cannot promise an NPC-only seller.
       if (native.getProperty("autoSatisfyWithMall") !== "true" || native.getProperty("autoSatisfyWithNPCs") !== "true") return false;
-      const configured = native.getProperty("autoBuyPriceLimit");
-      if (!/^-?\d+$/.test(configured)) throw new Error("smmDaily: invalid automatic buy price limit");
-      const limit = Number(configured);
-      if (!integer(limit)) throw new Error("smmDaily: invalid automatic buy price limit");
-      if (limit < 0) return false;
-      policy.buy(missing, item, limit === 0 ? 20000 : limit);
+      const limit = automaticBuyLimit(native.getProperty("autoBuyPriceLimit"));
+      if (limit <= 0) return false;
+      policy.buy(missing, item, limit);
       policy.ready();
     }
     if (native.itemAmount(item) >= quantity) return true;

@@ -31,11 +31,19 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 24: preserve fractional automatic-buy ceilings
+
+The next native retry passed both protected-garden entry points and reached giant-sandworm preparation. Garbo supplied a calculated fractional `autoBuyPriceLimit`; the adapter's integer-string-only validation rejected it before acquisition. That stable-source attempt returned all fenced copies and ended incomplete with the paid-work hold intact.
+
+Automatic-buy ceilings are now normalized once in JavaScript before crossing the typed ASH bridge. Valid finite decimals/scientific notation are bounded and rounded down using decimal digits, avoiding binary rounding that could authorize one Meat above a sub-Meat ceiling. Explicit zero retains the native default; negative values prohibit buying, and positive sub-Meat/underflowed ceilings allow no purchase. Malformed, nonfinite and out-of-range inputs still refuse. Replacement consumption and garden forecasts receive the normalized integer instead of independently coercing the setting into a default.
+
+Twenty-eight normalization/typed-bridge cases, 46 retrieval checks (three new fractional/sub-Meat cases), existing consumption checks, four entry-point compilations and the action-blocked installed-bundle load passed in isolated r29482. Exact integration and native evidence are recorded after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**; 9.9 is unachieved.
+
 ### Quality cycle 23: guard the separate garden planting task too
 
 The cycle 22 native retry confirmed discovery was held and let more free fights run, then a separate `Plant Black Rose Garden` task still attempted the protected seed and failed its guard. The first hook had missed that independent task. Cleanup returned all fenced stock, retained the paid-work hold and recorded an incomplete stable-source run.
 
-The loader now validates the actual planting task in the upstream free-fight list and combines its original readiness predicate with the same seed eligibility check. Its original completion and action callbacks remain intact; unavailable stock does not become a fake completed task. The factory regression now exercises discovery and the separate task together, including later supply changes and changed/missing task structure. Fifteen garden checks, 24 route checks and an action-blocked structural load of the installed public bundle passed on isolated r29482. Exact integration/native results are added after execution. The assessment remains **8.70 provisional code / 6.0 demonstrated live**, below 9.9.
+The loader now validates the actual planting task in the upstream free-fight list and combines its original readiness predicate with the same seed eligibility check. Its original completion and action callbacks remain intact; unavailable stock does not become a fake completed task. The factory regression exercises discovery and the separate task together, including later supply changes and changed/missing task structure. [PR #73](https://github.com/sachamm/KoL/pull/73) merged as `280d2f6d2abfcc844a7b8f3d911c68061e3cab95`. Post-merge verification passed **1377 assertions: 1199 ASH and 178 JavaScript**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows cases**. Fifteen garden checks, 24 route checks and an action-blocked structural load passed on isolated r29482; the four installed entry points compiled logged out. The native retry passed the separate planting gate and exposed the fractional-limit issue above. The assessment remains **8.70 provisional code / 6.0 demonstrated live**, below 9.9.
 
 ### Quality cycle 22: optional garden fights respect protected planting stock
 
