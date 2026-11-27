@@ -16,11 +16,11 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | 6 | Museum progress | 1 | Unbuyable items are farmed, and the budget turns into Display Case places, cheapest first. |
 | 7 | Safety and reporting | 1 | Resumes after a stop, never loses track of fenced items or spending, and says plainly when the day is not finished. |
 
-## Current assessment: 2026-11-26
+## Current assessment
 
 **Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.70/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
-| Criterion | Max | November 25–26 logs | Corrected code, offline |
+| Criterion | Max | Demonstrated live outcomes | Corrected code, offline |
 |---|---:|---:|---:|
 | Whole day unattended | 2 | 0.8 | 1.65 |
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
@@ -35,7 +35,9 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 The cycle 26 native retry (`616321b574304c5ba2c7ad57416780b2`) started a confirmed gold Guzzlr contract and used the received Witchess Bishop fax (`_photocopyUsed` changed to true). Garbo's daily worker returned, all fenced stock came back, source stayed stable and Mafia exited normally with matching boundaries. No turns or adventures were spent during this retry. Paid farming remained held: the ticket quote of 153000 exceeded the unchanged average-price ceiling of 152142. The daily task and nightcap remain incomplete; upstream item estimates do not establish realized profit.
 
-The runner also falsely classified the boolean `errorOnAmbiguousFold` echo and rendered historical journal failures as current errors. Classification now excludes that exact valid boolean echo and strictly shaped known journal rows, while explicitly recognizing the current `smmDaily: stopped after` message. Malformed/unknown history-like lines, actual failures, incomplete/missing completion and boundary/source checks remain disqualifying. Reclassifying the private native output retains exactly its real paid-work stop. Eleven additional classification cases and four integrated evidence cases passed; all Windows suites total **133 checks**. Integration and native runner verification follow after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**; fresh unattended outcomes and economic evidence still gate 9.9.
+The runner also falsely classified the boolean `errorOnAmbiguousFold` echo and rendered historical journal failures as current errors. Classification now excludes that exact valid boolean echo and strictly shaped known journal rows, while explicitly recognizing the current `smmDaily: stopped after` message. Malformed/unknown history-like lines, actual failures, incomplete/missing completion and boundary/source checks remain disqualifying. Reclassifying the private native output retains exactly its real paid-work stop. [PR #77](https://github.com/sachamm/KoL/pull/77) merged as `896fdd0969dfbb72969812e0c550ba154f718a2c`. Post-merge Windows checks passed **133 cases: 38 diagnostics, 40 evidence, 37 login and 18 ownership**. Game scripts, policy and ASH/JS fixtures were unchanged from the 1457-assertion full-suite merge.
+
+The installed runner modules matched tested source. Native run `2fcced356c3c4d8daa624e65812eccf6` returned normally with stable source, matching boundaries, no timeout and unchanged turns/adventures. Its report now identifies only the current paid-work stop plus the consequent incomplete-day/evidence failures; it contains neither historical-failure nor setting-echo false positives. All fenced stock returned (generation 145, no recorded items), automatic-login settings restored, and review candidacy correctly remains false. The daily task and nightcap stay unfinished. Scores remain **8.70 provisional code / 6.0 demonstrated live**; **0 of 5 qualifying corrected unattended days** are demonstrated in this review. The resumed/intervened tests do not establish paid-turn profitability or fresh Museum places. Repeating the same held run supplies neither; 9.9 remains unachieved.
 
 ### Quality cycle 26: distinguish permanent menu use and verify contract acceptance
 
