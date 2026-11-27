@@ -6,7 +6,9 @@ The target is 9.9 under the existing scorecard rubric. A new code assessment doe
 
 The cooperative adapter now checks direct `use`, `eat`, `drink`, `overdrink` and `chew` calls against the existing Museum reserve policy. Reusable use needs one tool and does not spend a reserve copy. Ordinary consumption freezes the pre-purchase reserve; necessary replacement copies require a verified price, shared allowance and the caller's automatic-buy settings. A partial fill or protected untradeable item returns false before consumption. Finished items are retrieved through the guarded path before the native call, preventing implicit acquisition of that requested item inside these methods.
 
-This does not cover crafting ingredients, ancillary consumption, direct URLs or delegated workers. The adapter is cooperative instrumentation, not a sandbox. Unknown ranks keep existing copies reserved, and the existing per-item `smm.IR.museumSpend.<id>` override remains explicit. No production action was used to test this boundary. Scores require the post-merge evidence and remain separate from live outcomes.
+This does not cover crafting ingredients, ancillary consumption, direct URLs or delegated workers. The adapter is cooperative instrumentation, not a sandbox. Unknown ranks keep existing copies reserved, and the existing per-item `smm.IR.museumSpend.<id>` override remains explicit. No production action was used to test this boundary.
+
+PR #59 merged as `b861946eb366761f25873f44040bc304ece47049`. Post-merge verification passed 1222 assertions (1113 ASH, 109 JavaScript), 18 refusal/abort scenarios, both compilations and planning/static checks; Windows checks passed 19 diagnostics, 35 evidence and 18 ownership cases. The 36 new consumption checks also passed in isolated r29481. Installed public source matches the merge, compiles logged out and refuses an inactive run. The score stays 8.65 provisional code / 6.0 demonstrated live; this boundary does not prove collection progress or a corrected unattended day.
 
 ## Cycle 12: apply demand limits before paid-route selection
 

@@ -31,6 +31,14 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.65** |
 
+### Quality cycle 13: explicit garbo consumption, score unchanged
+
+[PR #59](https://github.com/sachamm/KoL/pull/59), merged as `b861946eb366761f25873f44040bc304ece47049`, applies the existing Museum reserve to direct garbo `use`, `eat`, `drink`, `overdrink` and `chew` calls. Replacement copies pass through the verified-price and shared-budget bridge; partial fills cannot consume reserved stock. Finished items are retrieved with automatic purchase sources fenced before native consumption. Reusable metadata is read through ASH, so repeated use needs one tool. Epoch checks bracket consumption.
+
+The exact merge passed **1222 assertions: 1113 ASH and 109 JavaScript**, including 36 new consumption checks, plus **18 refusal/abort scenarios**, both compilations and planning/static checks. Windows diagnostics, evidence and ownership passed **19 + 35 + 18 = 72 checks** after merge. The new checks also passed in isolated r29481. Synthetic action functions cover all five consumption APIs, overloads, reserve denial, missing stock, reusable tools, native failure and rollover; no native consumption was invoked. The installed public project matches the source merge, both requested compilations passed while logged out, and the entry point refused an inactive run.
+
+Scores remain **8.65/10 provisional code / 6.0/10 demonstrated live**. This closes a specific collection-stock and implicit finished-item sourcing gap. It does not demonstrate Museum places, resource profit or an unattended day, and does not universally protect crafting ingredients, ancillary items, direct URLs or delegated workers. No additional points are awarded for synthetic assertions alone. **9.9 remains unachieved.**
+
 ### Quality cycle 12: marginal value before paid-route selection
 
 [PR #56](https://github.com/sachamm/KoL/pull/56) applies completed-sale demand and existing stock to the IoTM route's reward estimates, rather than only reporting a stricter value after a grind. The regression changes the solver's paid-turn choice away from saturated production. Known retained Museum copies remain separate from surplus, consumed inputs keep their opportunity prices, and stock changes invalidate queued values. Batching respects both price tiers and rank milestones. Unknown demand and surplus beyond forecast capacity receive autosell value; untradeable outputs receive no unexecuted conversion proceeds. The forecast score is explicitly not realized profit or a joint liquidation portfolio.
