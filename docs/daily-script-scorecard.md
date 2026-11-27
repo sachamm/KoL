@@ -31,6 +31,14 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.55** |
 
+### Quality cycle 8: rollover boundaries, score unchanged
+
+[PR #48](https://github.com/sachamm/KoL/pull/48), merged as `0fd610699130c997c4b0eed7392dcde4b1fda2ae`, stops a changed game epoch before another worker or a completion checkpoint, pins cached journals to their epoch and rejects old checkpoint replay. Pre-adventure and known recovery entry points check the active epoch. A deliberate fresh run can accept yesterday's stale active marker. These close a specific accounting and resource-reset defect; they cannot cancel an arbitrary third-party request already in flight or reconstruct its uncertain result. Safety remains **0.95/1**, provisional code **8.55/10** and demonstrated live **6.0/10**.
+
+Post-merge verification on that exact merge passed **1045 ASH assertions** (135 core, 633 gate, 25 fence, 34 income, 7 dressup, 94 diet, 62 review, 55 NPC resale), **14 expected abort scenarios** (six rollover, two journal and six fence), both compilations, planning/static checks and **72 Windows checks** (19 diagnostics, 35 evidence, 18 ownership). The installed r29481 project was updated to the same merge and both `smmdaily.ash` and `smmPreAdventure.ash` compiled with an explicit logged-out marker. No live worker or resource-spending test was run.
+
+The **9.9 target remains open**. Five corrected unattended days, reconciled source-derived economics, confirmed Museum outcomes, optimal forced-noncombat allocation and pre-purchase enforcement across third-party workers remain unproven or incomplete. Income attribution does not change the documented cash-budget policy while the user's optional policy clarification is pending.
+
 ### Quality cycle 7: post-merge evidence, score unchanged
 
 [PR #45](https://github.com/sachamm/KoL/pull/45) adds observed cash-source windows, and [PR #46](https://github.com/sachamm/KoL/pull/46), merged as `717e7de765b04882286e30e472513705780175d7`, fixes the reproduced multiline-anchor serialization defect. The provisional code score remains **8.55/10**, with live performance **6.0/10**. Gross shop receipts and observed combat cash are useful evidence, but they do not establish old/new stock cost basis, complete resource profit or an unattended day. The documented cash-budget policy is unchanged.
