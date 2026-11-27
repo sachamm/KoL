@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 17: mapping interruptions and the active third cast
+
+The corrected live retry passed `deeds` and progressed through several grinds, then stopped in `ghostCostume`: a June Cleaver noncombat arrived before the expected mapping choice. The old loop stopped at any choice and asserted that it was the map. Native inspection found choice 1468, the user's configured option 4 available, and an active map even though the cast counter was already three. Login's charsheet refresh was redirected to that pending choice, so the transient zero player ID was not treated as authority to make an unvalidated decision.
+
+The mapping wait now distinguishes its actual choice from known June Cleaver interruptions and wandering fights. It submits only the configured, currently offered June Cleaver decision, verifies that the choice clears and mapping remains ready, and bounds encounter transitions. Unknown choices, unavailable decisions, unfinished combat, Beaten Up, lost mapping and exhausted adventures stop without further requests. Epoch checks bracket actions. An already active map remains usable after the third cast; it is not recast or discarded just because the daily casting allowance is exhausted. Explicit recovery can settle a validated pending interruption without adventuring.
+
+Twenty-one isolated r29482 checks cover the native failure sequence, reuse of an active third map, configured choice handling, bounded wandering, failed decisions, unavailable skips, loss of mapping and the final transition boundary. The failed retry is terminal with stable source and incomplete evidence; it is not a qualifying unattended day. Resource counters and completed tasks remain intact for the corrected retry. Live recovery and the complete-day outcome remain unverified at this point.
+
 ## Cycle 16: compile dynamic workers before login
 
 The explicitly authorized supervised run resumed an existing `deeds` checkpoint, then aborted when `LOVprep` called `fr quest`. FantasyRealm's shared target import appeared after a global declaration, where ASH parsed it as an unknown variable. The same failure reproduced logged out in r29462 and r29482; it was not specific to the newly installed client. Moving the import into the initial import block fixes standalone compilation.
