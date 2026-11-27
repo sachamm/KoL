@@ -18,7 +18,7 @@ import <smmDailyPolicy.ash>
 import <smmDailyFence.ash>
 
 boolean smmDGateSettings =
-	smmDDeclare("priceCheckLookups", "15", "how many of the day's biggest mall purchases the audit checks against the average sale price")
+	smmDDeclare("priceCheckLookups", "150", "maximum distinct mall items to quote; unknown or unchecked requests leave price compliance unverified")
 	&& smmDDeclare("fullRestoreAt", "2000", "License to Chill (a full restore) is used only when this much MP is missing");
 
 // ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ void smmDDietReport() {
 // `paid` together. 0 when the average is unknown.
 int smmDOverpaid(int quantity, int paid, float average) {
 	if (average <= 0 || quantity <= 0) return 0;
-	return max(0, paid - ceil(average * quantity));
+	return max(0, paid - floor(average) * quantity);
 }
 
 string smmDTodaysLog() {
@@ -132,34 +132,109 @@ SmmDBought [int] smmDMallBought(SmmDPurchase [int] purchases) {
 	return bought;
 }
 
-// Rule 3 after the fact: the old code and garbo buy at the mall price, which
-// can be above the average sale price. This reports where that happened.
-void smmDPriceCheck() {
-	SmmDBought [int] bought = smmDMallBought(smmDParsePurchases(smmDTodaysLog()));
-	int lookups = smmDSettingInt("priceCheckLookups");
-	int checked = 0;
-	int checkedMeat = 0;
-	int allMeat = 0;
-	int over = 0;
-	foreach i, b in bought {
-		allMeat += b.paid;
-		if (checked >= lookups) continue;
-		item it = b.name.to_item();
-		if (it == $item[none]) continue;
-		checked += 1;
-		checkedMeat += b.paid;
-		float average = smmSpendAveragePrice(it);
-		if (average <= 0) {
-			print("&nbsp;&nbsp;" + b.quantity + " " + b.name + " for " + b.paid + ": no average sale price on record", "gray");
-			continue;
-		}
-		int extra = smmDOverpaid(b.quantity, b.paid, average);
-		if (extra <= 0) continue;
-		over += extra;
-		print("&nbsp;&nbsp;" + b.quantity + " " + b.name + " for " + b.paid + " Meat: " + extra + " above the average sale price of " + floor(average) + " each", "orange");
-	}
-	print("smmDaily: mall purchases today " + allMeat + " Meat over " + count(bought) + " items; checked the " + checked + " biggest (" + checkedMeat
-		+ " Meat), " + over + " Meat of it above the average sale price.", over > 0 ? "orange" : "blue");
+record SmmDPriceAudit {
+ int items;
+ int quotedItems;
+ int unknownItems;
+ int uncheckedItems;
+ int requests;
+ int flaggedRequests;
+ int requestMeat;
+ int quotedMeat;
+ int potentialExcess;
+ string evidenceProblem;
+};
+string smmDPriceAuditPrefixOverride; // logged-out fixture files only
+
+// Check each request independently: a cheap purchase cannot cancel a later
+// above-cap request for the same item. These lines are requests, not fills.
+SmmDPriceAudit smmDAuditPrices(SmmDPurchase [int] purchases, float [string] quotes) {
+ SmmDPriceAudit audit;
+ boolean [string] seen;
+ foreach i, p in purchases {
+  if (!p.mall) continue;
+  if (!seen[p.name]) {
+   seen[p.name] = true;
+   audit.items += 1;
+   if (!(quotes contains p.name)) audit.uncheckedItems += 1;
+   else if (quotes[p.name] <= 0) audit.unknownItems += 1;
+   else audit.quotedItems += 1;
+  }
+  audit.requests += 1;
+  audit.requestMeat += p.quantity * p.price;
+  if (!(quotes contains p.name) || quotes[p.name] <= 0) continue;
+  audit.quotedMeat += p.quantity * p.price;
+  int excess = smmDOverpaid(p.quantity, p.quantity * p.price, quotes[p.name]);
+  if (excess > 0) { audit.flaggedRequests += 1; audit.potentialExcess += excess; }
+ }
+ return audit;
+}
+
+string smmDPriceAuditProblem(SmmDPriceAudit audit) {
+ if (audit.potentialExcess > 0) return "potential above-average purchase requests: " + audit.flaggedRequests + "; inspect actual fills and quote timing";
+ if (audit.evidenceProblem != "") return audit.evidenceProblem;
+ if (audit.unknownItems > 0 || audit.uncheckedItems > 0)
+  return "price audit incomplete: " + audit.unknownItems + " unknown averages, " + audit.uncheckedItems + " unchecked items";
+ return "";
+}
+
+string smmDBudgetProblem(int net, int spent, int operating, int dietPurchases, float fraction) {
+ int cap = floor(max(0, net) * min(0.5, max(0.0, fraction)));
+ int committed = max(0, spent) + max(0, operating) + max(0, dietPurchases);
+ return committed > cap ? "recorded spending exceeds the shared cap by " + (committed - cap) + " Meat, including diet purchases" : "";
+}
+
+SmmDPriceAudit smmDPriceCheck() {
+ smmDLog("price.audit", "NOTE", "price request audit started");
+ int auditSeq = smmDJournalNext() - 1;
+ SmmDPurchase [int] purchases = smmDParsePurchases(smmDTodaysLog());
+ SmmDBought [int] bought = smmDMallBought(purchases);
+ float [string] quotes;
+ int lookups = 0;
+ foreach i, b in bought {
+  item it = b.name.to_item();
+  if (it == $item[none]) { quotes[b.name] = 0; continue; }
+  if (lookups >= max(0, smmDSettingInt("priceCheckLookups"))) continue;
+  if (lookups % 10 == 0) print("smmDaily: quoting mall price audit item " + (lookups + 1) + " of " + count(bought));
+  quotes[b.name] = smmSpendAveragePrice(it);
+  lookups += 1;
+ }
+ SmmDPriceAudit audit = smmDAuditPrices(purchases, quotes);
+ string [string, string] evidence;
+ evidence["meta", "kind"] = "purchase requests, not confirmed fills; quotes from this script's Pricegun cache";
+ evidence["meta", "epoch"] = smmDEpoch();
+ int details = 0;
+ foreach i, p in purchases {
+  if (!p.mall) continue;
+  string key = i.to_string();
+  float average = quotes contains p.name ? quotes[p.name] : 0;
+  string coverage = !(quotes contains p.name) ? "unchecked" : average <= 0 ? "unknown" : "quoted";
+  int extra = smmDOverpaid(p.quantity, p.quantity * p.price, average);
+  evidence[key, "item"] = p.name;
+  evidence[key, "quantity"] = p.quantity.to_string();
+  evidence[key, "requestedUnitPrice"] = p.price.to_string();
+  evidence[key, "average"] = average.to_string();
+  evidence[key, "coverage"] = coverage;
+  evidence[key, "potentialExcess"] = extra.to_string();
+  if ((extra > 0 || coverage != "quoted") && details < 20) {
+   details += 1;
+   print("&nbsp;&nbsp;request " + p.quantity + " " + p.name + " at " + p.price + " each: "
+    + (extra > 0 ? extra + " potentially above the per-copy average cap " + floor(average) : coverage + " average"), "orange");
+  }
+ }
+ string prefix = smmDTestMode && smmDPriceAuditPrefixOverride != "" ? smmDPriceAuditPrefixOverride : "smm-price-audit-" + smmDEpoch().replace_string(":", "-");
+ string evidenceFile = prefix + "-" + auditSeq + ".txt";
+ if (!map_to_file(evidence, evidenceFile)) {
+  audit.evidenceProblem = "could not write the price audit evidence";
+  print("smmDaily: " + audit.evidenceProblem, "red");
+ }
+ string issue = smmDPriceAuditProblem(audit);
+ print("smmDaily: mall request audit: " + audit.requests + " requests, " + audit.requestMeat + " Meat; " + audit.quotedItems + "/" + audit.items
+  + " items quoted, " + audit.unknownItems + " unknown, " + audit.uncheckedItems + " unchecked; potential excess " + audit.potentialExcess + " Meat", issue == "" ? "blue" : "orange");
+ print("SMM_DAILY_PRICE_AUDIT " + (audit.potentialExcess > 0 ? "POTENTIAL_OVERPAYMENT" : issue == "" ? "VERIFIED_REQUEST_CAPS" : "UNVERIFIED"));
+ smmDLog("price.audit", "NOTE", "evidence " + evidenceFile + "; quoted " + audit.quotedItems + "/" + audit.items
+  + "; potential excess " + audit.potentialExcess + (issue != "" ? "; " + issue : ""));
+ return audit;
 }
 
 // ---------------------------------------------------------------------------

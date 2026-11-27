@@ -17,6 +17,9 @@ $diagnosticCases = @(
  @{Line='smmDaily: journal gap requires reconciliation from a backup before more tasks may run'; Error=$true}
  @{Line='smmDaily: pending fence transfer; inspect smmdaily fence-status'; Error=$true},
  @{Line='smmDaily: conflicting fence records require reconciliation; no closet move was authorized'; Error=$true}
+ @{Line='SMM_DAILY_PRICE_AUDIT UNVERIFIED'; Error=$true},
+ @{Line='SMM_DAILY_PRICE_AUDIT POTENTIAL_OVERPAYMENT'; Error=$true},
+ @{Line='SMM_DAILY_PRICE_AUDIT VERIFIED_REQUEST_CAPS'; Error=$false}
 )
 foreach ($diagnosticCase in $diagnosticCases) {
  if ((Test-KolDailyProblemLine $diagnosticCase.Line) -ne $diagnosticCase.Error) { throw "Unexpected classification: $($diagnosticCase.Line)" }

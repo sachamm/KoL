@@ -510,7 +510,18 @@ void smmDTReport() {
 	smmDBookPurchases();
 	smmSpendReport();
 	smmDDietReport();
-	smmDPriceCheck();
+	SmmDPriceAudit prices = smmDPriceCheck();
+ string finance = smmDPriceAuditProblem(prices);
+ string budget = smmDBudgetProblem(smmSpendNet(), smmSpendSpent(), smmSpendOperating(), smmSpendDietPurchases(), smmSpendFraction());
+ if (budget != "") {
+  print("smmDaily: " + budget, "orange");
+  if (finance == "") finance = budget;
+ }
+ if (finance != "") {
+  print("smmDaily: financial review required: " + finance, "orange");
+  smmDTaskProblem = finance;
+  if (open == "") open = finance;
+ }
 	smmDTAudit();
 	timeToRollover();
  set_property("_smm.daily.complete", open == "" ? smmDEpoch() : "");

@@ -42,3 +42,9 @@ The implementation reuses the tested NPC demand parser and records per-item stoc
 A task returning with a false done-test now records an unfinished outcome in its checkpoint. Running out of adventures also records that the task remains open. Independent work can continue, but neither outcome can disappear behind a complete-day marker. Failed repeatable close workers also count against completion. Successful retry or a confirmed game-state completion clears the error. Unreconciled close-phase fencing becomes an explicit task failure before collection spending continues.
 
 Resource reporting distinguishes the Powerful Glove's battery from MP recovery. A raw counter is not proof of remaining available fights: the ownership/unlock requirement still applies. The information-only account checks therefore do not promote unowned or unavailable pools into resources the runner can spend.
+
+## Cycle 6: per-request price coverage and a shared cash cap
+
+The closing audit compares each mall request with its per-copy cap instead of averaging all purchases of an item together. It records unknown and unchecked coverage, quote values and potential excess outside Git. The default quote limit rises from 15 to 150 while preserving explicit limits. Above-cap requests remain potential violations because a request alone does not prove a fill or reconstruct the exact market at purchase time. Incomplete coverage, potential excess and missing evidence persistence prevent a complete close.
+
+Diet cash purchases now reduce the same half-net collection allowance as operating and collection purchases, exactly once; the diet's additional planning budget remains. Final recorded commitments are also checked against the shared cap. Direct third-party and early diet purchases are still audited after execution, so this change does not claim universal pre-purchase enforcement. It neither undoes purchases nor automatically retries uncertain fills.

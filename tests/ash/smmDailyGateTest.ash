@@ -30,6 +30,12 @@ void testAllowance() {
 	check(smmSpendAllowance(999, 0, 0, 0.5) == 499, "rounds down");
 	check(smmSpendAllowance(1000000, 0, 0, 0.25) == 250000, "a smaller fraction");
 	check(smmSpendAllowance(1000000, -5, -5, 0.5) == 500000, "negative inputs cannot add allowance");
+ check(smmSpendAllowance(1000000, 100000, 100000, 50000, 0.5) == 250000, "diet cash shares the same half-net cap instead of funding extra collection purchases");
+ check(smmSpendAllowance(1000000, 0, 0, 1.0) == 500000, "even direct arithmetic callers cannot exceed half the net");
+ check(smmSpendAllowance(1000000, 0, 0, -5, 0.5) == 500000, "negative diet input cannot increase allowance");
+ check(smmDBudgetProblem(1000000, 200000, 200000, 100000, 0.5) == "", "all cash commitments exactly at the shared cap pass");
+ check(smmDBudgetProblem(1000000, 200000, 200000, 100001, 0.5) != "", "one Meat over the shared cap remains a financial problem");
+ check(smmDBudgetProblem(-1000, 0, 0, 1, 0.5) != "", "a losing day cannot claim compliant positive spending");
 }
 
 string kLog =
@@ -88,7 +94,65 @@ void testBooking() {
 	check(smmDOverpaid(3, 3300, 1000.0) == 300, "Meat above the average sale price");
 	check(smmDOverpaid(3, 2700, 1000.0) == 0, "under the average is not overpaying");
 	check(smmDOverpaid(3, 3300, 0.0) == 0, "an unknown average claims nothing");
-	check(smmDOverpaid(2, 2001, 1000.4) == 0, "the average is rounded up before comparing");
+	check(smmDOverpaid(2, 2001, 1000.4) == 1, "the per-copy integer price cap rounds down, as purchases do");
+}
+
+void testPriceAuditCoverage() {
+ string log = "buy 1 seal tooth for 10 each from shop #1 on 20261126\n"
+  + "buy 1 seal tooth for 100 each from shop #2 on 20261126\n"
+  + "buy 1 drum machine for 1000 each from shop #3 on 20261126\n"
+  + "buy 1 oversized sparkler for 900 each from Clan Underground Fireworks Shop\n";
+ SmmDPurchase [int] purchases = smmDParsePurchases(log);
+ float [string] quotes;
+ quotes["seal tooth"] = 60;
+ quotes["drum machine"] = 1000;
+ SmmDPriceAudit audit = smmDAuditPrices(purchases, quotes);
+ check(audit.requests == 3 && audit.items == 2 && audit.requestMeat == 1110, "mall audit excludes NPC transactions but includes every mall request");
+ check(audit.flaggedRequests == 1 && audit.potentialExcess == 40, "a cheap first purchase cannot mask an expensive later purchase of the same item");
+ check(smmDPriceAuditProblem(audit).contains_text("potential"), "request evidence does not claim confirmed fills or proven overpayment");
+ check(audit.quotedItems == 2 && audit.quotedMeat == 1110, "coverage is distinct from whether requests pass the cap");
+ quotes["seal tooth"] = 100;
+ audit = smmDAuditPrices(purchases, quotes);
+ check(smmDPriceAuditProblem(audit) == "", "complete quoted coverage with every request capped passes");
+ quotes["drum machine"] = 0;
+ audit = smmDAuditPrices(purchases, quotes);
+ check(audit.unknownItems == 1 && audit.uncheckedItems == 0 && audit.quotedMeat == 110, "unknown averages are not silently counted as verified prices");
+ check(smmDPriceAuditProblem(audit).contains_text("incomplete"), "unknown prices cannot yield a verified close");
+ remove quotes["drum machine"];
+ audit = smmDAuditPrices(purchases, quotes);
+ check(audit.unknownItems == 0 && audit.uncheckedItems == 1, "quota-limited items remain explicitly unchecked");
+ clear(quotes);
+ audit = smmDAuditPrices(purchases, quotes);
+ check(audit.uncheckedItems == 2 && smmDPriceAuditProblem(audit) != "", "zero quote coverage does not claim success");
+ audit = smmDAuditPrices(smmDParsePurchases("buy 1 oversized sparkler for 900 each from Clan Underground Fireworks Shop\n"), quotes);
+ check(audit.items == 0 && smmDPriceAuditProblem(audit) == "", "no mall requests require no mall price quotes");
+ audit.evidenceProblem = "could not write the price audit evidence";
+ check(smmDPriceAuditProblem(audit) != "", "missing evidence persistence cannot yield a verified audit");
+}
+
+void testPriceAuditPersistence() {
+ smmDTestMode = true;
+ clear(smmDTestProps);
+ clear(smmDJournal);
+ smmDJournalLoaded = true;
+ smmDJournalOverride = "smm-daily-test-price-audit-journal.txt";
+ smmDPriceAuditPrefixOverride = "smm-daily-test-price-evidence";
+ SmmDPriceAudit first = smmDPriceCheck();
+ SmmDPriceAudit second = smmDPriceCheck();
+ check(first.requests == 0 && second.requests == 0, "logged-out audit persistence fixture sends no market requests");
+ check(count(smmDJournal) == 4, "each audit retains start and end journal references");
+ string [string, string] firstFile;
+ string [string, string] secondFile;
+ file_to_map("smm-daily-test-price-evidence-1.txt", firstFile);
+ file_to_map("smm-daily-test-price-evidence-3.txt", secondFile);
+ check(firstFile["meta", "epoch"] == smmDEpoch() && secondFile["meta", "epoch"] == smmDEpoch(), "rerunning an audit preserves both independent evidence snapshots");
+ check(smmDJournal[2].note.contains_text("evidence-1.txt") && smmDJournal[4].note.contains_text("evidence-3.txt"), "journal references identify the matching audit evidence");
+ smmDTestMode = false;
+ smmDJournalLoaded = false;
+ smmDJournalOverride = "";
+ smmDPriceAuditPrefixOverride = "";
+ clear(smmDJournal);
+ clear(smmDTestProps);
 }
 
 void testFence() {
@@ -296,6 +360,8 @@ void main() {
 	testAllowance();
 	testPurchases();
 	testBooking();
+ testPriceAuditCoverage();
+ testPriceAuditPersistence();
 	testFence();
 	testGarbo();
 	testHold();
