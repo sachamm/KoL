@@ -1,0 +1,44 @@
+{
+  "schema": "kol-state-bundle-v1",
+  "capturedAt": "2026-11-27T22:29:20.316Z",
+  "captureFinishedAt": "2026-11-27T22:29:20.402Z",
+  "source": {
+    "client": "KoLmafia",
+    "revision": 29482,
+    "gameDay": "20261127"
+  },
+  "account": "Tquilla",
+  "coverage": {
+    "freshness": "Run refresh all immediately before capture. Values reflect KoLmafia knowledge, not an atomic server transaction.",
+    "preferences": "Built-in daily and ascension-reset gameplay properties plus selected persistent gameplay fields; custom and sensitive settings excluded.",
+    "limitations": "Client-observed state; some unvisited server unlocks, historical records, cached collection contents, and future Standard legality may remain unknown. See captureErrors and manifest."
+  },
+  "captureErrors": [],
+  "files": [
+    {
+      "name": "capture-exporter.js",
+      "bytes": 57261,
+      "sha256": "79df97efd1815f9fe96aeb6eb2ffa6268109b4d21612191dbafa18671f4029ce"
+    },
+    {
+      "name": "game-state.json",
+      "bytes": 1479333,
+      "sha256": "b8b4f95299f98f1dcbc33251dd585d5968e33aba0b84727c17395875b8962fbe"
+    },
+    {
+      "name": "README.md",
+      "bytes": 2603,
+      "sha256": "e77d667265f979ee561abc7420077db7a81a395d18222489db92d54e14e7efe8"
+    },
+    {
+      "name": "tquilla_queue.ser",
+      "bytes": 44579,
+      "sha256": "5845c24ec98e378f8954592deb8ba23bf6243871ab8666eb9848f3e4a71f3802"
+    },
+    {
+      "name": "tquilla_turns.ser",
+      "bytes": 18119,
+      "sha256": "53ec60b283e77422104a22985e11c936ff6eb77732431ca2f841da6595b85dbe"
+    }
+  ]
+}
