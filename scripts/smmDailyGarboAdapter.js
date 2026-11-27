@@ -77,6 +77,33 @@ exports.createModule = function (native, policy) {
       for (let i = settings.length - 1; i >= 0; i--) native.setProperty(settings[i], saved[i]);
     }
   };
+  ["use", "eat", "drink", "overdrink", "chew"].forEach(function (name) {
+    if (typeof native[name] !== "function") return;
+    wrapped[name] = function () {
+      const args = Array.prototype.slice.call(arguments);
+      policy.ready();
+      let item, quantity;
+      if (args[0] instanceof native.Item) {
+        item = args[0]; quantity = args.length === 1 ? 1 : args[1];
+      } else {
+        quantity = args[0]; item = args[1];
+      }
+      if (args.length < 1 || args.length > 2 || !(item instanceof native.Item) || !integer(quantity))
+        throw new Error("smmDaily: unsupported " + name + " arguments");
+      if (quantity <= 0 || item === native.Item.get("none")) return true;
+      if (!policy.consume(quantity, item, name === "use")) return false;
+      // Supplying the finished item first prevents implicit native sourcing
+      // inside these consumption calls from escaping the purchase guard.
+      // Bare Mafia JS items do not expose ASH proxy-record metadata reliably.
+      const needed = policy.consumptionQuantity(quantity, item, name === "use");
+      if (!integer(needed) || needed < 1 || needed > quantity) throw new Error("smmDaily: invalid consumption quantity");
+      if (!wrapped.retrieveItem(needed, item)) return false;
+      policy.ready();
+      const result = native[name](quantity, item);
+      policy.ready();
+      return result;
+    };
+  });
   return wrapped;
 };
 

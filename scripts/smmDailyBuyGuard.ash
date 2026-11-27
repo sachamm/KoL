@@ -42,3 +42,30 @@ int smmGuardBuy(int quantity, item it, int requested) {
  set_property(kSmmSpendOperatingKey, max(smmSpendOperating(), operating + max(0, cash - my_meat())));
  return bought;
 }
+
+int smmGuardConsumptionMissing(int quantity, int owned, int reserved) {
+ return max(0, max(0, quantity) - max(0, owned - max(0, reserved)));
+}
+
+int smmGuardConsumptionQuantity(int quantity, item it, boolean usingItem) {
+ return usingItem && it.reusable ? min(1, max(0, quantity)) : max(0, quantity);
+}
+
+// Freeze the reserve before acquiring replacement copies. Recomputing an
+// unknown-rank reserve after buying would reserve the replacements as well.
+boolean smmGuardConsume(int quantity, item it, boolean usingItem) {
+ smmGuardReady();
+ if (quantity <= 0 || it == $item[none] || (usingItem && it.reusable)) return true;
+ int reserved = smmMuseumReservedCopies(it);
+ smmGuardReady();
+ if (reserved <= 0) return true; // ordinary finished-item retrieval handles acquisition
+ int missing = smmGuardConsumptionMissing(quantity, smmMuseumOwnedCopies(it), reserved);
+ if (missing > 0 && it.tradeable && get_property("autoSatisfyWithMall") == "true" && get_property("autoSatisfyWithNPCs") == "true") {
+  int limit = get_property("autoBuyPriceLimit").to_int();
+  if (limit >= 0) smmGuardBuy(missing, it, limit == 0 ? 20000 : limit);
+ }
+ smmGuardReady();
+ if (smmGuardConsumptionMissing(quantity, smmMuseumOwnedCopies(it), reserved) == 0) return true;
+ print("smmDaily: garbo consumption held for " + it + "; preserving " + reserved + " Museum copies", "orange");
+ return false;
+}

@@ -112,6 +112,8 @@ The full signed inventory estimate remains diagnostic. Evidence records the marg
 
 The old exemption for any recently acquired untradeable item is replaced by a known gap for a named output and a funded collection-loss allocation. See the daily-script operational corrections for settings and interruption behavior. The 100-adventure Museum cap remains in addition to that allocation.
 
+Direct garbo `use`, `eat`, `drink`, `overdrink` and `chew` calls also preserve the existing Museum reserve. Replacement copies use the guarded purchase path within automatic-buy settings, and finished copies must be present before native consumption. Unknown-rank existing stock stays reserved; reusable tools remain usable. This boundary does not cover crafting, ancillary items, direct URLs or delegated code.
+
 ## Prompt controls
 
 Each yes/no prompt can be answered ahead of time with `smm.dailyGrind.<name> = true` or `false`. Unset, it asks as before.
