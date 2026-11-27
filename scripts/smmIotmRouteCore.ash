@@ -1,5 +1,6 @@
 import <smmUtils.ash>
 import <smmMuseumPolicy.ash>
+import <smmSpend.ash>
 
 // Executable, incremental aftercore route. Prices are estimates, not booked sales.
 string __smm_iotm_route_version = "1.1";
@@ -60,6 +61,10 @@ string [string] smmIRExpect;
 string [string] smmIRThen;
 float [item] smmIRPrices;
 float [item] smmIRReplacementPrices;
+SmmNRMarket [item] smmIRMarkets;
+boolean smmIRShopStockLoaded;
+boolean smmIRMarketTestMode;
+int [item] smmIRTestStock;
 boolean [string] smmIRBlocked;
 boolean [location] smmIRZones;
 string [int] smmIRNotes;
@@ -132,9 +137,11 @@ int smmIRShopPrice(coinmaster shop, item it) {
 
 float smmIRSaleValue(item it) {
     if (smmIRPrices contains it) return smmIRPrices[it];
+    if (smmIRMarketTestMode) { smmIRPrices[it]=max(0,autosell_price(it)); smmIRReplacementPrices[it]=0; return smmIRPrices[it]; }
     float value=max(0,autosell_price(it));
     int quote;
-    // Untradeable rewards (Rubees, Coinspiracy, ...) are worth what they convert into in the mall.
+    // Conversion quotes remain opportunity costs for inputs. Surplus reward
+    // valuation below does not book an unexecuted conversion as sale proceeds.
     if (!it.tradeable)
         value=max(value,smmItemLiquidValue(it)*min(1.0,max(0.0,smmIRSetting("saleDiscount",0.8))));
     if (it.tradeable) {
@@ -148,9 +155,58 @@ float smmIRSaleValue(item it) {
     return value;
 }
 
+SmmNRMarket smmIRMarket(item it) {
+    if (smmIRMarkets contains it) return smmIRMarkets[it];
+    SmmNRMarket market;
+    if (!it.tradeable || smmIRMarketTestMode) { smmIRMarkets[it]=market; return market; }
+    // Reuse a quote already fetched by spending policy. Otherwise the HTTP
+    // request shares the route's existing lookup ceiling with mall quotes.
+    if (!(smmSpendAverages contains it)) {
+        if (smmIRQuotes>=max(0,smmIRSetting("maxQuotes",150).to_int())) { smmIRMarkets[it]=market; return market; }
+        smmIRQuotes+=1;
+    }
+    int average=floor(smmSpendAveragePrice(it));
+    market=smmNRMarketFrom(smmSpendMarketResponses[it],average,now_to_int()/86400000);
+    if (market.volume<smmSpendMinSales()) market.valid=false;
+    smmIRMarkets[it]=market;
+    return market;
+}
+
+int smmIRResaleStock(item it) {
+    if (smmIRMarketTestMode) return max(0,smmIRTestStock[it]);
+    if (!smmIRShopStockLoaded) { int [item] listed=get_shop(); smmIRShopStockLoaded=true; }
+    // Existing case copies do not compete for sales; worn and shop stock do.
+    return max(0,item_amount(it)+closet_amount(it)+storage_amount(it)+shop_amount(it)+equipped_amount(it,true));
+}
+
+int smmIRSaleCapacity(item it) {
+    SmmNRMarket market=smmIRMarket(it);
+    if (!market.valid) return 0;
+    string days=get_property("smm.dailyGrind.liquidationDays");
+    string share=get_property("smm.dailyGrind.marketShare");
+    return smmDailyLiquidCapacity(market.volume,days=="" ? 7 : days.to_int(),share=="" ? 0.1 : share.to_float());
+}
+
+float smmIRSurplusValue(item it, int quantity) {
+    if (it==$item[none] || quantity<=0) return 0;
+    float quoted=smmIRSaleValue(it);
+    // A conversion quote is input opportunity cost, not evidence that an
+    // untradeable output has already been converted and sold.
+    if (!it.tradeable) return quantity*max(0,autosell_price(it));
+    SmmNRMarket market=smmIRMarket(it);
+    int price=market.valid ? floor(min(quoted,market.price)) : autosell_price(it);
+    return smmDailyLiquidValue(quantity,smmIRResaleStock(it),smmIRSaleCapacity(it),price,autosell_price(it));
+}
+
 float smmIRRewardValue(item it, int quantity) {
-    float sale=smmIRSaleValue(it);
-    return smmMuseumMoney(it,quantity,sale,smmIRReplacementPrices[it]);
+    if (it==$item[none] || quantity<=0) return 0;
+    float quoted=smmIRSaleValue(it);
+    int direct;
+    if (smmMuseumEnabled() && smmIRReplacementPrices[it]>0) {
+        SmmMuseumGoal goal=smmMuseumGoal(it);
+        if (goal.known) direct=min(quantity,smmMuseumMissing(it,goal));
+    }
+    return direct*max(quoted,smmIRReplacementPrices[it])+smmIRSurplusValue(it,quantity-direct);
 }
 
 float smmIRRewardValue(item it) { return smmIRRewardValue(it,1); }
@@ -393,7 +449,7 @@ float smmIRCashLoot(monster foe, float bonus) {
     foreach i, drop in item_drops_array(foe) {
         if (drop.rate<=0 || (drop.type!="" && drop.type!="n" && drop.type!="f")) continue;
         float chance=min(1.0,drop.rate*(drop.type=="f" ? 1 : 1+bonus/100.0)/100.0);
-        result+=chance*smmIRSaleValue(drop.drop);
+        result+=chance*smmIRSurplusValue(drop.drop,1);
     }
     return result;
 }
@@ -498,13 +554,14 @@ float smmIRWorkProgress(SmmIRWork work) {
 // Museum objective says about keeping it, so the plan can state its reasoning.
 string smmIRValueNote(item it) {
     if (it==$item[none]) return "";
-    float sale=smmIRSaleValue(it);
-    string note=it+" is worth about "+round(sale)+" Meat if sold";
+    float sale=smmIRSurplusValue(it,1);
+    string note=it+" has a marginal surplus sale estimate of "+round(sale)+" Meat (not realized proceeds)";
+    if (it.tradeable) note+="; "+smmIRResaleStock(it)+" existing non-case copies compete for "+smmIRSaleCapacity(it)+" forecast sale copies";
     if (smmMuseumEnabled() && is_displayable(it)) {
         SmmMuseumGoal goal=smmMuseumGoal(it);
         if (!goal.known) note+="; Museum ranking is unavailable, so copies are reserved for the Display Case until it is known";
         else if (smmMuseumMissing(it,goal)>0) note+="; "+smmMuseumMissing(it,goal)+" more are needed for Museum #1, so it is valued at its replacement price of "+round(smmIRReplacementPrices[it])+" Meat";
-        else note+="; the Museum goal is already met, so extra copies are sold";
+        else note+="; the Museum goal is already met, so extra copies are surplus";
     }
     return note;
 }
@@ -530,9 +587,9 @@ string smmIRDisposition(item it) {
         SmmMuseumGoal goal=smmMuseumGoal(it);
         if (!goal.known) text="Hold it: Museum ranking is unknown, so the copy is reserved for the Display Case and will not be sold or consumed until rankings load.";
         else if (smmMuseumMissing(it,goal)>0) text="Display Case: "+smmMuseumDisplay(it)+" on display against "+goal.first+" needed for #1, so the museum deposit step places it there for rank.";
-        else text="Not needed for the Display Case (goal "+goal.first+" already met), so it is surplus: left in inventory for you to sell at about "+round(smmIRSaleValue(it))+" Meat.";
+        else text="Not needed for the Display Case (goal "+goal.first+" already met), so it is surplus: left in inventory with a marginal sale estimate of "+round(smmIRSurplusValue(it,1))+" Meat.";
     } else {
-        text="Not sold automatically; it stays in inventory, worth about "+round(smmIRSaleValue(it))+" Meat if you sell it.";
+        text="Not sold automatically; it stays in inventory with a marginal sale estimate of "+round(smmIRSurplusValue(it,1))+" Meat.";
     }
     if (use!="") text+=" It is also a "+use+"; set smm.IR.keepItem."+it.to_int()+" to hold copies back for that.";
     if (reserved>0) text+=" "+reserved+" are already reserved on hand.";

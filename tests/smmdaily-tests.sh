@@ -60,7 +60,7 @@ else fail "smmdaily.ash does not compile"; tail -15 <<<"$out"; exit 1; fi
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboTest smmDailyGarboRetrieveTest smmDailyForcesTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboTest smmDailyGarboRetrieveTest smmDailyForcesTest smmDailyRouteLiquidityTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
 	verdict="^[[:space:]]*(>[[:space:]]*)?PASS $t:"
 	if grep -Eq "$verdict" <<<"$out"; then pass "$(grep -E "$verdict" <<<"$out" | sed 's/^[[:space:]>]*//')"

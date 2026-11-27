@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Normal game actions are separate from offline validation; the current end-of-day account was offered for information only.
 
+## Cycle 12: apply demand limits before paid-route selection
+
+The IoTM route previously credited surplus at a discounted listing even when existing stock exhausted likely demand; the grind's later report used a stricter model. Route reward valuation now applies the same completed-sale capacity after non-case stock, caps the premium by observed average/median and the conservative listing quote, and uses autosell for remaining or unverified surplus. Inputs keep their opportunity cost. Retained copies receive a separate known Museum replacement value, without adding sale credit for the same copy. Untradeable outputs do not receive unexecuted conversion proceeds.
+
+Batching sees the resulting price tiers as well as rank milestones. Valued stock changes invalidate the queued plan; a later worker cannot silently use yesterday's marginal quote after an earlier one produced stock. The forecast still is not a joint multi-item liquidation portfolio, and reported values are labeled accordingly. The existing quote limit is shared by mall/completed-sale lookups, with reuse of cached spending responses. No new purchase or resource worker is added by this valuation change.
+
+The physical-ownership review also found that `get_storage()` omits the separate free-pull container. Grind snapshots now include it and move to history version 5, so an owned transfer cannot masquerade as an acquisition. Older histories are excluded and cleared before new measurements. Synthetic route tests cover stock saturation, demand rejection, retained/surplus separation, unchanged input cost, rank/price batching, quote exhaustion, stock replanning and a solver decision that switches away from saturated production. These establish modeled decisions, not realized prices or live profit.
+
 ## Cycle 11: confirm scarce-resource launches before dispatch
 
 The spike loops previously sent the next adventure to the Rift without confirming a cast, and could drain more free carriers after a failed attempt. A common launch boundary now observes exactly one spike/Avalanche use, clears the queued consult flag in `finally`, checks the game epoch and requires the carrier to return out of combat/choice and without Beaten Up before dispatching a target. Failed free, free-kill and paid launches return before another launch or target. Fiesta Exit requires both a successful cast and the observed 60-Cinch charge; configured target work and the Rift loop stop on an unconfirmed result. The Cincho phase also skips an unowned belt rather than trying to equip it.

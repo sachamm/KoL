@@ -315,6 +315,9 @@ string smmIRStateSignature() {
     // The spade candidates are tied to the last adventured zone.
     if (available_amount($item[Archaeologist's Spade])>0 && get_property("_archSpadeDigs").to_int()<11) value+="|"+get_property("lastAdventure");
     foreach id, point in smmIRGarden value+="|"+id+":"+point.done+":"+point.reachable;
+    // A later batch cannot reuse demand capacity or Museum tiers consumed by
+    // an earlier worker. Count total non-case ownership, not inventory moves.
+    foreach it, price in smmIRPrices value+="|valuedStock."+it.to_int()+"="+smmIRResaleStock(it);
     return value;
 }
 
@@ -341,11 +344,11 @@ boolean smmIRBatchable(string kind) {
 
 // Decide whether the action just run changed anything the rest of the plan
 // depends on. Returns "" when the remaining plan is still valid, otherwise the
-// reason for replanning. Gains that only make new actions possible (ordinary
-// loot, Meat) are left for the confirming replan at the end of the plan.
+// reason for replanning. Gains outside valued stock and used pools (unpriced
+// loot, extra Meat) are left for the confirming replan at the end of the plan.
 string smmIRMaterialChange(string id, int units, SmmIRResult result, string before, string after, int [string] queued) {
     if (!result.success) return "action failed or was blocked";
-    if (before!=after) return "character state changed (gate, modifier, Sword target or garden)";
+    if (before!=after) return "character state changed (gate, modifier, Sword target, garden or valued stock)";
     if (smmIREnabler(smmIRWorkers[id].kind)) return "action changes prices or creates new capacity";
     // Each action priced its ingredients as if it were their only user. Under
     // tiered Museum pricing the next user of the same ingredient may now be
@@ -380,7 +383,8 @@ string smmIRNext(int [string] quantities) {
 
 void smmIRReport(SmmRPPlan plan) {
     if (!plan.valid) { print("IoTM route: "+plan.error,"red"); return; }
-    print("IoTM route: expected net "+round(plan.economic_value)+" Meat equivalent (sale proceeds or avoided collection purchases); paid turns remaining "+smmIRPaidRemaining()+".","blue");
+    print("IoTM route: forecast score "+round(plan.economic_value)+" Meat equivalent (marginal sale estimates or avoided collection purchases); paid turns remaining "+smmIRPaidRemaining()+".","blue");
+    print("Values are repriced after valued stock changes. This is not realized profit or a joint liquidation portfolio.","gray");
     if (smmMuseumEnabled()) print("Objective: Museum #1 per item, top 10 acceptable. Rank utility is scored separately; unavailable rankings are never treated as zero targets.","blue");
     int [string] remaining;
     foreach id, q in plan.quantity if (q>0) remaining[id]=q;
@@ -431,7 +435,8 @@ void smmIRDailyRoute(boolean free_only, boolean execute) {
     if (get_property("smm.IR.activeEpoch")!="") abort("IoTM route is already active, or was interrupted. Use iotmroute reset after resolving the encounter.");
     if (get_property("smm.IR.pendingGear")!="") abort("An interrupted IoTM outfit is waiting to be restored. Resolve the encounter and use iotmroute reset.");
     smmIRNoPaidTurns=free_only;
-    clear(smmIRBlocked); clear(smmIRNotes); clear(smmIRPrices); clear(smmIRReplacementPrices); clear(smmMuseumGoals); clear(smmMuseumKeeps); clear(smmIRZones); clear(smmIRGarden);
+    clear(smmIRBlocked); clear(smmIRNotes); clear(smmIRPrices); clear(smmIRReplacementPrices); clear(smmIRMarkets); clear(smmMuseumGoals); clear(smmMuseumKeeps); clear(smmIRZones); clear(smmIRGarden);
+    smmIRShopStockLoaded=false;
     smmIRQuotes=0; smmIRDiscovered=false;
     clear(smmIROwnedFamiliars);
     smmIRDiscover(); smmIRMoreDiscover();
