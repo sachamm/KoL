@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 20: paid access must not block the daily-work mode
+
+The next native retry completed forced noncombats, then garbo's initial Dinsey ticket acquisition failed without a fill. Guarded information checks confirmed the current quote was above the verified average-price ceiling. All fenced copies returned and the stable-source run ended incomplete with a matching end boundary. This is an enforced spending rule, not permission to raise the ceiling.
+
+For a standard default-strategy invocation only, a read-only access forecast now selects garbo's supported `nobarf` mode when the ticket lacks a verified/current quote, the existing allowance is insufficient, or the quote exceeds the unchanged ceiling. It records a persistent paid-work hold before the worker acts. Bulk paid farming remains unfinished even if upstream records its partial mode as complete, so the nightcap cannot advance. Failed/interrupted workers retain the marker; a later standard worker can clear it only after a return with native completion and no access hold. Custom arguments are neither replaced nor used to clear the automatic hold. The daily-work mode can contain upstream turn-using subworkers; it is not asserted to be universally zero-turn. Existing purchase and Museum consumption guards still apply.
+
+Thirty synthetic access/orchestration assertions cover price and allowance boundaries, pre-action intent, failed/changed-epoch workers, partial native completion, later confirmed clearance and custom arguments. Four ASH completion-gate cases keep partial work from releasing dependent tasks. These and existing guard/retrieval/consumption cases passed on isolated r29482 with four entry-point compilations. Post-merge checks and native outcomes follow in the scorecard; neither a new complete day nor a higher score is claimed here.
+
 ## Cycle 19: distinguish a declined free carrier from an unconfirmed force
 
 The corrected healing retry passed Gingerbread City and the paid route confirmed Display Case deposits, including the acquired li'l ghost costume. It then reached forced noncombats. Two Avalanche uses were confirmed; the next Cat Day carrier returned the native `Summon limit exceeded.` reply without a new encounter or counter increment. The strict launch guard stopped before dispatching a target. This run ended normally with stable source and incomplete evidence, rather than being reported as a complete day.

@@ -117,3 +117,22 @@ exports.loadWorker = function (source, wrapped) {
   if (typeof module.exports.main !== "function") throw new Error("smmDaily: garbo has no CommonJS main export");
   return module.exports.main;
 };
+
+exports.runWorker = function (worker, args, native, policy) {
+  policy.ready();
+  args = args || "";
+  // Only the standard daily invocation has an implicit Barf strategy. Custom
+  // arguments retain their meaning and never have a farming method replaced.
+  const standard = /^(?:-\d+)?$/.test(args.trim());
+  const hold = standard ? policy.barfHold() : "";
+  const key = "_smm.daily.garboPaidHold";
+  if (hold) {
+    native.setProperty(key, hold); // durable before the partial worker can act
+    native.print("smmDaily: paid farming held: " + hold + "; running garbo nobarf; the daily task remains unfinished", "orange");
+  }
+  worker(hold ? args + " nobarf" : args);
+  policy.ready();
+  // A partial worker may set garbo's own completion property. Keep our hold
+  // until a subsequent standard paid invocation actually returns complete.
+  if (standard && !hold && native.getProperty("_garboCompleted") !== "") native.setProperty(key, "");
+};

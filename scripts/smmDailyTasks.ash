@@ -199,8 +199,12 @@ string smmDTGarboReady() {
 // garbo clears _garboCompleted when it starts and sets it when it finishes.
 // Few adventures left is not a sign that it ran: garbo eats and drinks the
 // day's diet first, which is where its adventures come from.
+boolean smmDTGarboCompletion(string completed, string paidHold) {
+	return completed != "" && paidHold == "";
+}
+
 boolean smmDTGarboDone() {
-	return get_property("_garboCompleted") != "";
+	return smmDTGarboCompletion(get_property("_garboCompleted"), get_property("_smm.daily.garboPaidHold"));
 }
 
 void smmDTGarboRun(string task, string command) {
@@ -226,6 +230,8 @@ void smmDTGarboRun(string task, string command) {
 	smmDLog(task, "NOTE", "garbo bought " + bought + " Meat of items; its own count: Meat " + get_property("garboResultsMeat")
 		+ ", items " + get_property("garboResultsItems") + ", turns " + get_property("garboResultsTurns"));
 	if (!finished) smmDStopRun = "garbo did not finish; smmdaily run starts it again";
+ if (finished && get_property("_smm.daily.garboPaidHold") != "")
+  smmDTaskProblem = "garbo's daily worker returned, but paid farming remains held: " + get_property("_smm.daily.garboPaidHold");
  if (get_property(kSmmDFencedKey) != "") smmDStopRun = "fenced items remain unreconciled; resolve them before continuing";
 }
 
