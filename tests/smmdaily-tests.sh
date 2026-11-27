@@ -60,7 +60,7 @@ else fail "smmdaily.ash does not compile"; grep -n "smmDaily\|smmdaily\|smmSpend
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
 	verdict="^[[:space:]]*(>[[:space:]]*)?PASS $t:"
 	if grep -Eq "$verdict" <<<"$out"; then pass "$(grep -E "$verdict" <<<"$out" | sed 's/^[[:space:]>]*//')"
@@ -107,7 +107,7 @@ else fail "smmdaily plan did not list the whole day"; tail -20 <<<"$out"; fi
 
 # --- 4. no prompts in the new code -------------------------------------------
 
-NEW="$REPO/scripts/smmdaily.ash $REPO/scripts/smmDailyCore.ash $REPO/scripts/smmDailyGate.ash $REPO/scripts/smmDailyFence.ash $REPO/scripts/smmDailyTasks.ash $REPO/scripts/smmDailyLegacy.ash"
+NEW="$REPO/scripts/smmdaily.ash $REPO/scripts/smmDailyCore.ash $REPO/scripts/smmDailyGate.ash $REPO/scripts/smmDailyFence.ash $REPO/scripts/smmDailyIncome.ash $REPO/scripts/smmDailyTasks.ash $REPO/scripts/smmDailyLegacy.ash"
 if grep -n "user_confirm\|user_prompt\|user_notify" $NEW; then fail "the engine must never ask a question"
 else pass "no user_confirm, user_prompt or user_notify in the smmDaily files"; fi
 

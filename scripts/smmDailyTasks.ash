@@ -2,6 +2,7 @@
 // See docs/daily-script.md.
 
 import <smmDailyLegacy.ash>
+import <smmDailyIncome.ash>
 
 // ---------------------------------------------------------------------------
 // Phase 0: open the day
@@ -61,6 +62,7 @@ void smmDTMuseumReport() {
 void smmDTOpen() {
  smmDTCaseOpen();
 	smmSpendDayStart(); // opening Meat for the day's spending budget, before anything is earned or bought
+ smmIncomeOpen(smmSpendLiquidMeat(), get_property(kSmmSpendStartKey).to_int(), smmDTodaysLog());
 	foreach i, warning in smmDTSettingWarnings() {
 		print("smmDaily: " + warning + ".", "orange");
 		smmDLog("day.open", "NOTE", warning);
@@ -523,6 +525,7 @@ void smmDTReport() {
   if (open == "") open = finance;
  }
 	smmDTAudit();
+ smmIncomeReport(smmSpendLiquidMeat(), smmDTodaysLog());
 	timeToRollover();
  set_property("_smm.daily.complete", open == "" ? smmDEpoch() : "");
  print("SMM_DAILY_RESULT " + (open == "" ? "COMPLETE" : "INCOMPLETE: " + open), open == "" ? "green" : "red");
