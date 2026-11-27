@@ -18,18 +18,24 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.40/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.45/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
-| Whole day unattended | 2 | 0.8 | 1.60 |
+| Whole day unattended | 2 | 0.8 | 1.65 |
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
 | Paid adventures allocated well | 1.5 | 0.4 | 1.15 |
 | Spending rules | 1 | 0.7 | 0.75 |
 | Museum progress | 1 | 0.7 | 0.85 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.40** |
+| **Total** | **10** | **6.0** | **8.45** |
+
+### Quality cycle 5: post-merge assessment
+
+[PR #40](https://github.com/sachamm/KoL/pull/40), merged as `f446fc27e3616a08c7488297d64055f2c8b47cb3`, adds **0.05** for preserving unfinished postconditions and adventure exhaustion through close reporting. Errors on repeatable close workers now prevent completion, and missing fenced stock stops before collection spending. Provisional code quality is **8.45/10**. Live performance remains **6.0/10**; a correct incomplete report is not an unattended completed day.
+
+Post-merge verification passed **988 ASH assertions** (133 core, 612 gate, 25 fence, 7 dressup, 94 diet, 62 review, 55 NPC resale), both compilations, planning/static checks and eight expected abort scenarios. Windows verification passed **35 evidence cases, 16 diagnostics and 18 ownership checks**. Raw Witchess counters were traced to copied-monster fights; without a confirmed Set unlock they do not prove available remaining Witchess fights. The **9.9 target remains open**.
 
 ### Quality cycle 4: post-merge assessment
 
