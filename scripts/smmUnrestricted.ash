@@ -760,20 +760,21 @@ string dailyGrindSessionLog() {
  return count(logs) > 0 ? logs[0] : "";
 }
 
-// Version 4 adds marginal demand/backlog limits to version 3's signed physical
-// accounting. Histories without these limits cannot select future farming.
+// Version 5 includes free-pull storage in version 4's marginal demand/backlog
+// accounting. Transfers from that container must not manufacture income.
 string kGrindValueVersionKey = "smm.grind.valueVersion";
+string kGrindValueVersion = "5";
 boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread];
 
 void dailyGrindMigrateHistory() {
-	if (get_property(kGrindValueVersionKey) == "4") return;
+	if (get_property(kGrindValueVersionKey) == kGrindValueVersion) return;
 	foreach name in kDailyGrindNames {
 		foreach key in $strings[histTurns, histValue, histRuns, histMuseumAt, histMuseumItems]
 			set_property("smm.grind." + key + "." + name, "");
   set_property("_smm.grind.counted." + name, "");
 	}
-	set_property(kGrindValueVersionKey, "4");
-	print("dailyGrind: cleared pre-liquidity grind history; marginal estimates now account for demand and existing stock", "orange");
+	set_property(kGrindValueVersionKey, kGrindValueVersion);
+	print("dailyGrind: cleared obsolete grind history; marginal estimates include demand, backlog and free-pull ownership", "orange");
 }
 
 int dailyGrindMinDays() {
@@ -881,7 +882,7 @@ boolean dailyGrindMayRun(string name) {
 		return false;
 	}
 	// history from before the sale-price valuation is cleared at the next grind, and never skips one before that
-	boolean honestHistory = get_property(kGrindValueVersionKey) == "4";
+	boolean honestHistory = get_property(kGrindValueVersionKey) == kGrindValueVersion;
 	int runs = get_property("smm.grind.histRuns." + name).to_int();
 	if (preset != "true" && honestHistory && runs >= min(dailyGrindEarlyDays(), dailyGrindMinDays())) {
 		int perTurn = dailyGrindReturnPerTurn(name);
@@ -903,6 +904,7 @@ int [item] dailyGrindHoldings() {
  foreach it, amount in get_closet() held[it] += amount;
  foreach it, amount in get_display() held[it] += amount;
  foreach it, amount in get_storage() held[it] += amount;
+ foreach it, amount in get_free_pulls() held[it] += amount;
  foreach it, amount in get_shop() held[it] += amount;
  foreach sl in $slots[]
   if (sl != $slot[none] && sl != $slot[familiar] && equipped_item(sl) != $item[none]) held[equipped_item(sl)] += 1;
