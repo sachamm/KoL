@@ -31,6 +31,14 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.55** |
 
+### Quality cycle 7: post-merge evidence, score unchanged
+
+[PR #45](https://github.com/sachamm/KoL/pull/45) adds observed cash-source windows, and [PR #46](https://github.com/sachamm/KoL/pull/46), merged as `717e7de765b04882286e30e472513705780175d7`, fixes the reproduced multiline-anchor serialization defect. The provisional code score remains **8.55/10**, with live performance **6.0/10**. Gross shop receipts and observed combat cash are useful evidence, but they do not establish old/new stock cost basis, complete resource profit or an unattended day. The documented cash-budget policy is unchanged.
+
+Final post-merge checks passed **1043 ASH assertions** (133 core, 633 gate, 25 fence, 34 income, 7 dressup, 94 diet, 62 review, 55 NPC resale), both compilations, planning/static checks and eight expected abort scenarios. Windows checks passed **35 evidence cases, 19 diagnostics and 18 ownership checks**. Income tests cover duplicate receipts, shifting IDs, lost/late history, exact log boundaries, mirrored recovery, retained reports and long CRLF/tab serialization; reporting leaves the cash funding ledger untouched.
+
+A read-only r29481 check parsed **3579 native shop receipts with zero unparsed entries**, preserving their 3551 normalized identities and duplicate counts. Turns, adventures, cash and MP were unchanged within that check. `smmdaily income` correctly reported today's opening snapshot missing; no retroactive baseline was created. The final fix was installed and compiled while logged out. The **9.9 target remains open**.
+
 ### Quality cycle 6: post-merge assessment
 
 [PR #42](https://github.com/sachamm/KoL/pull/42), merged as `0a24a7d660e3741b5c2e0f1ddfd2ff40009da570`, adds **0.10** for charging diet cash to the shared cap, checking every observed request separately and refusing to claim a complete close with unknown coverage or unresolved financial issues. Provisional code quality is **8.55/10**. Third-party and early diet purchases are still audited after execution; universal pre-purchase enforcement and proof of resource-derived income remain open. Live performance stays **6.0/10**.
