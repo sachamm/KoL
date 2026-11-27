@@ -18,7 +18,7 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.55/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.60/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
@@ -26,10 +26,20 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
 | Paid adventures allocated well | 1.5 | 0.4 | 1.15 |
-| Spending rules | 1 | 0.7 | 0.85 |
+| Spending rules | 1 | 0.7 | 0.90 |
 | Museum progress | 1 | 0.7 | 0.85 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.55** |
+| **Total** | **10** | **6.0** | **8.60** |
+
+### Quality cycle 9: direct garbo purchase enforcement
+
+[PR #50](https://github.com/sachamm/KoL/pull/50), merged as `151fbf694c9d41ed1af98ace20b99ab3cac81dea`, adds a cooperative adapter for garbo's direct cash `buy` calls. It obtains a verified average-price ceiling, bounds quantity by the shared remaining allowance, preserves overload results and immediately books observed cash. Unknown quotes or missing allowance do not authorize a buy. An inactive account or changed epoch stops the entry point. Native coinmaster currency overloads remain separate.
+
+Spending-rule code credit rises **0.05**, from **0.85 to 0.90**, for enforcing that direct-buy boundary before execution. Total provisional code quality is **8.60/10**. Automatic retrieval, crafting, recovery, direct URLs and delegated commands remain outside this adapter's guarantee; the post-execution audit remains required. This is not a sandbox, proof of all purchase paths or evidence of profitable spending. Every other criterion and the **6.0/10 live score** stays unchanged.
+
+Post-merge checks on the exact merge passed **1087 assertions: 1057 ASH** (135 core, 633 gate, 25 fence, 34 income, 12 buy guard, 7 dressup, 94 diet, 62 review, 55 NPC) **and 30 JavaScript**, plus **15 refusal/abort scenarios**, both compilations and planning/static checks. Windows diagnostics, evidence and ownership passed **19 + 35 + 18 = 72 checks**. The installed garbo bundle (SHA-256 `21a6120faac275d8c8128cfaae38f5e3b20f459ec3e74116f2fd85d73142bd90`) loaded through the adapter with synthetic state and action functions blocked; its main was never called. The 42 new assertions, bundle-load check and inactive-run refusal also passed in isolated r29481. That load check establishes compatibility for the observed bundle, not live completion after upstream changes.
+
+The live Mafia project was updated to the same source merge and compiled while logged out; its adapter correctly refused an inactive run. No live worker, login, purchase or resource use was performed in this cycle. The **9.9 target remains open**; corrected unattended days, source-derived profit and confirmed Museum progress are still required.
 
 ### Quality cycle 8: rollover boundaries, score unchanged
 
