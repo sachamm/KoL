@@ -14,6 +14,14 @@ SmmGuardOffer smmGuardOfferFor(int quantity, int requested, float average, int b
 }
 
 string smmGuardEpoch;
+int [item] smmGuardDeniedBuys;
+boolean smmGuardMayTryBuy(item it, int limit) {
+ return limit > 0 && (!(smmGuardDeniedBuys contains it) || limit > smmGuardDeniedBuys[it]);
+}
+void smmGuardBuyObserved(item it, int bought, int limit) {
+ if (bought > 0) remove smmGuardDeniedBuys[it];
+ else if (bought == 0 && limit > 0) smmGuardDeniedBuys[it] = max(smmGuardDeniedBuys[it], limit);
+}
 void smmGuardReady() {
  if (smmGuardEpoch == "") smmGuardEpoch = smmDEpoch();
  smmDRequireEpoch(smmGuardEpoch);
@@ -22,6 +30,10 @@ void smmGuardReady() {
   abort("smmDaily: guarded garbo requires a logged-in active daily run");
  if (!smmSpendStarted()) abort("smmDaily: guarded garbo requires today's opening ledger");
  if (count(session_logs(1)) == 0) abort("smmDaily: guarded garbo requires the purchase log before buying");
+}
+void smmGuardBeginWorker() {
+ smmGuardReady();
+ clear(smmGuardDeniedBuys); // worker-local observations, never game counters
 }
 
 int smmGuardBuy(int quantity, item it, int requested) {
@@ -37,6 +49,7 @@ int smmGuardBuy(int quantity, item it, int requested) {
  int cash = my_meat();
  int bought = buy(offer.quantity, it, offer.limit);
  smmDRequireEpoch(smmGuardEpoch);
+ smmGuardBuyObserved(it, bought, offer.limit);
  // Charge observed cash immediately; the later log refresh takes max(), so it
  // does not charge these direct buys twice. Native request logs remain evidence.
  set_property(kSmmSpendOperatingKey, max(smmSpendOperating(), operating + max(0, cash - my_meat())));
@@ -76,6 +89,36 @@ boolean smmGuardInputAvailable(int quantity, int accessible, int owned, int rese
  if (!buying || quote <= 0) return false;
  SmmGuardOffer offer = smmGuardOfferFor(missing, requested, average, budget);
  return offer.quantity == missing && quote <= offer.limit;
+}
+
+boolean [string] smmGuardSandwormReported;
+boolean smmGuardSandwormEligible(string source, int limit) {
+ smmGuardReady();
+ // These two source macros spend an item directly in combat. Until a
+ // replacement transaction is supported there, require actual owned surplus.
+ if (source == "shadow brick" || source == "partial tombstone") {
+  item resource = source.to_item();
+  if (!smmGuardInputAvailable(1, available_amount(resource), smmMuseumOwnedCopies(resource), smmMuseumReservedCopies(resource), 0, 0, 0, 0, false)) {
+   if (!smmGuardSandwormReported[source]) print("smmDaily: sandworm source held: " + source + " has no unreserved combat input", "orange");
+   smmGuardSandwormReported[source] = true;
+   return false;
+  }
+ }
+ item drum = $item[drum machine];
+ int accessible = available_amount(drum);
+ int owned = smmMuseumOwnedCopies(drum);
+ int reserved = smmMuseumReservedCopies(drum);
+ smmGuardReady();
+ if (smmGuardInputAvailable(1, accessible, owned, reserved, 0, 0, 0, 0, false)) return true;
+ float average = smmSpendAveragePrice(drum);
+ int quote = mall_price(drum);
+ int cap = smmDailyPurchaseLimit(limit, average);
+ boolean buying = limit > 0 && smmGuardMayTryBuy(drum, cap) && get_property("autoSatisfyWithMall") == "true" && get_property("autoSatisfyWithNPCs") == "true";
+ boolean eligible = smmGuardInputAvailable(1, accessible, owned, reserved, limit, average, quote, smmSpendBudget(), buying);
+ smmGuardReady();
+ if (!eligible && !smmGuardSandwormReported[source]) print("smmDaily: sandworm source held: " + source + "; drum-machine supply is outside the Museum, price or shared-allowance rules", "orange");
+ if (!eligible) smmGuardSandwormReported[source] = true;
+ return eligible;
 }
 
 boolean smmGuardStealHoldReported;

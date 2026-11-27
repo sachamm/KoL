@@ -31,13 +31,21 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 25: gate unavailable sandworm carriers and recover interruption
+
+The fractional-limit fix passed natively. Garbo then retried sandworm tasks after capped drum-machine acquisitions returned no fill: the log contains 125 sandworm task attempts and 375 no-fill messages. Upstream has a 20-skip limit per carrier; this was excessive bounded retrying, not proof of an infinite loop. The process had progressed to fax setup by the time the owned test process was stopped. Its evidence has stable source, exit -1 and no end boundary; it is an interrupted test, not a completed day.
+
+Recovery acquired exclusive ownership, returned the persisted fenced copies with conserved quantities, restored/verified all 19 captured borrowed settings and refreshed purchase booking. Native checks found no fight, choice, pending force or active map. The already requested Witchess Bishop fax was received and remains unused. The final recovery check found zero setting mismatches and a clear fence. Private snapshots and recovery files remain outside Git; resource counters, spending and completion records were not reset.
+
+The loader now applies input eligibility to both inherited drum-machine tasks and their fight-estimate definitions, while preserving independent carriers such as the quad tom. It rechecks supply, Museum reserve, prices, source ceiling and shared allowance; a confirmed no-fill prevents repeating the same/lower guarded ceiling in that worker. Combat macros that spend shadow bricks or partial tombstones require actual unreserved stock until a replacement transaction is supported for those paths. Missing/changed hook metadata refuses loading. Fourteen factory cases, eight additional buy-observation cases (20 total), four entry-point compilations and an action-blocked load of the installed bundle passed on isolated r29482. Exact integration and native results follow after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**.
+
 ### Quality cycle 24: preserve fractional automatic-buy ceilings
 
 The next native retry passed both protected-garden entry points and reached giant-sandworm preparation. Garbo supplied a calculated fractional `autoBuyPriceLimit`; the adapter's integer-string-only validation rejected it before acquisition. That stable-source attempt returned all fenced copies and ended incomplete with the paid-work hold intact.
 
 Automatic-buy ceilings are now normalized once in JavaScript before crossing the typed ASH bridge. Valid finite decimals/scientific notation are bounded and rounded down using decimal digits, avoiding binary rounding that could authorize one Meat above a sub-Meat ceiling. Explicit zero retains the native default; negative values prohibit buying, and positive sub-Meat/underflowed ceilings allow no purchase. Malformed, nonfinite and out-of-range inputs still refuse. Replacement consumption and garden forecasts receive the normalized integer instead of independently coercing the setting into a default.
 
-Twenty-eight normalization/typed-bridge cases, 46 retrieval checks (three new fractional/sub-Meat cases), existing consumption checks, four entry-point compilations and the action-blocked installed-bundle load passed in isolated r29482. Exact integration and native evidence are recorded after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**; 9.9 is unachieved.
+Twenty-eight normalization/typed-bridge cases, 46 retrieval checks (three new fractional/sub-Meat cases), existing consumption checks, four entry-point compilations and the action-blocked installed-bundle load passed in isolated r29482. [PR #74](https://github.com/sachamm/KoL/pull/74) merged as `d78dc1809bce1cda287ff013a720274dadd6847e`. Post-merge verification passed **1408 assertions: 1199 ASH and 209 JavaScript**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows cases**. The installed source matched the tested merge and all four entry points compiled logged out. The native run accepted the fractional limit, then exposed the bounded no-fill retries described above and was interrupted. Scores remain **8.70 provisional code / 6.0 demonstrated live**; 9.9 is unachieved.
 
 ### Quality cycle 23: guard the separate garden planting task too
 

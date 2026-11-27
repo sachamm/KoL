@@ -4,7 +4,7 @@ const bridge = require("smmDailyBuyGuard.ash");
 const adapter = require("smmDailyGarboAdapter.js");
 
 exports.main = function (args) {
-  bridge.smmGuardReady();
+  bridge.smmGuardBeginWorker();
   const wrapped = adapter.createModule(km, {
     ready: function () { bridge.smmGuardReady(); },
     buy: function (quantity, item, limit) { return bridge.smmGuardBuy(quantity, item, limit); },
@@ -16,7 +16,11 @@ exports.main = function (args) {
   const source = String(km.fileToBuffer("scripts/garbage-collector/garbo.js"));
   const worker = adapter.loadWorker(source, wrapped,
     function (where) { return bridge.smmGuardItemStealEligible(where); },
-    function () { return bridge.smmGuardBlackRoseEligible(adapter.automaticBuyLimit(km.getProperty("autoBuyPriceLimit"))); });
+    function () { return bridge.smmGuardBlackRoseEligible(adapter.automaticBuyLimit(km.getProperty("autoBuyPriceLimit"))); },
+    function (name, cap) {
+      if (typeof cap !== "number" || !isFinite(cap)) throw new Error("smmDaily: invalid sandworm acquisition ceiling");
+      return bridge.smmGuardSandwormEligible(name, cap > 0 ? adapter.automaticBuyLimit(String(cap)) : 0);
+    });
   adapter.runWorker(worker, args, km, {
     ready: function () { bridge.smmGuardReady(); },
     barfHold: function () { return bridge.smmGuardBarfHold(); }
