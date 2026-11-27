@@ -18,7 +18,7 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment: 2026-11-26
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.45/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.55/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
 
 | Criterion | Max | November 25–26 logs | Corrected code, offline |
 |---|---:|---:|---:|
@@ -26,10 +26,18 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Worthwhile daily resources | 2 | 1.6 | 1.7 |
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
 | Paid adventures allocated well | 1.5 | 0.4 | 1.15 |
-| Spending rules | 1 | 0.7 | 0.75 |
+| Spending rules | 1 | 0.7 | 0.85 |
 | Museum progress | 1 | 0.7 | 0.85 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.45** |
+| **Total** | **10** | **6.0** | **8.55** |
+
+### Quality cycle 6: post-merge assessment
+
+[PR #42](https://github.com/sachamm/KoL/pull/42), merged as `0a24a7d660e3741b5c2e0f1ddfd2ff40009da570`, adds **0.10** for charging diet cash to the shared cap, checking every observed request separately and refusing to claim a complete close with unknown coverage or unresolved financial issues. Provisional code quality is **8.55/10**. Third-party and early diet purchases are still audited after execution; universal pre-purchase enforcement and proof of resource-derived income remain open. Live performance stays **6.0/10**.
+
+Post-merge checks passed **1009 ASH assertions** (133 core, 633 gate, 25 fence, 7 dressup, 94 diet, 62 review, 55 NPC resale), both compilations, planning/static checks and eight expected abort scenarios. Windows checks passed **35 evidence cases, 19 diagnostics and 18 ownership checks**. Repeated offline audits retain independent files and journal references.
+
+The installed r29481 project was updated to this exact merge and compiled. A retrospective information-only audit covered **731 mall requests across 109/109 quoted items**, with zero unknown/unchecked items and **14,011 Meat of potential request excess**. Requests do not prove fills, and current/cache quotes do not reconstruct past prices; these are historical manual/legacy actions, not purchases by the corrected code. Turns, adventures, cash, HP and MP were unchanged across the audit; no daily worker was run. This strengthens audit evidence but does not establish a corrected unattended day. The **9.9 target remains open**.
 
 ### Quality cycle 5: post-merge assessment
 
