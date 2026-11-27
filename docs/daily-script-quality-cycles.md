@@ -2,6 +2,16 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 25: unavailable drum carriers must not consume skip retries
+
+The next native attempt accepted fractional ceilings, then performed 125 sandworm task attempts with 375 rejected/partial-quantity messages after drum supply could not fill under the guard. Upstream caps skips per task at 20 and had advanced to fax setup before the owned process was stopped; the result is an interrupted test, not an infinite-loop proof. Stable source alone does not compensate for exit -1 and a missing end boundary.
+
+Exclusive recovery returned the durable fence with conserved quantities, restored and verified all 19 captured borrowed settings, refreshed booking and confirmed no pending encounter, force or map. The previously requested Witchess Bishop fax was received without using it. A second verification found zero setting mismatches and a clear fence. No game counters, completion markers or spending were reset. Recovery evidence and account snapshots stay outside Git.
+
+The cooperative loader now validates inherited drum tasks and matching estimator definitions, decorates readiness in both places and invalidates cached availability before execution. Custom carriers such as the quad tom remain independent. Supply forecasts honor accessible stock, Museum reserves, unchanged prices/ceilings and the shared allowance. An actual zero fill is remembered at its per-copy ceiling for the worker; same/lower proposals cannot restart that input loop, while a later real fill or new worker can reassess. Shadow-brick and partial-tombstone combat sources require existing unreserved input, since their macro consumption does not pass through the direct item-use wrapper. No blocked task is marked complete or used.
+
+Fourteen factory checks cover estimates, inherited execution, independent carriers, stale availability, readiness errors and incompatible metadata. Eight pure buy-observation cases cover same/lower denied ceilings, independent items, stronger proposals and real subsequent fills. These, four entry-point compilations and an action-blocked structural load of the actual public bundle passed on isolated r29482. Exact integration/native results are recorded after execution; scores remain unchanged.
+
 ## Cycle 24: normalize fractional acquisition ceilings at one boundary
 
 The corrected native retry passed garden discovery and task readiness, then giant-sandworm preparation supplied a legitimate fractional automatic-buy ceiling. The adapter had accepted only integer strings and stopped before acquisition. The stable-source attempt returned fenced items, retained its paid-work hold and ended incomplete.

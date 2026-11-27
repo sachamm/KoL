@@ -129,12 +129,19 @@ exports.createModule = function (native, policy) {
   return wrapped;
 };
 
-exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible) {
+exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible, drumEligible) {
   if (typeof source !== "string" || source.trim() === "") throw new Error("smmDaily: garbo source is missing");
   const module = { exports: {} };
   // Return the bundle's actual zone objects, without rewriting its selector
   // or changing its prices. The optional hook is checked before main can run.
-  const hooks = Function("require", "module", "exports", source + "\n;return {zones: typeof itemStealZones === 'undefined' ? null : itemStealZones, garden: typeof refreshBlackRoseGardenMonsters === 'function' && typeof cachedBlackRoseGardenMonsters !== 'undefined' ? {tasks:typeof FreeFightTasks === 'undefined' ? null : FreeFightTasks, refresh:refreshBlackRoseGardenMonsters, replace:function(fn){refreshBlackRoseGardenMonsters=fn;}, clear:function(){cachedBlackRoseGardenMonsters=[];}} : null};")(function (name) {
+  const hookSource = [
+    ";return {",
+    "zones: typeof itemStealZones === 'undefined' ? null : itemStealZones,",
+    "garden: typeof refreshBlackRoseGardenMonsters === 'function' && typeof cachedBlackRoseGardenMonsters !== 'undefined' ? {tasks:typeof FreeFightTasks === 'undefined' ? null : FreeFightTasks, refresh:refreshBlackRoseGardenMonsters, replace:function(fn){refreshBlackRoseGardenMonsters=fn;}, clear:function(){cachedBlackRoseGardenMonsters=[];}} : null,",
+    "worms: typeof SandwormTasks !== 'undefined' && typeof SANDWORM_TASK_DEFINITIONS !== 'undefined' && typeof DEFAULT_SANDWORM_TASK !== 'undefined' && typeof sandwormValue === 'function' ? {tasks:SandwormTasks, definitions:SANDWORM_TASK_DEFINITIONS, action:DEFAULT_SANDWORM_TASK.do, cap:function(){return sandwormValue()-1;}, invalidate:function(){_hasWorms=undefined;}} : null",
+    "};"
+  ].join("\n");
+  const hooks = Function("require", "module", "exports", source + "\n" + hookSource)(function (name) {
     if (name !== "kolmafia") throw new Error("smmDaily: unsupported garbo dependency: " + name);
     return wrapped;
   }, module, module.exports);
@@ -166,6 +173,30 @@ exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible) {
       if (!gardenEligible()) { garden.clear(); return; }
       return garden.refresh.apply(this, arguments);
     });
+  }
+  if (drumEligible !== undefined) {
+    const worms = hooks.worms;
+    if (typeof drumEligible !== "function" || !worms || !Array.isArray(worms.tasks)
+        || !Array.isArray(worms.definitions) || typeof worms.action !== "function")
+      throw new Error("smmDaily: unsupported garbo sandworm hook");
+    const carriers = worms.tasks.filter(function (task) { return task && task.do === worms.action; });
+    const seen = new Set();
+    if (!carriers.length) throw new Error("smmDaily: missing garbo drum-machine tasks");
+    carriers.forEach(function (task) {
+      const definitions = worms.definitions.filter(function (entry) { return entry && entry.name === task.name; });
+      if (seen.has(task.name) || definitions.length !== 1 || typeof task.ready !== "function"
+          || typeof task.completed !== "function" || task.spendsTurn !== false
+          || typeof definitions[0].ready !== "function" || typeof definitions[0].combatCount !== "function")
+        throw new Error("smmDaily: unsupported garbo drum-machine task shape");
+      seen.add(task.name);
+      // The estimate uses definitions; execution uses constructed task copies.
+      // Instrument both, leaving custom carriers such as the quad tom alone.
+      [task, definitions[0]].forEach(function (entry) {
+        const ready = entry.ready;
+        entry.ready = function () { return ready.apply(this, arguments) && drumEligible(entry.name, worms.cap()); };
+      });
+    });
+    worms.invalidate();
   }
   return module.exports.main;
 };
