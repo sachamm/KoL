@@ -182,6 +182,10 @@ void testFence() {
 }
 
 void testGarbo() {
+	check(!smmDTGarboCompletion("", ""), "missing worker completion remains unfinished");
+	check(smmDTGarboCompletion("fixture completion", ""), "normal worker completion without a paid hold is usable");
+	check(!smmDTGarboCompletion("fixture completion", "ticket above ceiling"), "partial native completion cannot release the nightcap gate");
+	check(!smmDTGarboCompletion("", "ticket above ceiling"), "an interrupted partial worker remains held after restart");
 	same(smmDTGarboCommand(10, ""), "smmDailyGarbo -10", "garbo leaves N turns");
 	same(smmDTGarboCommand(0, ""), "smmDailyGarbo -1", "never 'garbo 0' or a bare 'garbo': those mean no limit");
 	same(smmDTGarboCommand(-5, ""), "smmDailyGarbo -1", "a negative setting cannot become a positive turn count");

@@ -13,5 +13,8 @@ exports.main = function (args) {
   });
   const source = String(km.fileToBuffer("scripts/garbage-collector/garbo.js"));
   const worker = adapter.loadWorker(source, wrapped);
-  worker(args || "");
+  adapter.runWorker(worker, args, km, {
+    ready: function () { bridge.smmGuardReady(); },
+    barfHold: function () { return bridge.smmGuardBarfHold(); }
+  });
 };

@@ -43,6 +43,29 @@ int smmGuardBuy(int quantity, item it, int requested) {
  return bought;
 }
 
+// A paid access refusal must not prevent garbo's separate daily work. This
+// forecast never authorizes a purchase: actual retrieval keeps the same guard.
+string smmGuardBarfHold(boolean access, int owned, float average, int quote, int budget) {
+ if (access || owned > 0) return "";
+ SmmGuardOffer offer = smmGuardOfferFor(1, 500000, average, budget);
+ if (offer.quantity < 1) return "Dinsey ticket has no verified price or shared allowance";
+ if (quote <= 0) return "Dinsey ticket has no current mall quote";
+ if (quote > offer.limit) return "Dinsey ticket quote " + quote + " exceeds the existing ceiling " + offer.limit;
+ return "";
+}
+
+string smmGuardBarfHold() {
+ smmGuardReady();
+ if (get_property("stenchAirportAlways") == "true" || get_property("_stenchAirportToday") == "true") return "";
+ item ticket = $item[one-day ticket to Dinseylandfill];
+ if (available_amount(ticket) > 0) return "";
+ float average = smmSpendAveragePrice(ticket);
+ int quote = mall_price(ticket);
+ string reason = smmGuardBarfHold(false, 0, average, quote, smmSpendBudget());
+ smmGuardReady();
+ return reason;
+}
+
 int smmGuardConsumptionMissing(int quantity, int owned, int reserved) {
  return max(0, max(0, quantity) - max(0, owned - max(0, reserved)));
 }

@@ -31,6 +31,22 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 20: run daily work when paid access is held
+
+The cycle 19 retry completed `forced.nc`: the remaining Avalanche was confirmed, and Fiesta Exits used the available Cinch rests before garbo. Garbo then attempted a Dinseylandfill ticket above the verified average-price ceiling. The purchase guard correctly refused a fill; the worker failed, every fenced copy was returned, and the run ended with stable source, a matching end boundary and incomplete evidence. No cap is raised to get past that stop.
+
+The standard garbo invocation now forecasts paid Barf access with the same allowance, average-price ceiling and upstream ticket maximum. When access is unavailable at those limits, it runs garbo's supported `nobarf` daily-work mode and persists a paid-work hold before dispatch. This mode disables bulk farming; individual upstream daily subworkers are not claimed universally turn-free. A partial worker setting its own completion property cannot release the daily/nightcap gate. Only a later standard invocation that returns with native completion and no access hold clears the marker. Custom arguments are preserved. A later quote change can still make the real guarded purchase fail; the forecast does not authorize it.
+
+Thirty synthetic adapter/access checks and four completion-gate regressions passed in isolated r29482, alongside the existing purchase/retrieval/consumption cases and four entry-point compilations. Integration checks and the next native result are recorded after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**; this resumed, intervened day is not one of the five consecutive qualifying unattended days, and reconciled economic performance and fresh Museum ranks remain unproved.
+
+### Quality cycle 19: declined carriers, post-merge and native results
+
+[PR #69](https://github.com/sachamm/KoL/pull/69), merged as `754f20550ba3b9bf41923599d11e7f5bbbbf17eb`, distinguishes an explicit no-fight summon decline from an ambiguous force cast. The declined carrier is excluded only after unchanged encounter/usage state, an unclaimed consult flag, no pending force and a consistent read-only refresh. Ambiguous results still stop before a new carrier or target. General free-fight workers cannot loop on the rejected provider or run combat against a previous page.
+
+Post-merge verification passed **1304 assertions: 1195 ASH and 109 JavaScript**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows cases**. The force suite has 52 assertions; it and all four entry points passed in isolated r29482. Installed public code matches the tested merge and compiled logged out. The live retry used another eligible carrier, completed forced noncombats and exposed the paid-access stop above. The new decline/reselection branch is regression-tested; that retry did not need to reproduce another rejected Cat Day cast.
+
+The preceding native healing retry also passed Gingerbread City and confirmed Display Case deposits including the li'l ghost costume. These are acquisition/deposit and resumed-stage outcomes, without a new competitor-rank measurement or a complete unattended day. No score increase is assigned for those narrower results.
+
 ### Quality cycle 18: high-HP healing, score unchanged pending the retry
 
 [PR #67](https://github.com/sachamm/KoL/pull/67), merged as `ca7d4691cc7ab1bbb83af49e88e3dac48346c5a3`, removes an eight-cast cutoff from combat healing. The live attempt reached Gingerbread City, then stopped after eight confirmed Cocoon casts of 1000 HP each, still below the unchanged 60%-of-final-outfit target. Healing now continues only while a known skill is affordable with current MP and each successful cast increases HP. Failed casts, no progress and insufficient MP stop further healing; no MP purchase or rest is added by this loop.
