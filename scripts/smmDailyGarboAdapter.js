@@ -28,6 +28,55 @@ exports.createModule = function (native, policy) {
     if (!integer(bought) || bought < 0 || bought > quantity) throw new Error("smmDaily: invalid guarded buy result");
     return args.length === 3 ? bought : bought === quantity;
   };
+  wrapped.retrieveItem = function () {
+    const args = Array.prototype.slice.call(arguments);
+    policy.ready();
+    let item, quantity;
+    if (args[0] instanceof native.Item) {
+      item = args[0]; quantity = args.length === 1 ? 1 : args[1];
+    } else {
+      quantity = args[0]; item = args[1];
+    }
+    if (args.length < 1 || args.length > 2 || !(item instanceof native.Item) || !integer(quantity))
+      throw new Error("smmDaily: unsupported retrieveItem arguments");
+    if (quantity <= 0 || item === native.Item.get("none")) return true; // native no-op conventions
+    const accessible = native.availableAmount(item);
+    if (!integer(accessible) || accessible < 0) throw new Error("smmDaily: invalid accessible item count");
+    const missing = Math.max(0, quantity - accessible);
+    if (missing > 0) {
+      // Respect ownership-only retrieval and restrictive automatic-source
+      // settings. The direct-buy bridge cannot promise an NPC-only seller.
+      if (native.getProperty("autoSatisfyWithMall") !== "true" || native.getProperty("autoSatisfyWithNPCs") !== "true") return false;
+      const configured = native.getProperty("autoBuyPriceLimit");
+      if (!/^-?\d+$/.test(configured)) throw new Error("smmDaily: invalid automatic buy price limit");
+      const limit = Number(configured);
+      if (!integer(limit)) throw new Error("smmDaily: invalid automatic buy price limit");
+      if (limit < 0) return false;
+      policy.buy(missing, item, limit === 0 ? 20000 : limit);
+      policy.ready();
+    }
+    if (native.itemAmount(item) >= quantity) return true;
+    // No native retrieval with a deficit: it could buy or recursively source
+    // crafting inputs outside the direct-buy guard. Recheck after the buy.
+    if (native.availableAmount(item) < quantity) return false;
+    const settings = ["autoSatisfyWithMall", "autoSatisfyWithNPCs", "autoSatisfyWithCoinmasters", "buyScript", "autoBuyPriceLimit"];
+    const saved = settings.map(function (name) { return native.getProperty(name); });
+    try {
+      native.setProperty("autoSatisfyWithMall", "false");
+      native.setProperty("autoSatisfyWithNPCs", "false");
+      native.setProperty("autoSatisfyWithCoinmasters", "false");
+      native.setProperty("buyScript", "");
+      // Zero is a native default-reset sentinel, not a no-purchase ceiling.
+      native.setProperty("autoBuyPriceLimit", "-1");
+      policy.ready();
+      if (native.availableAmount(item) < quantity) return false;
+      const retrieved = native.retrieveItem(quantity, item);
+      policy.ready();
+      return retrieved;
+    } finally {
+      for (let i = settings.length - 1; i >= 0; i--) native.setProperty(settings[i], saved[i]);
+    }
+  };
   return wrapped;
 };
 

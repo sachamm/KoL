@@ -1,5 +1,6 @@
-// Bridge for cooperative third-party direct buys. Automatic retrieval, crafting,
-// direct URLs and delegated scripts still require the closing purchase audit.
+// Bridge for cooperative third-party buys, including finished-item deficits in
+// explicit retrieval calls. Implicit sourcing, crafting, direct URLs and
+// delegated scripts still require the closing purchase audit.
 import <smmDailyCore.ash>
 import <smmSpend.ash>
 import <smmDailyPolicy.ash>
