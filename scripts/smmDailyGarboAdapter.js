@@ -112,7 +112,7 @@ exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible) {
   const module = { exports: {} };
   // Return the bundle's actual zone objects, without rewriting its selector
   // or changing its prices. The optional hook is checked before main can run.
-  const hooks = Function("require", "module", "exports", source + "\n;return {zones: typeof itemStealZones === 'undefined' ? null : itemStealZones, garden: typeof refreshBlackRoseGardenMonsters === 'function' && typeof cachedBlackRoseGardenMonsters !== 'undefined' ? {refresh:refreshBlackRoseGardenMonsters, replace:function(fn){refreshBlackRoseGardenMonsters=fn;}, clear:function(){cachedBlackRoseGardenMonsters=[];}} : null};")(function (name) {
+  const hooks = Function("require", "module", "exports", source + "\n;return {zones: typeof itemStealZones === 'undefined' ? null : itemStealZones, garden: typeof refreshBlackRoseGardenMonsters === 'function' && typeof cachedBlackRoseGardenMonsters !== 'undefined' ? {tasks:typeof FreeFightTasks === 'undefined' ? null : FreeFightTasks, refresh:refreshBlackRoseGardenMonsters, replace:function(fn){refreshBlackRoseGardenMonsters=fn;}, clear:function(){cachedBlackRoseGardenMonsters=[];}} : null};")(function (name) {
     if (name !== "kolmafia") throw new Error("smmDaily: unsupported garbo dependency: " + name);
     return wrapped;
   }, module, module.exports);
@@ -133,6 +133,13 @@ exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible) {
     if (typeof gardenEligible !== "function" || !hooks.garden)
       throw new Error("smmDaily: unsupported garbo Black Rose Garden hook");
     const garden = hooks.garden;
+    if (!Array.isArray(garden.tasks)) throw new Error("smmDaily: missing garbo garden task list");
+    const plants = garden.tasks.filter(function (task) { return task && task.name === "Plant Black Rose Garden"; });
+    if (plants.length !== 1 || typeof plants[0].ready !== "function" || typeof plants[0].do !== "function"
+        || typeof plants[0].completed !== "function" || plants[0].spendsTurn !== false)
+      throw new Error("smmDaily: unsupported garbo garden planting task");
+    const plant = plants[0], ready = plant.ready;
+    plant.ready = function () { return ready.apply(this, arguments) && gardenEligible(); };
     garden.replace(function () {
       if (!gardenEligible()) { garden.clear(); return; }
       return garden.refresh.apply(this, arguments);

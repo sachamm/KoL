@@ -31,13 +31,19 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 23: guard the separate garden planting task too
+
+The cycle 22 native retry confirmed discovery was held and let more free fights run, then a separate `Plant Black Rose Garden` task still attempted the protected seed and failed its guard. The first hook had missed that independent task. Cleanup returned all fenced stock, retained the paid-work hold and recorded an incomplete stable-source run.
+
+The loader now validates the actual planting task in the upstream free-fight list and combines its original readiness predicate with the same seed eligibility check. Its original completion and action callbacks remain intact; unavailable stock does not become a fake completed task. The factory regression now exercises discovery and the separate task together, including later supply changes and changed/missing task structure. Fifteen garden checks, 24 route checks and an action-blocked structural load of the installed public bundle passed on isolated r29482. Exact integration/native results are added after execution. The assessment remains **8.70 provisional code / 6.0 demonstrated live**, below 9.9.
+
 ### Quality cycle 22: optional garden fights respect protected planting stock
 
 The next native retry confirmed the absinthe eligibility hook: it selected other item-steal encounters instead of retrying the unsuppliable prerequisite. It then reached Black Rose Garden discovery, whose attempted planting was correctly refused because the seed was protected. Upstream treated that refusal as fatal. The stable-source attempt ended incomplete with its paid-work hold and all fenced stock returned.
 
 Garden discovery now checks usable seed supply first. Installed garden access and already finished discovery retain the original behavior. Otherwise the same supply, Museum reserve, automatic-source, price and allowance rules apply. An unavailable optional garden gets an empty in-memory monster list, allowing other daily work to continue; no native daily-used flag is fabricated. Readiness failures and actual planting failures still propagate. This cooperative hook validates the inspected private discovery function/cache and must be rechecked on upstream changes.
 
-Thirteen synthetic factory checks, the existing 24 route cases, four entry-point compilations and the action-blocked structural load of the installed public bundle passed on isolated r29482. Integration checks and further native results follow after execution. Scores remain **8.70 provisional code / 6.0 demonstrated live**; the full day, economics and qualifying unattended sequence are still unproved.
+Thirteen synthetic factory checks, the existing 24 route cases, four entry-point compilations and the action-blocked structural load of the installed public bundle passed on isolated r29482. [PR #72](https://github.com/sachamm/KoL/pull/72) merged as `be36909d3587c9dc4631c65ab969eb0c61cb9ca3`. Post-merge verification passed **1375 assertions: 1199 ASH and 176 JavaScript**, **18 refusal/abort scenarios**, compilation/planning/static checks and **118 Windows cases**. Installed source matched the tested merge and compiled logged out at all four entry points. The native retry confirmed discovery refusal and exposed the separate planting task above; it did not establish a complete garden integration or day. Scores remain **8.70 provisional code / 6.0 demonstrated live**; the full day, economics and qualifying unattended sequence are still unproved.
 
 ### Quality cycle 21: exclude an unsuppliable item-steal prerequisite
 

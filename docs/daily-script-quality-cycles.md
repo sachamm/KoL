@@ -2,6 +2,12 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 23: include the independent garden planting task
+
+The cycle 22 native retry passed discovery without consuming the protected seed, then upstream's separate `Plant Black Rose Garden` task attempted that same input and failed its guard. The discovery-only hook had missed this second entry point. The stable-source run returned every fenced copy, retained the paid-work hold and ended incomplete after more free daily work.
+
+The factory now validates exactly one named planting task in the actual upstream free-fight list, including its readiness/action/completion callbacks and zero-turn metadata. It combines original readiness with the existing seed eligibility policy. It neither changes the action nor declares the task complete. The garden fixture exercises both discovery and planting, later eligibility changes, stale monster caches, failed requests and missing/changed task structure. All 15 garden cases and 24 route cases passed on isolated r29482; the installed public bundle also passed a structural load with actions blocked and main never called. Post-merge and native results follow in the scorecard. Scores remain unchanged.
+
 ## Cycle 22: optional garden discovery must respect seed reserves
 
 The live retry confirmed that the absinthe eligibility hook let other item-steal encounters run. It then stopped during Black Rose Garden monster discovery: the consumption guard refused the protected seed, while upstream expected planting to succeed. All fenced copies returned, source remained stable and the run ended incomplete with its paid-work hold intact.
