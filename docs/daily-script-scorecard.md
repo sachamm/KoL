@@ -31,6 +31,16 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.60** |
 
+### Quality cycle 10: explicit retrieval and native cleanup, score unchanged
+
+[PR #52](https://github.com/sachamm/KoL/pull/52), merged as `0b4e9a222c31347ec3c08b7040d1a9981ee6b84a`, guards garbo's explicit `retrieveItem` calls as well as direct buys. Accessible stock is used first; missing finished copies need the existing verified price and shared allowance, within the caller's ceiling. Partial or denied fills cannot fall through to automatic sourcing. An owned transfer temporarily disables automatic purchase sources and `buyScript`, rechecks stock and epoch, and restores all five original settings even after an ASH abort through the JS bridge. A bare-native `none`-item compatibility defect was reproduced and corrected before merge.
+
+The exact merge passed **1130 assertions: 1057 ASH and 73 JavaScript**, including 43 retrieval checks, plus **16 refusal/abort scenarios**, both compilations and planning/static checks. Windows verification passed **19 diagnostics, 35 evidence and 18 ownership checks**. The new retrieval cases, real ASH-abort fixture and blocked-action load of the installed bundle also passed in isolated r29481. Installed production files match the merge; compilation and inactive-run refusal passed while logged out.
+
+A separately authorized information login tested the real account preferences with fake buying and transfer functions. All five settings were confirmed fenced and restored across a real ASH abort. Turns, adventures, cash, HP, MP and drunkenness were unchanged within that check; automatic breakfast was disabled and restored, and the temporary probe files were removed. This proves the observed cleanup boundary, not a full resource-spending or unattended day.
+
+Scores remain **8.60/10 provisional code** and **6.0/10 demonstrated live**. Explicit retrieval is more constrained, but it currently holds missing unpriced/unbuyable finished items rather than safely pricing and executing their crafting paths. Implicit native sourcing, direct creation, URLs and delegated workers still need broader enforcement. No additional criterion receives points merely from more assertions or a synthetic account check. The **9.9 target remains open**.
+
 ### Quality cycle 9: direct garbo purchase enforcement
 
 [PR #50](https://github.com/sachamm/KoL/pull/50), merged as `151fbf694c9d41ed1af98ace20b99ab3cac81dea`, adds a cooperative adapter for garbo's direct cash `buy` calls. It obtains a verified average-price ceiling, bounds quantity by the shared remaining allowance, preserves overload results and immediately books observed cash. Unknown quotes or missing allowance do not authorize a buy. An inactive account or changed epoch stops the entry point. Native coinmaster currency overloads remain separate.
