@@ -15,7 +15,8 @@ function Test-KolDailyProblemLine {
   'cannot run now', 'finish the current fight or choice', 'SMM_DAILY_RESULT INCOMPLETE',
   'Could not match item(s) for use', 'no safe affordable overdrunk spell', 'combat preparation needs',
   'could not save opening Display Case', 'could not write the', 'journal gap requires reconciliation', 'fenced items remain unreconciled', 'garbo was not started', 'command failed:',
-  'pending fence transfer', 'unreadable fence records', 'conflicting fence records', 'invalid legacy fence record', 'fenced items remain from an earlier run'
+  'pending fence transfer', 'unreadable fence records', 'conflicting fence records', 'invalid legacy fence record', 'fenced items remain from an earlier run',
+  'SMM_DAILY_PRICE_AUDIT UNVERIFIED', 'SMM_DAILY_PRICE_AUDIT POTENTIAL_OVERPAYMENT', 'financial review required', 'recorded spending exceeds the shared cap'
  )
  foreach ($dailyFailure in $dailyFailures) {
   if ($dailyLine -match [regex]::Escape($dailyFailure)) { return $true }

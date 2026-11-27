@@ -106,9 +106,15 @@ int smmSpendOperating() { return get_property(kSmmSpendOperatingKey).to_int(); }
 // Rule 2 as arithmetic: this script's purchases and the day's other purchases
 // together stay within the fraction of the day's net. Nothing on a losing day.
 int smmSpendAllowance(int net, int spent, int operating, float fraction) {
-	int allowed = floor(max(0, net) * fraction);
+	int allowed = floor(max(0, net) * min(0.5, max(0.0, fraction)));
 	return max(0, allowed - max(0, spent) - max(0, operating));
 }
+
+int smmSpendAllowance(int net, int spent, int operating, int dietPurchases, float fraction) {
+ return smmSpendAllowance(net, spent, max(0, operating) + max(0, dietPurchases), fraction);
+}
+
+int smmSpendDietPurchases() { return max(0, get_property("_smm.diet.bought").to_int()); }
 
 // Meat still allowed to be spent today. Never more than the Meat on hand.
 // Refresh immediately before every allowance decision, including the buying
@@ -129,7 +135,7 @@ void smmSpendRefreshOperating() {
 
 int smmSpendBudget() {
  smmSpendRefreshOperating();
-	return min(smmSpendAllowance(smmSpendNet(), smmSpendSpent(), smmSpendOperating(), smmSpendFraction()), my_meat());
+	return min(smmSpendAllowance(smmSpendNet(), smmSpendSpent(), smmSpendOperating(), smmSpendDietPurchases(), smmSpendFraction()), my_meat());
 }
 
 void smmSpendReport() {
@@ -137,9 +143,10 @@ void smmSpendReport() {
 		print("Spending: no opening Meat recorded today, so the budget is 0.", "orange");
 		return;
 	}
+ int remaining = smmSpendBudget(); // refresh before printing the booked totals
 	print("Spending: opened at " + get_property(kSmmSpendStartKey) + " Meat, netted " + smmSpendNet()
 		+ ", spent " + smmSpendSpent() + (smmSpendOperating() > 0 ? ", other purchases " + smmSpendOperating() : "")
-		+ ", still allowed " + smmSpendBudget(), "blue");
+		+ ", diet purchases " + smmSpendDietPurchases() + ", still allowed " + remaining, "blue");
 }
 
 // ---------------------------------------------------------------------------

@@ -9,9 +9,9 @@ The code is in `scripts/smmSpend.ash`, with NPC resale planning in `scripts/smmN
 
 The day opens at the Meat (on hand, closet and storage) held when the spending step last finished, which is normally the previous night's `good_night()`. Shop sales made since then, including while logged out, therefore count as today's net. The very first run has no earlier figure and opens at the Meat held at that moment.
 
-The day's net is the Meat held now, minus the opening figure, with this script's own purchases added back. The budget is half of the net, less what has already been spent, and never more than the Meat on hand. A day that loses Meat has a budget of zero.
+The day's net is the Meat held now, minus the opening figure, with this script's own purchases added back. The collection budget is half of the net, less this script's spending, operating purchases and actual diet purchases, and never more than the Meat on hand. A day that loses Meat has a collection budget of zero.
 
-**Other purchases.** `smmdaily` (see [daily-script.md](daily-script.md)) reads the day's session log and books every purchase that neither this step nor `diet.ash` made (the old daily code, garbo, buying by hand) as operating spend in `_smm.spend.operating`. The diet has a budget of its own, described below. The budget is then half of the net, less this step's purchases, less the operating spend. Until something books it the figure is 0, so `dailyGrind()` on its own behaves as before.
+**Other purchases.** `smmdaily` (see [daily-script.md](daily-script.md)) reads the day's session log and books every purchase that neither this step nor `diet.ash` made (the old daily code, garbo, buying by hand) as operating spend in `_smm.spend.operating`. Actual diet purchases are tracked separately in `_smm.diet.bought` and also debit the shared half-net cap exactly once. The diet retains its own additional planning budget. Collection allowance refreshes operating purchases while a daily run is active. Direct third-party and early diet spending can still exceed the eventual cap; the final report then remains incomplete rather than claiming compliance.
 
 Only Meat is counted: items gained are not valued until they sell. Anything else that moves Meat between two runs (a gift, a manual Display Case purchase) lands in the next day's net too.
 
@@ -95,6 +95,10 @@ The Oasis block now keeps banishes back only for the banisher grinds still to do
 ## November 26 accounting and allocation corrections
 
 Every `smmSpend` allowance decision during an active daily run first refreshes operating purchases from the session log, including the spending inside `good_night`. Its common purchase boundary requires a verified average and clamps each caller's limit. This protects `smmSpend`; arbitrary direct purchases by garbo and other imported code remain booked and audited afterwards. The diet also fails closed on unknown mall averages; NPC purchases retain their documented treatment.
+
+The closing price audit checks each mall request independently against an integer per-copy cap rounded down from its quoted average. Cheap purchases cannot cancel expensive requests for the same item. One quote per distinct item is reused; the default `smm.daily.priceCheckLookups` is 150. The report discloses unknown averages and unchecked items, so a lower explicit lookup limit cannot silently claim full coverage. Each audit keeps independent per-request evidence outside Git in `data/smm-price-audit-<date>-<ascension>-<player>-<journal-seq>.txt`, referenced by its journal notes; rerunning an audit does not erase earlier quotes.
+
+These log lines are purchase requests, not proof of fills. Above-cap requests are potential violations requiring review of actual receipts and quote timing; cached quotes are not a reconstructed historical market. `SMM_DAILY_PRICE_AUDIT VERIFIED_REQUEST_CAPS` means the observed request ceilings passed, not that every purchase on other machines was observed. Unknown coverage, potential excess, evidence write failure or recorded spending above the shared cap prevents the close's complete marker. No purchases are undone or retried by the audit.
 
 The version-4 grind ledger retains signed physical ownership changes across storage and equipment, session transactions and separate native-loot estimates. Consumed owned inputs count at Museum-aware opportunity value; selling reduces stock as well as adding Meat. Buying then consuming is charged through its cash cost. Equipment moves and reusable returns do not manufacture production.
 
