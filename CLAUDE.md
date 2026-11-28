@@ -15,3 +15,4 @@ Further documents in `docs/`:
 - [daily-script.md](docs/daily-script.md): `smmdaily`, the daily run: commands, settings, tasks, what is built and what is not, and its offline tests.
 - [diet.md](docs/diet.md): `diet.ash`, the daily diet (a port of tehtmi's calculator that replaced `diet.js`): files, credit, changes and checks.
 - [daily-script-plan.md](docs/daily-script-plan.md): the plan `smmdaily` is built from, with its council papers in `docs/daily-script-council/`.
+- [iotm-completion-audit.md](docs/iotm-completion-audit.md): which owned IoTMs still need unlocking or preparing, with cost and whether a script can do it; groundwork for a completionism phase.
