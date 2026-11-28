@@ -39,7 +39,10 @@ exports.main = function (path) {
     const worker = adapter.loadWorker(String(km.fileToBuffer(path || "scripts/garbage-collector/garbo.js")), wrapped,
       function () { throw new Error("route eligibility must not run during bundle load"); },
       function () { throw new Error("garden eligibility must not run during bundle load"); },
-      function () { throw new Error("sandworm eligibility must not run during bundle load"); });
+      function () { throw new Error("sandworm eligibility must not run during bundle load"); }, {
+        begin: function () { throw new Error("measurement must not run during bundle load"); },
+        end: function () { throw new Error("measurement must not run during bundle load"); }
+      });
     if (typeof worker !== "function") throw new Error("missing worker");
     km.print("PASS smmDailyGarboLoadTest: main loaded, never called; synthetic state; calls=" + JSON.stringify(calls));
   } catch (error) { km.print("FAILED smmDailyGarboLoadTest: " + String(error)); }

@@ -62,7 +62,7 @@ done
 
 # --- 2. the ASH tests --------------------------------------------------------
 
-for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboLimitsTest smmDailyGarboTest smmDailyGarboAccessTest smmDailyGarboRoutesTest smmDailyGarboGardenTest smmDailyGarboSandwormTest smmDailyGarboRetrieveTest smmDailyGarboConsumeTest smmDailyGarboMenuTest smmDailyForcesTest smmDailyRouteLiquidityTest smmDailyMuseumOrderTest smmDailyBreakfastTest smmDailyMappingTest smmDailyHealingTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
+for t in smmDailyCoreTest smmDailyGateTest smmDailyFenceTest smmDailyIncomeTest smmDailyBuyGuardTest smmDailyGarboLimitsTest smmDailyGarboTest smmDailyGarboAccessTest smmDailyGarboRoutesTest smmDailyGarboGardenTest smmDailyGarboSandwormTest smmDailyGarboRetrieveTest smmDailyGarboConsumeTest smmDailyGarboMenuTest smmDailyGarboCraftTest smmDailyGarboPhasesTest smmDailyOutcomesTest smmDailyDebuffTest smmDailyForcesTest smmDailyRouteLiquidityTest smmDailyMuseumOrderTest smmDailyBreakfastTest smmDailyMappingTest smmDailyHealingTest smmDressupTest smmDietTest smmDailyReviewTest smmNpcResaleTest; do
 	out="$(mafia "$t")"
 	verdict="^[[:space:]]*(>[[:space:]]*)?PASS $t:"
 	if grep -Eq "$verdict" <<<"$out"; then pass "$(grep -E "$verdict" <<<"$out" | sed 's/^[[:space:]>]*//')"
@@ -83,6 +83,10 @@ else fail "guarded garbo did not refuse the inactive run"; tail -12 <<<"$out"; f
 out="$(mafia "smmDailyGarboAbortTest")"
 if grep -q 'SMM_RETRIEVAL_FIXTURE_ABORT' <<<"$out" && grep -q 'SMM_RETRIEVAL_FIXTURE_FENCED true' <<<"$out" && grep -q 'SMM_RETRIEVAL_FIXTURE_RESTORED true' <<<"$out" && ! grep -qE 'UNSAFE_(RETRIEVAL|BUY)_EXECUTED' <<<"$out"; then pass "real ASH abort restores fixture retrieval settings before any transfer"
 else fail "retrieval ASH abort did not restore settings safely"; tail -12 <<<"$out"; fi
+
+out="$(mafia "smmDailyGarboAbortTest craft")"
+if grep -q 'SMM_RETRIEVAL_FIXTURE_ABORT' <<<"$out" && grep -q 'SMM_CRAFT_FIXTURE_FENCED true' <<<"$out" && grep -q 'SMM_CRAFT_FIXTURE_RESTORED true' <<<"$out" && ! grep -qE 'UNSAFE_(CRAFT|BUY)_EXECUTED' <<<"$out"; then pass "real ASH abort restores all nine crafting settings before any action"
+else fail "crafting ASH abort did not restore settings safely"; tail -12 <<<"$out"; fi
 
 out="$(mafia "smmDailyJournalFailureTest")"
 if grep -q "could not write the journal" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "journal failure stops before the task action"

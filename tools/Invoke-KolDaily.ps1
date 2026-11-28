@@ -264,6 +264,7 @@ try {
     "login $Username",
     ('ash if (my_name().to_lower_case() != "' + $Username.ToLowerInvariant() + '") abort("DAILY-RUNNER: wrong or missing account");'),
     $(if ($Mode -eq 'Run') { 'set _smm.daily.breakfastDeferred = true' }),
+    $(if ($Mode -eq 'Run') { 'ash set_property("_smm.daily.runnerAuditEpoch", today_to_string() + ":" + my_ascensions() + ":" + my_id());' }),
     (New-KolDailyBoundaryCommand $runId 'START'),
     'ash print("DAILY-RUNNER: logged in as " + my_name() + ", day " + today_to_string() + ", rollover in " + (rollover() - now_to_int() / 1000) / 60 + " min");'
     # An open Combat Lover's Locket screen (choice 1463) left from manual play makes smmdaily refuse to start;
@@ -271,6 +272,7 @@ try {
     'ash if (handling_choice() && last_choice() == 1463) { visit_url("main.php"); print("DAILY-RUNNER: left the open locket screen; handling_choice=" + handling_choice()); }'
   ) + $AfterLoginCommands + @(
     $smm,
+    $(if ($Mode -eq 'Run') { New-KolDailyAuditCommand }),
     'smmdaily status',
     'smmdaily journal 40',
     (New-KolDailyBoundaryCommand $runId 'END'),

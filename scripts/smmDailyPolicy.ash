@@ -23,6 +23,28 @@ boolean smmDailyReturnItem(item it) {
 	return it.reusable || it == $item[cosmic bowling ball];
 }
 
+// A fresh HTTP response can still contain an old character count. Only a
+// matching Museum row proves the current position; cached thresholds do not.
+int smmDailyVerifiedRank(boolean fetched, int checked, int started, int displayed, int pageCount, int pageRank) {
+ return fetched && checked >= started && displayed > 0 && pageCount == displayed && pageRank > 0 ? pageRank : 0;
+}
+
+boolean smmDailyCraftMethod(string method, int quantity, int cooks, int mixes) {
+ if (quantity < 1) return false;
+ if (method == "Cooking" || method == "Mixing") return true;
+ if (method == "Cooking (fancy)") return cooks >= quantity;
+ if (method == "Mixing (fancy)") return mixes >= quantity;
+ return false; // fees, paid turns, currencies and unknown methods need a model
+}
+
+int smmDailyCraftPurchaseLimit(int quantity, float inputValue, int configured) {
+ return quantity > 0 && inputValue > 0 && configured > 0 ? max(0, min(configured, floor(inputValue / quantity))) : 0;
+}
+
+boolean smmDailyCombatItemReady(boolean reusable, int physical, int spare) {
+ return physical > 0 && (reusable || spare > 0);
+}
+
 int smmDailyPurchaseLimit(int requested, float average) {
 	return average > 0 ? max(0, min(requested, floor(average))) : 0;
 }

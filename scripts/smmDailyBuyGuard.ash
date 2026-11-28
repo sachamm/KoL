@@ -36,6 +36,22 @@ void smmGuardBeginWorker() {
  clear(smmGuardDeniedBuys); // worker-local observations, never game counters
 }
 
+boolean smmGuardCraft(int quantity, item product) {
+ smmGuardReady();
+ if (!smmDailyCraftMethod(craft_type(product), quantity, free_cooks(), free_mixes())) return false;
+ int [item] inputs = get_ingredients(product);
+ if (count(inputs) == 0) return false;
+ foreach it, units in inputs {
+  int needed = units * quantity;
+  // Require actual finished ingredients. No recursive native sourcing, and no
+  // unpriced conversion of protected Museum stock into a different item.
+  if (units < 1 || needed < 1 || item_amount(it) < needed
+   || max(0, smmMuseumOwnedCopies(it) - smmMuseumReservedCopies(it)) < needed) return false;
+ }
+ smmGuardReady();
+ return true;
+}
+
 int smmGuardBuy(int quantity, item it, int requested) {
  smmGuardReady();
  float average = smmSpendAveragePrice(it);
@@ -54,6 +70,27 @@ int smmGuardBuy(int quantity, item it, int requested) {
  // does not charge these direct buys twice. Native request logs remain evidence.
  set_property(kSmmSpendOperatingKey, max(smmSpendOperating(), operating + max(0, cash - my_meat())));
  return bought;
+}
+
+boolean smmGuardCraftPurchase(int quantity, item product, int configured) {
+ smmGuardReady();
+ if (quantity <= 0 || !product.tradeable || configured <= 0) return false;
+ int [item] inputs = get_ingredients(product);
+ if (count(inputs) == 0) return false;
+ float opportunity = 0;
+ foreach it, units in inputs {
+  if (units < 1) return false;
+  opportunity += smmMuseumOwnedValue(it, units * quantity);
+ }
+ // Substitute a finished purchase only when it costs no more than the
+ // requested recipe's ingredient opportunity cost. The normal average-price
+ // ceiling and shared allowance still apply; no turns or currencies are spent.
+ int limit = smmDailyCraftPurchaseLimit(quantity, opportunity, configured);
+ if (limit <= 0) return false;
+ int before = item_amount(product);
+ smmGuardBuy(quantity, product, limit);
+ smmGuardReady();
+ return item_amount(product) >= before + quantity;
 }
 
 // A paid access refusal must not prevent garbo's separate daily work. This
@@ -175,7 +212,7 @@ boolean smmGuardBlackRoseEligible(int configured) {
 boolean smmGuardUsePreservesItem(item it) {
  // Native r29482 marks the tablet as usable, not reusable. Its use opens
  // choice 1412 without consuming the tablet (verified on the live client).
- return it.reusable || it == $item[Guzzlr tablet];
+ return it.reusable || it.combat_reusable || it == $item[Guzzlr tablet];
 }
 
 boolean smmGuardMenuConfirmed(item it, int decision, boolean ok, string quest) {

@@ -83,4 +83,8 @@ $source = $ast.Extent.Text
 Assert-Evidence ($source.IndexOf('$sourceBefore = Get-KolDailySourceManifest') -lt $source.IndexOf('$r = Invoke-MafiaCli')) 'Installed source identity is captured before login'
 Assert-Evidence ($source -match 'my_name\(\).to_lower_case\(\) !=') 'Runner refuses the wrong account before the daily command'
 Assert-Evidence ($source -match '\$r.ExitCode -ne 0') 'Nonzero Mafia exit is an explicit error'
+$auditCommand = New-KolDailyAuditCommand
+Assert-Evidence ($auditCommand -match 'my_id\(\).to_int\(\) > 0' -and $auditCommand -match '_smm.daily.runnerAuditEpoch' -and $auditCommand -match 'today_to_string\(\)' -and $auditCommand -match 'my_ascensions\(\)') 'Stopped-run audit requires the same logged-in epoch'
+Assert-Evidence ($auditCommand -match 'cli_execute\("smmdaily audit"\)' -and $auditCommand -match 'SMM_DAILY_AUDIT SKIPPED') 'Audit or explicit coverage gap is always reported'
+Assert-Evidence ($source.IndexOf('New-KolDailyAuditCommand') -gt $source.IndexOf('    $smm,') -and $source.IndexOf('New-KolDailyAuditCommand') -lt $source.IndexOf("New-KolDailyBoundaryCommand `$runId 'END'")) 'Audit runs after the daily command but inside the evidence boundary'
 Write-Output "PASS kol-daily-evidence: $checks checks; fixtures only, no game actions"

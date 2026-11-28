@@ -130,10 +130,42 @@ exports.createModule = function (native, policy) {
       return finish(result);
     };
   });
+  if (typeof native.create === "function") wrapped.create = function () {
+    const args = Array.prototype.slice.call(arguments);
+    policy.ready();
+    const item = args[0] instanceof native.Item ? args[0] : args[1];
+    const quantity = args[0] instanceof native.Item ? (args.length === 1 ? 1 : args[1]) : args[0];
+    if (args.length < 1 || args.length > 2 || !(item instanceof native.Item) || !integer(quantity))
+      throw new Error("smmDaily: unsupported create arguments");
+    if (quantity <= 0 || item === native.Item.get("none")) return true;
+    const settings = ["autoSatisfyWithMall", "autoSatisfyWithNPCs", "autoSatisfyWithCoinmasters", "autoSatisfyWithStash", "autoSatisfyWithShop", "autoSatisfyWithCloset", "autoSatisfyWithStorage", "buyScript", "autoBuyPriceLimit"];
+    const saved = settings.map(function (name) { return native.getProperty(name); });
+    try {
+      settings.forEach(function (name) { native.setProperty(name, name === "buyScript" ? "" : name === "autoBuyPriceLimit" ? "-1" : "false"); });
+      policy.ready();
+      if (!policy.craft || !policy.craft(quantity, item)) {
+        if (policy.craftPurchase && policy.craftPurchase(quantity, item, automaticBuyLimit(saved[settings.indexOf("autoBuyPriceLimit")]))) {
+          policy.ready();
+          return true;
+        }
+        throw new Error("smmDaily: crafting held for " + item + "; no verified free recipe or affordable finished substitute");
+      }
+      policy.ready();
+      const result = native.create(quantity, item);
+      policy.ready();
+      return result;
+    } finally {
+      for (let i = settings.length - 1; i >= 0; i--) native.setProperty(settings[i], saved[i]);
+    }
+  };
+  if (typeof native.craft === "function") wrapped.craft = function () {
+    policy.ready();
+    throw new Error("smmDaily: unsupported native craft overload; use guarded finished-item creation");
+  };
   return wrapped;
 };
 
-exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible, drumEligible) {
+exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible, drumEligible, evidence) {
   if (typeof source !== "string" || source.trim() === "") throw new Error("smmDaily: garbo source is missing");
   const module = { exports: {} };
   // Return the bundle's actual zone objects, without rewriting its selector
@@ -142,7 +174,8 @@ exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible, d
     ";return {",
     "zones: typeof itemStealZones === 'undefined' ? null : itemStealZones,",
     "garden: typeof refreshBlackRoseGardenMonsters === 'function' && typeof cachedBlackRoseGardenMonsters !== 'undefined' ? {tasks:typeof FreeFightTasks === 'undefined' ? null : FreeFightTasks, refresh:refreshBlackRoseGardenMonsters, replace:function(fn){refreshBlackRoseGardenMonsters=fn;}, clear:function(){cachedBlackRoseGardenMonsters=[];}} : null,",
-    "worms: typeof SandwormTasks !== 'undefined' && typeof SANDWORM_TASK_DEFINITIONS !== 'undefined' && typeof DEFAULT_SANDWORM_TASK !== 'undefined' && typeof sandwormValue === 'function' ? {tasks:SandwormTasks, definitions:SANDWORM_TASK_DEFINITIONS, action:DEFAULT_SANDWORM_TASK.do, cap:function(){return sandwormValue()-1;}, invalidate:function(){_hasWorms=undefined;}} : null",
+    "worms: typeof SandwormTasks !== 'undefined' && typeof SANDWORM_TASK_DEFINITIONS !== 'undefined' && typeof DEFAULT_SANDWORM_TASK !== 'undefined' && typeof sandwormValue === 'function' ? {tasks:SandwormTasks, definitions:SANDWORM_TASK_DEFINITIONS, action:DEFAULT_SANDWORM_TASK.do, cap:function(){return sandwormValue()-1;}, invalidate:function(){_hasWorms=undefined;}} : null,",
+    "phases: typeof freeFights === 'function' && typeof dailyFights === 'function' && typeof runGarboFarmQuests === 'function' ? {free:freeFights,copy:dailyFights,paid:runGarboFarmQuests,replace:function(key,fn){if(key==='free')freeFights=fn;else if(key==='copy')dailyFights=fn;else if(key==='paid')runGarboFarmQuests=fn;}} : null",
     "};"
   ].join("\n");
   const hooks = Function("require", "module", "exports", source + "\n" + hookSource)(function (name) {
@@ -201,6 +234,19 @@ exports.loadWorker = function (source, wrapped, routeEligible, gardenEligible, d
       });
     });
     worms.invalidate();
+  }
+  if (evidence !== undefined) {
+    if (!hooks.phases || typeof evidence.begin !== "function" || typeof evidence.end !== "function")
+      throw new Error("smmDaily: unsupported garbo measurement phases");
+    ["free", "copy", "paid"].forEach(function (key) {
+      const original = hooks.phases[key];
+      hooks.phases.replace(key, function () {
+        evidence.begin("garbo." + key);
+        let completed = false;
+        try { const result = original.apply(this, arguments); completed = true; return result; }
+        finally { evidence.end("garbo." + key, completed); }
+      });
+    });
   }
   return module.exports.main;
 };

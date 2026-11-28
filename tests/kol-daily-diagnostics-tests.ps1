@@ -30,7 +30,8 @@ $diagnosticCases = @(
  @{Line='00:01:02 END garbo | command failed: fixture'; Error=$true},
  @{Line='00:01:02 Exception: fixture'; Error=$true},
  @{Line='00:01:02 UNKNOWN garbo | turns 100, adv 20, Meat 5000, MP 100 | command failed: fixture'; Error=$true},
- @{Line='errorOnAmbiguousFold => unexpected failure'; Error=$true}
+ @{Line='errorOnAmbiguousFold => unexpected failure'; Error=$true},
+ @{Line='SMM_DAILY_AUDIT SKIPPED epoch/player changed'; Error=$true}
 )
 foreach ($diagnosticCase in $diagnosticCases) {
  if ((Test-KolDailyProblemLine $diagnosticCase.Line) -ne $diagnosticCase.Error) { throw "Unexpected classification: $($diagnosticCase.Line)" }
