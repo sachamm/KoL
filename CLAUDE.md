@@ -2,7 +2,7 @@
 
 This is Sacha's personal Kingdom of Loathing code: KoLmafia scripts (ASH and JavaScript) run in aftercore. See the [README](README.md) for installation and the local development setup.
 
-**Read [docs/aftercore-goals.md](docs/aftercore-goals.md) first.** Every script serves that goal: spend free, cheap, daily and expiring resources to gain items and Meat, and use them to reach #1 (top ten accepted) in the Museum for every Display Case item. Weigh any change against it.
+**Read [docs/aftercore-goals.md](docs/aftercore-goals.md) first.** Every script serves that goal: spend free, cheap, daily and expiring resources to gain items and Meat, and use them to reach #1 (top ten accepted) in the Museum for every Display Case item. A second goal is completionism: every non-clan IoTM maximally unlocked and prepared, including all its zones and every copyable monster in the combat lover's locket and other copiers. Weigh any change against it.
 
 Further documents in `docs/`:
 
