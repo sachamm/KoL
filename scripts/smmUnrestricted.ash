@@ -4006,6 +4006,35 @@ void burn_sausages() {
 	burn_sausages(true);
 }
 
+void smmDailyBudgetedDaycare() {
+ if (!get_property("daycareOpen").to_boolean()) return;
+ int spent = max(0, get_property("_smm.daily.daycarePaidTurns").to_int());
+ int left = smmDailyDaycareBudget(get_property("smm.daily.daycarePaidTurns").to_int(), spent, my_adventures());
+ string epoch = today_to_string() + ":" + my_ascensions() + ":" + my_id();
+ print("Daycare: paid allocation " + left + "; free first scavenge retained; stat/equipment investment is not a verified Meat or Museum return.", "blue");
+ for attempt from 0 to 3 {
+  int before = get_property("_daycareGymScavenges").to_int();
+  int cost = min(3, max(0, before));
+  if (cost > left || my_adventures() < 3) return; // legacy helper requires a three-adventure safety reserve
+  int turns = total_turns_played();
+  int used = 0;
+  try { daycareScavenge(); }
+  finally {
+   if (epoch != today_to_string() + ":" + my_ascensions() + ":" + my_id())
+    abort("Daycare: game day changed; no new-day paid allocation was written");
+   used = max(0, total_turns_played() - turns);
+   spent += used;
+   set_property("_smm.daily.daycarePaidTurns", spent);
+  }
+  if (used > left) abort("Daycare: native cost exceeded the paid allocation; no further attempt is authorized");
+  left -= used;
+  if (get_property("_daycareGymScavenges").to_int() <= before) {
+   print("Daycare: no scavenge progress confirmed; no repeated attempt.", "orange");
+   return;
+  }
+ }
+}
+
 
 
 // fight the default monsters #combatlocket #combat lover's locket #combat locket
@@ -4773,12 +4802,13 @@ void good_night_adv() {
 	if (my_adventures() > 0)
 		burn_timespinner();
 
-	healAndRemoveDebuffsWithMPRestore();
 	//burnGenieWishes($item[bag of foreign bribes], "ice concierge"); // get ponies for now if we don't otherwise use it
-	if (my_adventures() > 0)
+	if (my_adventures() > 0 && !smmDailySourceUnavailable(available_amount($item[Combat Lover's Locket]) > 0, cllNumMonstersFought(), 3)) {
+		healAndRemoveDebuffsWithMPRestore();
 		burnCombatLoversLocket(); // reminiscences the route left
+	}
 
-	burnScavengeDaycare(min(3, my_adventures()));
+	smmDailyBudgetedDaycare();
 
 	burnOverdrunkExcess();
 }

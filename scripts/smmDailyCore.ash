@@ -73,6 +73,7 @@ boolean smmDCoreSettings =
 	&& smmDDeclare("garboAutoConfirm", "false", "true lets garbo answer its own questions while smmdaily runs it (garbo_autoUserConfirm, which garbo calls experimental); otherwise a garbo question waits for an answer with no timeout")
 	&& smmDDeclare("maxAttempts", "2", "times a task may start in one day before it is marked failed")
 	&& smmDDeclare("museumVerifyLookups", "10", "fresh Museum requests for changed case items at close, bounded to 20; unmatched or unqueried rows remain unverified")
+	&& smmDDeclare("daycarePaidTurns", "0", "opt-in paid Daycare investment; maximum 3 smmdaily turns a day, default 0 retains the free first scavenge without assuming a profitable stat return")
 	&& smmDDeclare("halt", "", "set before a run: stop after this task, then clear this setting");
 
 // ---------------------------------------------------------------------------

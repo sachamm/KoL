@@ -49,6 +49,10 @@ boolean smmDailySourceUnavailable(boolean owned, int used, int limit) {
  return !owned || (limit > 0 && used >= limit);
 }
 
+int smmDailyDaycareBudget(int configured, int spent, int adventures) {
+ return min(max(0, adventures), max(0, min(3, max(0, configured)) - max(0, spent)));
+}
+
 boolean smmDailyCanReconcileGarbo(string completed, string hold, boolean access, int stopAt) {
  if (hold == "" || !access || stopAt < 0) return false;
  matcher standard = create_matcher("^garbo(?: -([0-9]+))?$", completed);

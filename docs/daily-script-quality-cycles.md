@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 30: paid Daycare requires an explicit allocation
+
+PR81/82 integrated as `41d2ce0717b9052d316725cd8aef450b540415b8`; the corrected exact suite passed 1551 assertions, 20 refusal/abort scenarios and 140 Windows cases. Native run `0bed274e9dcd4804ba6ab2221692d5c7` recognized prior standard garbo/access, skipped exhausted sources, reached close/audit and exited normally. Source stayed stable, boundaries matched, the fence was clear and login settings restored. It made no purchases and cash was unchanged.
+
+It also spent three adventures on Daycare gym equipment/stat gains despite subsequently reporting no rollover overflow. Paid Daycare therefore defaults to zero; the free first scavenge remains subject to access and the legacy safety reserve. An explicit `smm.daily.daycarePaidTurns` allocation is bounded to three per day, charged from observed turns in finally and guarded against nonprogress. Both the daily wrapper and manual good_night_adv use it. The latter also avoids unnecessary healing for an exhausted locket. Six new budget cases and native core/gate/entry-point checks passed; integrated/live verification follows.
+
+The audit correctly leaves the day incomplete: 54/54 item types quoted, 66 historical potentially above-average requests (7224 Meat potential excess), and recorded spending 29359 over the shared cap. No current-run purchase/cash loss contributed. Current quotes and requests cannot reconstruct historical fill/price timing. Of 168 items with confirmed case gains, ten fresh Museum responses still showed older player counts; none verified a current rank. Remaining Sword/saber capacity lacks a confirmed profitable alternative, and phase measurements were not exercised because garbo was skipped while overdrunk. Future corrected days and economic/source calibration remain necessary; these reports are not relabeled as unattended success.
+
 ## Cycle 29: skip exhausted sources and audit after a hard abort
 
 Cycle 28 merged as [PR #80](https://github.com/sachamm/KoL/pull/80), `a6c72d4b6eafd2731a5896cdf4a01ca1af603888`. Its exact source passed 1533 assertions, 19 refusal/abort scenarios and 137 Windows cases; installed scripts/modules matched and compiled before login. Native run `c6805511528d486485f112aa3dfbe69b` skipped garbo because the account was already overdrunk, then spent MP preparing an exhausted Time-Spinner. The unchanged HP target could not be funded. A hard ASH abort stopped the command file before audit/status/end and triggered the idle timeout. Stable source does not turn that attempt into a success or establish live phase measurements.

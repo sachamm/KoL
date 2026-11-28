@@ -46,5 +46,11 @@ void main() {
  check(!smmDailyCanReconcileGarbo("garbo","",true,10),"an absent hold needs no reconciliation");
  check(!smmDailyCanReconcileGarbo("unknown","hold",true,10),"unknown completion signature cannot reconcile");
  check(!smmDailyCanReconcileGarbo("garbo","hold",true,-1),"invalid configured stop point cannot reconcile");
+ check(smmDailyDaycareBudget(0,0,20)==0,"unpriced paid Daycare investment is opt-in");
+ check(smmDailyDaycareBudget(-1,0,20)==0,"negative Daycare allocation cannot spend turns");
+ check(smmDailyDaycareBudget(100,0,20)==3,"explicit Daycare investment retains the original three-turn ceiling");
+ check(smmDailyDaycareBudget(3,2,20)==1,"earlier observed paid use reduces the day's remaining allocation");
+ check(smmDailyDaycareBudget(3,0,2)==2,"allocation cannot exceed available adventures");
+ check(smmDailyDaycareBudget(3,4,20)==0,"already-exceeded allocation cannot authorize another use");
  print((failures==0 ? "PASS" : "FAILED") + " smmDailyOutcomesTest: " + checks + " checks");
 }
