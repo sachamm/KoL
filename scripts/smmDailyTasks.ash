@@ -43,6 +43,11 @@ void smmDTMuseumReport() {
  int items = 0;
  int topTen = 0;
  int first = 0;
+ int verified = 0; int verifiedTen = 0; int verifiedFirst = 0; int queried = 0;
+ int started = smmMuseumNow();
+ int limit = min(20, max(0, smmDSettingInt("museumVerifyLookups")));
+ string epoch = smmDEpoch();
+ string [item,string] evidence;
  foreach it, now in get_display() {
   int gained = now - opening[it];
   if (gained <= 0) continue;
@@ -50,11 +55,30 @@ void smmDTMuseumReport() {
   SmmMuseumGoal goal = smmMuseumBounds(smmMuseumCachedCollection(it), my_name(), 11);
   if (goal.known && opening[it] < goal.tenth && now >= goal.tenth) topTen += 1;
   if (goal.known && opening[it] < goal.first_minimum && now >= goal.first_minimum) first += 1;
+  boolean fetched = false;
+  if (queried < limit) {
+   smmDRequireEpoch(epoch);
+   fetched = smmMuseumFetch(it);
+   queried += 1;
+   smmDRequireEpoch(epoch);
+  }
+  SmmMuseumEntry entry = smmMuseumEntry(it);
+  int rank = smmDailyVerifiedRank(fetched, entry.checked, started, now, entry.mine, entry.my_rank);
+  if (rank > 0) { verified += 1; if (rank <= 10) verifiedTen += 1; if (rank == 1) verifiedFirst += 1; }
+  evidence[it,"opening"] = opening[it]; evidence[it,"closing"] = now;
+  evidence[it,"queried"] = fetched; evidence[it,"checked"] = entry.checked;
+  evidence[it,"pageCount"] = entry.mine; evidence[it,"verifiedRank"] = rank;
+  evidence[it,"coverage"] = rank > 0 ? "fresh matching Museum row" : "unverified: request failed, budget exhausted or Museum count differs";
   print("Museum: confirmed case +" + gained + " " + it + " (" + opening[it] + " -> " + now + ")"
+   + (rank > 0 ? ", current Museum rank " + rank : ", current Museum rank UNVERIFIED")
    + (goal.known ? ", short of cached top ten " + max(0, goal.tenth - now) + ", #1 " + max(0, goal.first_minimum - now) : ", ranking unknown"));
  }
  print("Museum: confirmed " + copies + " added copies across " + items + " items; crossed " + topTen + " top-ten and " + first
   + " #1 thresholds against cached competitors. Refresh ranks to confirm current standings.", "blue");
+ print("Museum: fresh matching rows " + verified + "/" + items + "; current top ten " + verifiedTen + ", #1 " + verifiedFirst
+  + "; " + queried + " requests. These current positions do not establish a daily rank gain.", "blue");
+ if (!map_to_file(evidence, "smm-daily-museum-" + my_id() + "-" + today_to_string() + ".txt"))
+  abort("smmDaily: could not write the Museum standing evidence");
  print("Collection loss: committed " + get_property("_smm.grind.collectionCommitted") + " / " + dailyGrindCollectionBudget()
   + "; observed opportunity loss " + get_property("_smm.grind.collectionLoss"), "blue");
 }
@@ -504,6 +528,16 @@ void smmDTAudit() {
   print("&nbsp;&nbsp;" + pool.label + ": " + used + " of " + limit + "; owner " + owner + "; " + state);
 	}
 	if (open == 0) print("&nbsp;&nbsp;none");
+ SmmRPResource [string] shared = smmRPLiveResources();
+ SmmRPReservation [int] reservations = smmRPReservations();
+ print("Shared planner pools: remaining capacity and reservations; availability is not proof of a profitable action.", "blue");
+ foreach id, pool in shared {
+  if (pool.known && pool.remaining <= 0) continue;
+  string owners = "";
+  foreach j, entry in reservations if (entry.resource == id && entry.units > 0) owners += entry.owner + ":" + entry.units + " ";
+  print("&nbsp;&nbsp;" + id + ": " + (pool.known ? pool.remaining.to_string() : "unknown")
+   + (owners != "" ? "; reserved " + owners : "; no planner reservation") + (pool.reason != "" ? "; " + pool.reason : ""));
+ }
 	smmDLog("close.report", "NOTE", open + " daily resources still have uses left; Museum grinds used " + smmDMuseumTurnsUsed() + " of "
 		+ smmDSettingInt("museumTurns") + " paid turns; operating spend " + smmSpendOperating() + ", smmSpend " + smmSpendSpent() + ", diet " + get_property("_smm.diet.spent")
 		+ ", net " + smmSpendNet());

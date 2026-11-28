@@ -70,6 +70,12 @@ function Get-KolDailyRunEvidence {
   coverage='After login through the runner end boundary. Automatic breakfast is deferred to the recorded daily flow; other configured login hooks can precede this window. Manual intervention, resource reconciliation, realized earnings and Museum ranks require separate review.'}
 }
 
+function New-KolDailyAuditCommand {
+ # An early daily stop must not hide spending/resource evidence. Never book a
+ # new game day (or another player) into the stopped run's audit window.
+ 'ash if (my_id().to_int() > 0 && get_property("_smm.daily.runnerAuditEpoch") == today_to_string() + ":" + my_ascensions() + ":" + my_id()) cli_execute("smmdaily audit"); else print("SMM_DAILY_AUDIT SKIPPED epoch/player changed");'
+}
+
 function Write-KolDailyJson {
  param([string] $Path, $Value)
  $full = [IO.Path]::GetFullPath($Path)

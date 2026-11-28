@@ -753,6 +753,7 @@ int gGrindMeatMark;
 int [item] gGrindInventoryMark;
 int [item] gGrindResaleStockMark;
 int gGrindLogMark;
+string gGrindReceiptFileOverride;
 int gGrindCollectionLossMark;
 
 string dailyGrindSessionLog() {
@@ -764,7 +765,7 @@ string dailyGrindSessionLog() {
 // inactive familiars). Ownership transfers must not manufacture income.
 string kGrindValueVersionKey = "smm.grind.valueVersion";
 string kGrindValueVersion = "6";
-boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread];
+boolean [string] kDailyGrindNames = $strings[oasis, beerLens, ghostCostume, spacegate, fantasyRealm, pirateRealm, dailyDungeon, drip, gingerbread, garbo.free, garbo.copy, garbo.paid];
 
 void dailyGrindMigrateHistory() {
 	if (get_property(kGrindValueVersionKey) == kGrindValueVersion) return;
@@ -919,6 +920,7 @@ int [item] dailyGrindHoldings() {
 }
 
 void dailyGrindBegin() {
+ gGrindReceiptFileOverride = "";
  dailyGrindMigrateHistory();
  gGrindTurnMark = total_turns_played();
  gGrindMeatMark = my_meat() + my_closet_meat() + my_storage_meat();
@@ -995,7 +997,7 @@ SmmNRMarket dailyGrindMarket(item it) {
 }
 
 
-void dailyGrindEnd(string name) {
+void dailyGrindEnd(string name, boolean completed) {
  int turns = total_turns_played() - gGrindTurnMark;
  int meat = my_meat() + my_closet_meat() + my_storage_meat() - gGrindMeatMark;
  int itemValue = 0;
@@ -1044,9 +1046,12 @@ void dailyGrindEnd(string name) {
    if (goal.known) { museumGain = true; museumIds = it.to_int().to_string(); }
   }
  }
- if (!map_to_file(evidence, "smm-grind-" + my_id() + "-" + today_to_string() + "-" + name + "-" + gGrindTurnMark + ".txt"))
-  print("dailyGrind: could not write the " + name + " item receipt", "red");
+ string receiptFile = gGrindReceiptFileOverride != "" ? gGrindReceiptFileOverride
+  : "smm-grind-" + my_id() + "-" + today_to_string() + "-" + name + "-" + gGrindTurnMark + ".txt";
+ if (!map_to_file(evidence, receiptFile))
+  abort("dailyGrind: could not write the " + name + " item receipt; no further action is authorized");
  if (!completeLog) print("dailyGrind: session log shortened; native-drop classification is incomplete", "orange");
+ completed = completed && completeLog;
  set_property("_smm.grind.active", "");
  if (turns <= 0 && meat == 0 && itemValue == 0 && liquidValue == 0) {
   int held = get_property("_smm.grind.reserved." + name).to_int();
@@ -1073,6 +1078,11 @@ void dailyGrindEnd(string name) {
   }
   set_property("_smm.grind.collectionLoss", gGrindCollectionLossMark + loss);
  }
+ if (!completed) {
+  print("dailyGrind: partial " + name + " observed " + turns + " turns, cash " + meat + ", marginal inventory estimate " + liquidValue
+   + "; not trained into completed-run history and not realized profit", "orange");
+  return;
+ }
  int histTurns = get_property("smm.grind.histTurns." + name).to_int();
  int histValue = get_property("smm.grind.histValue." + name).to_int();
  int histRuns = get_property("smm.grind.histRuns." + name).to_int();
@@ -1092,6 +1102,8 @@ void dailyGrindEnd(string name) {
   + ", native retained loot estimate " + nativeValue + ", marginal liquidation estimate " + liquidValue + "; estimates are not realized sales", "blue");
 }
 
+void dailyGrindEnd(string name) { dailyGrindEnd(name, true); }
+
 void printDailyGrindLedger() {
 	print("dailyGrind paid-turn ledger (turn value " + kTurnValue + "):", "blue");
 	foreach name in kDailyGrindNames {
@@ -1107,6 +1119,22 @@ void printDailyGrindLedger() {
 			+ (dailyGrindMuseumRecent(name) ? ", named collection target funded" : ""));
 	}
 	print("total paid turns: " + get_property(kGrindTurnsTotalKey).to_int());
+}
+
+void smmDailyIRefuseReport() {
+ print("I Refuse! positive session-item estimates (not sales or profit; inputs and other costs excluded):", "blue");
+ int total = 0;
+ foreach it in iRefuseItems(-1) {
+  int gained = max(0, my_session_items(it));
+  if (gained == 0) continue;
+  SmmNRMarket market = dailyGrindMarket(it);
+  int capacity = market.valid ? smmDailyLiquidCapacity(market.volume, dailyGrindLiquidationDays(), dailyGrindMarketShare()) : 0;
+  int stock = max(0, smmMuseumOwnedCopies(it) - display_amount(it) - gained);
+  int value = smmDailyLiquidValue(gained, stock, capacity, market.price, max(0, autosell_price(it)));
+  total += value;
+  print(it + ": " + gained + "; marginal liquidation estimate " + value);
+ }
+ print("Positive session-item marginal estimate: " + total + "; not realized income or net profit.");
 }
 
 
@@ -7352,7 +7380,7 @@ void good_night() {
 	else
 		cli_execute("tote 5"); // makeshift garbage shirt
 
-	printIRefuseSessionItems();
+	smmDailyIRefuseReport();
 
 	if (!get_property("_guzzlrQuestAbandoned").to_boolean())
 		print("we haven't abandoned a Guzzlr quest today!!!!", "red");

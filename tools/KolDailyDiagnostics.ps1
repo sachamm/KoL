@@ -26,7 +26,7 @@ function Test-KolDailyProblemLine {
   'marked failed', 'failed earlier today', 'still in a fight', 'could not write the journal', 'no phase or task is called',
   'Script parsing error', 'Unknown variable', 'Unknown function', 'ambiguous', 'matches more than one',
   'Nightly maintenance', 'timed out', 'Connection refused', 'could not be found',
-  'cannot run now', 'finish the current fight or choice', 'SMM_DAILY_RESULT INCOMPLETE', 'smmDaily: stopped after ',
+  'cannot run now', 'finish the current fight or choice', 'SMM_DAILY_RESULT INCOMPLETE', 'smmDaily: stopped after ', 'SMM_DAILY_AUDIT SKIPPED',
   'Could not match item(s) for use', 'no safe affordable overdrunk spell', 'combat preparation needs',
   'could not save opening Display Case', 'could not write the', 'journal gap requires reconciliation', 'fenced items remain unreconciled', 'garbo was not started', 'command failed:',
   'pending fence transfer', 'unreadable fence records', 'conflicting fence records', 'invalid legacy fence record', 'fenced items remain from an earlier run',

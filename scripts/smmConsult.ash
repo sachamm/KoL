@@ -577,11 +577,34 @@ int monsterDefenseDebuffNeededAbsolute() {
 // returns an array of debuff actions we will use to achieve the needed debuffs
 // all debuffs will cause staggering with the possible exception of when a non-staggering debuff was the last to bring us over debuffNeeded
 // TODO Stealth Mistletoe
+item [int] smmConsultDebuffItems(item [int] candidates, int [item] physical, int [item] spare) {
+ item [int] eligible;
+ int [item] left; int [item] free;
+ foreach it, quantity in physical left[it] = quantity;
+ foreach it, quantity in spare free[it] = quantity;
+ foreach i, it in candidates {
+  boolean reusable = it.reusable || it.combat_reusable;
+  if (!smmDailyCombatItemReady(reusable, left[it], free[it])) continue;
+  eligible[count(eligible)] = it;
+  if (!reusable) { left[it] -= 1; free[it] -= 1; }
+ }
+ return eligible;
+}
+
+item [int] smmConsultDebuffItems(item [int] candidates) {
+ int [item] physical; int [item] spare;
+ foreach i, it in candidates {
+  physical[it] = item_amount(it);
+  if (physical[it] > 0 && !it.reusable && !it.combat_reusable) spare[it] = max(0, smmMuseumOwnedCopies(it) - smmMuseumReservedCopies(it));
+ }
+ return smmConsultDebuffItems(candidates, physical, spare);
+}
+
 DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction, float monsterDefenseDebuffNeededFraction, int wantedStatisRounds) {
 	DebuffMonsterRecord rval = new DebuffMonsterRecord(1.0, 1.0, 1.0, 1.0, 0, 0);
   	float debuffNeeded = min(monsterAttackDebuffNeededFraction, monsterDefenseDebuffNeededFraction);
 
-	item [] kDelevelNoStaggerItems = {
+	item [] noStaggerCandidates = {
 		$item[Zombo's empty eye],
 		$item[Miniborg hiveminder],
 		$item[Miniborg Destroy-O-Bot],
@@ -599,6 +622,7 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 		$item[spectre scepter],
 		$item[spectre scepter],
 	};
+	item [int] kDelevelNoStaggerItems = smmConsultDebuffItems(noStaggerCandidates);
 	int delevelNoStaggerIndex = 0;
 
 	float fractionDone = 1.00;
@@ -752,12 +776,15 @@ DebuffMonsterRecord debuffMonsterRecords(float monsterAttackDebuffNeededFraction
 				$item[superamplified boom box],
 				$item[tongue depressor],
 			};
-			sort kStaggerItems by historical_price(value);
-			item cheapestStaggerItem = kStaggerItems[0];
-			actions[i++] = new ActionRecord(false, false, $skill[none], cheapestStaggerItem, kDelevelNoStaggerItems[delevelNoStaggerIndex++]);
-			numberOfTurns++;
-			fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier); // weaksauce will take the same amount each turn, so use MINUS instead of multiplying
-			statisRounds++;
+			item [int] eligibleStaggers = smmConsultDebuffItems(kStaggerItems);
+			sort eligibleStaggers by historical_price(value);
+			if (count(eligibleStaggers) > 0) {
+				item cheapestStaggerItem = eligibleStaggers[0];
+				actions[i++] = new ActionRecord(false, false, $skill[none], cheapestStaggerItem, kDelevelNoStaggerItems[delevelNoStaggerIndex++]);
+				numberOfTurns++;
+				fractionDone = fractionDone - (weaksauceFraction * delevellingMultiplier);
+				statisRounds++;
+			}
 		}
 	}
 
