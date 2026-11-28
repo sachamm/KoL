@@ -31,6 +31,16 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 30: paid Daycare is an explicit investment
+
+[PR #81](https://github.com/sachamm/KoL/pull/81) and the registration-test correction in [PR #82](https://github.com/sachamm/KoL/pull/82) integrated as `41d2ce0717b9052d316725cd8aef450b540415b8`. The corrected exact suite passed **1551 assertions (1259 ASH + 292 JavaScript)**, **20 refusal/abort scenarios** and **140 Windows cases**. Installed source matched and all four entry points compiled.
+
+Native run `0bed274e9dcd4804ba6ab2221692d5c7` reconciled the actual prior standard garbo completion, skipped exhausted spinner/locket before preparation, reached the close report and final audit, and logged out normally. Source stayed stable with matching boundaries, no timeout and a clear fence (generation 161). Automatic-login settings restored. The run made **zero purchases**, with unchanged cash, and spent **three adventures** on Daycare gym equipment before reporting zero rollover overflow. That paid stat/equipment investment had no verified Meat or Museum return.
+
+Paid Daycare now defaults to **zero**, retaining the free first scavenge subject to access and the legacy three-adventure safety reserve. `smm.daily.daycarePaidTurns` explicitly opts into at most three paid turns per day; observed turns consume that allocation even after an abort. The loop is bounded and stops on no confirmed progress. The manual `good_night_adv` path uses the same budget and avoids healing for an exhausted locket. No native usage counter or past expense is reset. Six allocation cases and native core/gate/entry-point verification passed; exact integrated results follow execution.
+
+The day remains financially **INCOMPLETE**: all 54 purchased item types were quoted; 66 historical requests have 7224 Meat potential above-average excess, and recorded commitments exceed the shared cap by 29359 Meat. Current-run boundaries show no new purchase or cash loss. Requests/current quotes do not establish historical fills or the price at purchase; those flags cannot be dismissed to manufacture completion. Museum reporting confirmed 5053 added case copies across 168 items, but all ten fresh pages had older player counts, so **zero current ranks were verified**. The other 158 items were not freshly queried. Cached threshold crossings are not confirmed placements. The remaining Sword/saber capacity has no confirmed profitable use recorded, and garbo phase instrumentation remains unexercised on this already-overdrunk, largely exhausted account. A fresh corrected day and calibrated values are still needed.
+
 ### Quality cycle 29: exhausted-source preparation and command-file aborts
 
 [PR #80](https://github.com/sachamm/KoL/pull/80) merged as `a6c72d4b6eafd2731a5896cdf4a01ca1af603888`. Its exact post-merge suite passed **1533 assertions (1241 ASH + 292 JavaScript)**, **19 refusal/abort scenarios**, compilation/planning/static checks and **137 Windows cases**. Nine installed scripts and all five runner modules matched tested source; all four installed entry points compiled before login.

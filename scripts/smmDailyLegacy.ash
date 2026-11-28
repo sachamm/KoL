@@ -417,7 +417,7 @@ void smmDLGoodNightLocket() {
  smmDLOverdrunkPrep();
  burnCombatLoversLocket();
 }
-void smmDLGoodNightDaycare() { burnScavengeDaycare(min(3, my_adventures())); }
+void smmDLGoodNightDaycare() { smmDailyBudgetedDaycare(); }
 void smmDLGoodNightExcess() { burnOverdrunkExcess(); }
 
 void smmDLGoodNightAdv() { smmDLGoodNightRoute(); }
