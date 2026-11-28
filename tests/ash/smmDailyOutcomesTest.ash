@@ -28,5 +28,23 @@ void main() {
  check(smmDailyLiquidValue(5,1000,2,999999999999,0)==0,"saturated backlog has no nominal quote premium");
  check(kDailyGrindNames contains "garbo.paid" && kDailyGrindNames contains "garbo.free" && kDailyGrindNames contains "garbo.copy","phase histories stay separate");
  check(smmGuardUsePreservesItem($item[seal tooth]),"native combat-reusable flag also preserves permanent tools");
+ check(smmDailySourceUnavailable(false,0,10),"absent source needs no preparation");
+ check(smmDailySourceUnavailable(true,10,10),"exhausted spinner needs no preparation");
+ check(smmDailySourceUnavailable(true,11,10),"over-limit spinner cannot become available");
+ check(!smmDailySourceUnavailable(true,9,10),"remaining spinner minute can still fund a historical fight");
+ check(smmDailySourceUnavailable(true,3,3),"exhausted locket needs no preparation");
+ check(!smmDailySourceUnavailable(true,2,3),"remaining locket charge retains preparation");
+ check(!smmDailySourceUnavailable(true,0,0),"unknown limit is not claimed exhausted");
+ check(!smmDailySourceUnavailable(true,-1,10),"negative counter is not claimed exhausted");
+ check(smmDailyCanReconcileGarbo("garbo","old access hold",true,10),"completed standard native run and real access supersede an old access hold");
+ check(smmDailyCanReconcileGarbo("garbo -10","hold",true,10),"matching standard stop point can reconcile");
+ check(smmDailyCanReconcileGarbo("garbo -0","hold",true,10),"stricter completed stop point can reconcile");
+ check(!smmDailyCanReconcileGarbo("garbo -11","hold",true,10),"leaving more turns cannot satisfy the configured stop point");
+ check(!smmDailyCanReconcileGarbo("garbo -10 nobarf","hold",true,10),"partial daily-only completion cannot reconcile");
+ check(!smmDailyCanReconcileGarbo("garbo farmingmethod=copperhead","hold",true,10),"custom strategy cannot silently clear automatic hold");
+ check(!smmDailyCanReconcileGarbo("garbo","hold",false,10),"native completion without actual access is insufficient");
+ check(!smmDailyCanReconcileGarbo("garbo","",true,10),"an absent hold needs no reconciliation");
+ check(!smmDailyCanReconcileGarbo("unknown","hold",true,10),"unknown completion signature cannot reconcile");
+ check(!smmDailyCanReconcileGarbo("garbo","hold",true,-1),"invalid configured stop point cannot reconcile");
  print((failures==0 ? "PASS" : "FAILED") + " smmDailyOutcomesTest: " + checks + " checks");
 }

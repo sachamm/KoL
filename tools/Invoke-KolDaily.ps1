@@ -259,7 +259,7 @@ try {
   # then borrow only login flags; explicit breakfast runs after day.open.
   Enter-KolDailyLoginGuard $MafiaRoot $Username
 
-  $smm = if ($Mode -eq 'Run') { 'smmdaily run' } else { 'smmdaily plan' }
+  $smm = if ($Mode -eq 'Run') { 'try; smmdaily run' } else { 'smmdaily plan' }
   $cmds = @(
     "login $Username",
     ('ash if (my_name().to_lower_case() != "' + $Username.ToLowerInvariant() + '") abort("DAILY-RUNNER: wrong or missing account");'),
@@ -272,6 +272,7 @@ try {
     'ash if (handling_choice() && last_choice() == 1463) { visit_url("main.php"); print("DAILY-RUNNER: left the open locket screen; handling_choice=" + handling_choice()); }'
   ) + $AfterLoginCommands + @(
     $smm,
+    $(if ($Mode -eq 'Run') { 'else; ash print("SMM_DAILY_COMMAND_FAILED");' }),
     $(if ($Mode -eq 'Run') { New-KolDailyAuditCommand }),
     'smmdaily status',
     'smmdaily journal 40',

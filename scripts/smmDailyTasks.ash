@@ -231,6 +231,19 @@ boolean smmDTGarboDone() {
 	return smmDTGarboCompletion(get_property("_garboCompleted"), get_property("_smm.daily.garboPaidHold"));
 }
 
+void smmDTRunStart() {
+ smmDLRunStart();
+ string completed = get_property("_garboCompleted");
+ string hold = get_property("_smm.daily.garboPaidHold");
+ boolean access = get_property("stenchAirportAlways") == "true" || get_property("_stenchAirportToday") == "true";
+ if (!smmDailyCanReconcileGarbo(completed, hold, access, smmDSettingInt("garboLeaveTurns"))) return;
+ // Current native completion plus actual access supersedes an earlier paid
+ // access hold. Never clear native counters or call manual work unattended.
+ smmDLog("garbo", "NOTE", "recognized standard native completion '" + completed + "' with paid access; prior/manual work is not unattended evidence");
+ set_property("_smm.daily.garboPaidHold", "");
+ print("smmDaily: recognized completed standard garbo with paid access; cleared the stale access hold. Prior/manual work is not unattended evidence.", "blue");
+}
+
 void smmDTGarboRun(string task, string command) {
 	int operatingBefore = smmDBookPurchases();
 	boolean finished = false;
@@ -353,6 +366,13 @@ string smmDTOverdrunkTurnsReady() {
 	if (why != "") return why;
 	if (smmDSecondsToRollover() < smmDSettingInt("rolloverBufferMin") * 60) return "too close to rollover to spend turns";
 	return "";
+}
+
+boolean smmDTSpinnerDone() {
+ return smmDailySourceUnavailable(available_amount($item[Time-Spinner]) > 0, get_property("_timeSpinnerMinutesUsed").to_int(), 10);
+}
+boolean smmDTLocketDone() {
+ return smmDailySourceUnavailable(available_amount($item[Combat Lover's Locket]) > 0, cllNumMonstersFought(), 3);
 }
 
 // ---------------------------------------------------------------------------
@@ -656,8 +676,8 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(5, "diet.finish", "diet.ash: the rest of the diet and the nightcap drink", "smmDTSoberAfterGarboReady", "smmDTOverdrunk", "smmDTDietFinish", "", "", "on", "on");
 	smmDTAdd(5, "goodnight.adv", "good_night_adv: the overdrunk turns", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightAdv", "", "legacy", "legacy");
  smmDTAdd(5, "goodnight.adv.fax", "overdrunk fax fight", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightFax", "", "legacy", "legacy");
- smmDTAdd(5, "goodnight.adv.spinner", "overdrunk Time-Spinner fights", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightSpinner", "", "legacy", "legacy");
- smmDTAdd(5, "goodnight.adv.locket", "overdrunk locket fights", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightLocket", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight.adv.spinner", "overdrunk Time-Spinner fights", "smmDTOverdrunkTurnsReady", "smmDTSpinnerDone", "", "smmDLGoodNightSpinner", "", "legacy", "legacy");
+ smmDTAdd(5, "goodnight.adv.locket", "overdrunk locket fights", "smmDTOverdrunkTurnsReady", "smmDTLocketDone", "", "smmDLGoodNightLocket", "", "legacy", "legacy");
  smmDTAdd(5, "goodnight.adv.daycare", "Boxing Daycare scavenging", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightDaycare", "", "legacy", "legacy");
  smmDTAdd(5, "goodnight.adv.excess", "spend adventures above the rollover cap", "smmDTOverdrunkTurnsReady", "", "", "smmDLGoodNightExcess", "", "legacy", "legacy");
  smmDTAdd(5, "goodnight", "good_night: rollover gear, free uses, budgeted buying", "smmDTOverdrunkReady", "", "", "smmDLGoodNight", "", "legacy", "legacy");
@@ -668,7 +688,7 @@ boolean smmDTRegisterAll() {
 	smmDTAdd(6, "close.spend", "budgeted buying: positive-return items, then Display Case items on sale", "", "", "", "smmDLSpend", "repeat", "legacy", "legacy");
 	smmDTAdd(6, "close.report", "ledgers, price check and the daily resources still unused", "", "", "smmDTReport", "", "repeat", "on", "on");
 
-	smmDHookRunStart = "smmDLRunStart";
+	smmDHookRunStart = "smmDTRunStart";
 	smmDHookRunEnd = "smmDLRunEnd";
 	return true;
 }

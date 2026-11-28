@@ -87,4 +87,8 @@ $auditCommand = New-KolDailyAuditCommand
 Assert-Evidence ($auditCommand -match 'my_id\(\).to_int\(\) > 0' -and $auditCommand -match '_smm.daily.runnerAuditEpoch' -and $auditCommand -match 'today_to_string\(\)' -and $auditCommand -match 'my_ascensions\(\)') 'Stopped-run audit requires the same logged-in epoch'
 Assert-Evidence ($auditCommand -match 'cli_execute\("smmdaily audit"\)' -and $auditCommand -match 'SMM_DAILY_AUDIT SKIPPED') 'Audit or explicit coverage gap is always reported'
 Assert-Evidence ($source.IndexOf('New-KolDailyAuditCommand') -gt $source.IndexOf('    $smm,') -and $source.IndexOf('New-KolDailyAuditCommand') -lt $source.IndexOf("New-KolDailyBoundaryCommand `$runId 'END'")) 'Audit runs after the daily command but inside the evidence boundary'
+Assert-Evidence ($source.Contains("'try; smmdaily run'") -and $source.IndexOf('SMM_DAILY_COMMAND_FAILED') -lt $source.IndexOf('New-KolDailyAuditCommand')) 'Hard child abort is explicitly recorded before the audit/exit continuation'
+$abortedAfterMarker = $text + "`nSMM_DAILY_COMMAND_FAILED"
+$abortProblems = @($abortedAfterMarker -split "`n" | Where-Object { Test-KolDailyProblemLine $_ })
+Assert-Evidence (-not (Get-KolDailyRunEvidence $abortedAfterMarker $id $before $before 'Run' ($abortProblems.Count -eq 0)).candidateForLiveReview) 'Even an abort after a complete marker cannot become a review candidate'
 Write-Output "PASS kol-daily-evidence: $checks checks; fixtures only, no game actions"

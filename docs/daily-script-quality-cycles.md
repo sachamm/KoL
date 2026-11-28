@@ -2,6 +2,14 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 29: skip exhausted sources and audit after a hard abort
+
+Cycle 28 merged as [PR #80](https://github.com/sachamm/KoL/pull/80), `a6c72d4b6eafd2731a5896cdf4a01ca1af603888`. Its exact source passed 1533 assertions, 19 refusal/abort scenarios and 137 Windows cases; installed scripts/modules matched and compiled before login. Native run `c6805511528d486485f112aa3dfbe69b` skipped garbo because the account was already overdrunk, then spent MP preparing an exhausted Time-Spinner. The unchanged HP target could not be funded. A hard ASH abort stopped the command file before audit/status/end and triggered the idle timeout. Stable source does not turn that attempt into a success or establish live phase measurements.
+
+Spinner/locket absence or exhaustion is now checked before MP hooks, with defensive checks before preparation. Native `try;`/`else;` file handling preserves a specific hard-failure marker, same-epoch audit and logout. A real command-file fixture demonstrates abort continuation and success behavior, addressing the distinction missed by stdin-only fixtures. Even an abort after a complete marker is disqualifying.
+
+Run-start reconciliation accepts only completed standard native garbo at an equal/stricter stop point with actual Barf access before clearing a stale local access hold. Partial/custom/unknown runs, missing access and looser stops are rejected. A durable note identifies prior/manual completion; no native counter, completion flag or spending is reset. Phase estimates still omit setup/cleanup outside their boundaries and are not realized marginal profit. The pre-merge full suite passed 1541 assertions and 20 refusal/abort scenarios, followed by ten native reconciliation cases; Windows suites pass 140 cases. Exact integration/native results follow execution. Scores remain unchanged pending evidence.
+
 ## Cycle 28: latest-session outcomes instead of nominal price totals
 
 The latest November 27 session includes later manual garbo/paid farming, nightcap and `good_night`, following the earlier runner tests. A direct worker acquired Barf access. The cumulative garbo report spans 402 turns, separating raw Meat from estimated item value and printing NaN marginal MPA; there is still no smmdaily complete-day marker. A legacy report valued a worthless trinket near a trillion Meat. Manual actions, quote timing and unmeasured old-stock costs cannot be transformed into corrected unattended evidence.
