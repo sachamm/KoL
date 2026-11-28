@@ -282,9 +282,9 @@ void nepFightFreeLeftovers() {
 			healIfRequiredWithMPRestore();
 			redirectAdventure($location[The Neverending Party], 1);
 			if ("_neverendingPartyFreeTurns".get_property().to_int() <= before) {
-    set_property("_smm.nep.blocked", last_encounter() == "Party's Over" ? "server returned Party's Over" : "attempt did not advance the free-turn counter");
-    break;
-   }
+				set_property("_smm.nep.blocked", get_property("lastEncounter") == "Party's Over" ? "server returned Party's Over" : "attempt did not advance the free-turn counter");
+				break;
+			}
 		}
 	} finally {
 		remove_property("choiceAdventure1324");
