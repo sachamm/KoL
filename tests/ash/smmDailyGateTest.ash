@@ -355,7 +355,7 @@ void testRegistry() {
 	check(smmDTaskIndex["mp.bootstrap"] < smmDTaskIndex["breakfast.second"], "MP is restored before second breakfast");
 	check(smmDTaskIndex["day.open"] == 0, "the day opens first");
 	same(smmDHookBeforeTask, "smmDMpHook", "the MP check runs before each task");
-	same(smmDHookRunStart, "smmDLRunStart", "the prompt answers are set for the run");
+	same(smmDHookRunStart, "smmDTRunStart", "prompt setup and native-hold reconciliation share the run-start hook");
 
 	check(count(smmDTSettingWarnings()) >= 1, "setting warnings can be computed logged out");
 }
