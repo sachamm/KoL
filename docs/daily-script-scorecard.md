@@ -18,18 +18,32 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 
 ## Current assessment
 
-**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.70/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result.
+**Demonstrated live performance: 6.0/10. Corrected code, provisionally: 8.85/10.** The earlier 9.05 was a code-only forecast. It is superseded by the operational evidence and conservative assessment below, rather than treated as a demonstrated result. The 9.9 target remains open.
 
 | Criterion | Max | Demonstrated live outcomes | Corrected code, offline |
 |---|---:|---:|---:|
 | Whole day unattended | 2 | 0.8 | 1.65 |
-| Worthwhile daily resources | 2 | 1.6 | 1.7 |
+| Worthwhile daily resources | 2 | 1.6 | 1.75 |
 | Scarce resources protected and aimed | 1.5 | 1.2 | 1.40 |
-| Paid adventures allocated well | 1.5 | 0.4 | 1.20 |
-| Spending rules | 1 | 0.7 | 0.90 |
+| Paid adventures allocated well | 1.5 | 0.4 | 1.25 |
+| Spending rules | 1 | 0.7 | 0.95 |
 | Museum progress | 1 | 0.7 | 0.90 |
 | Safety and reporting | 1 | 0.6 | 0.95 |
-| **Total** | **10** | **6.0** | **8.70** |
+| **Total** | **10** | **6.0** | **8.85** |
+
+### Quality cycle 32: final integrated and capped native verification
+
+[PR #84](https://github.com/sachamm/KoL/pull/84) merged as `31c39f1f09b8d283be2522be6c7ddaeb081ac32d`. Its exact integrated source passed **1566 assertions (1274 ASH + 292 JavaScript)**, **20 refusal/abort scenarios**, compilation, planning and static checks. The four Windows suites passed **140 cases** (40 diagnostics, 45 evidence, 37 login, 18 ownership). Five updated installed scripts and all five runner modules matched tested source; four installed entry points compiled in r29482. A logged-out standalone check granted zero allowance with unverified coverage.
+
+Final authorized native run `35926b9cb1fd42e4ad123e8157a55b9c` preserved completion, quotas and recorded spending. Its standalone diagnostic confirmed `verified=true`, an empty active-run marker, operating costs **343317** and allowance **4197**. Newly observed income brought the shared cap back into balance without removing any expense. The run spent **4163 Meat** (41 green and red beans for 4100 and one NPC orange for 63), leaving **34 Meat** of allowance. Projected resale margin is not a realized sale or profit. Recorded net was 4815674, collection spending 2008589, operating costs 343317 and diet purchases 55897: commitments **2407803**, half-net cap **2407837**.
+
+START/END matched epoch `20261127:231:2771003`, turns **1479152**, adventures **26** and MP **166**. Cash fell from **57836265** to **57832102**, exactly the purchases above. No adventures, MP or paid Daycare turns were spent. Source stayed stable (digest `6faa7ba54bd3b9d7f402b6a3d9c2644327e2974d1180442603ee0c0f6efa22d6`), fencing was clear at generation 161, final audit and END were reached, Mafia exited 0 without timeout and logged out, and login settings restored. Skipping completed/exhausted stages does not exercise fresh-day allocation; the garbo phases remained skipped while overdrunk.
+
+The runner correctly returned **INCOMPLETE**, with no live-review candidate: **66 historical potentially above-average requests**, **7219 Meat potential excess**, **54/54 item types quoted**. The change from 7224 reflects later quotes, not recovered money or proof of a fix. Requests and later prices cannot establish historical fills or averages at purchase time. Case gains remain **5053 copies across 168 items**, with **0 current ranks verified**: ten fresh responses still showed older player counts, and 158 items were not freshly queried. Cached crossings are not placements. Sword 99/100 and saber 4/5 still lack a confirmed profitable remaining use.
+
+The provisional code increase is **0.15**: daily resources **+0.05** for exhausted-source checks before preparation and shared phase dispositions; paid allocation **+0.05** for zero-default paid Daycare and separate phase evidence; spending **+0.05** for constrained crafting and standalone operating-cost coverage. These are behavior improvements, not points for assertion counts or assumed profit. Museum stays at 0.90: fresh-row verification improves evidence but does not itself produce a better placement. Whole-day, scarce allocation, safety and every live score stay unchanged.
+
+**Remaining work toward 9.9:** calibrate source/target alternatives and joint scarce-resource allocation; close unsupported native sourcing, purchase-URL, delegated-worker and recovery boundaries with contemporaneous price/fill evidence; collect useful live garbo phase samples and reconcile source costs with realized proceeds; verify matching fresh Museum rows and broader cheapest-target selection. Then complete **five consecutive corrected unattended days (currently 0/5)** with reconciled quantities, caps and outcomes. This manually played, resumed and financially flagged day cannot qualify retrospectively. Repeating its closing report cannot supply those missing outcomes.
 
 ### Quality cycle 31: standalone spending books manual costs too
 
@@ -37,7 +51,7 @@ The latest session's manual `good_night` spending reports still showed 15130 ope
 
 Operating-spend refresh now runs for any logged-in player with an opening ledger and an available session log, including standalone `good_night`/spending. It retains conservative purchase-request booking, own/diet exclusions, incremental parsing and the maximum already booked. Missing opening/player/log coverage grants no new spending allowance. No recorded expense, actual cash, quota or historical audit flag is cleared. Eight synthetic in-memory cases cover manual context, later purchases, duplicate parsing, shared-cap arithmetic, truncation, logout, missing opening and unavailable log. They do not rely on setting native user preferences while logged out.
 
-[PR #83](https://github.com/sachamm/KoL/pull/83) merged as `d2789642d561b05aeaafa998e7fe0afd1e65d603`; its exact post-merge suite passed **1558 assertions (1266 ASH + 292 JavaScript)**, **20 refusal/abort scenarios** and **140 Windows cases**. The expanded outcome group passes 57 cases and the 637 native gate cases pass. Exact integration and capped native results follow execution. Historical over-budget/price-timing uncertainty, fresh Museum-count matches, source valuation and qualifying unattended days remain unresolved; they are not fixed by discarding evidence.
+[PR #83](https://github.com/sachamm/KoL/pull/83) merged as `d2789642d561b05aeaafa998e7fe0afd1e65d603`; its exact post-merge suite passed **1558 assertions (1266 ASH + 292 JavaScript)**, **20 refusal/abort scenarios** and **140 Windows cases**. The expanded outcome group passes 57 cases and the 637 native gate cases pass. Exact PR84 integration and capped native results are recorded in cycle 32 above. Historical price-timing uncertainty, fresh Museum-count matches, source valuation and qualifying unattended days remain unresolved; they are not fixed by discarding evidence.
 
 ### Quality cycle 30: paid Daycare is an explicit investment
 
