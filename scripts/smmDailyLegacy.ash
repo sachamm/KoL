@@ -406,11 +406,13 @@ void smmDLGoodNightFax() {
  burnFax(false);
 }
 void smmDLGoodNightSpinner() {
+ if (smmDailySourceUnavailable(available_amount($item[Time-Spinner]) > 0, get_property("_timeSpinnerMinutesUsed").to_int(), 10)) return;
  if (my_adventures() <= 0) return;
  smmDLOverdrunkPrep();
  burn_timespinner();
 }
 void smmDLGoodNightLocket() {
+ if (smmDailySourceUnavailable(available_amount($item[Combat Lover's Locket]) > 0, cllNumMonstersFought(), 3)) return;
  if (my_adventures() <= 0) return;
  smmDLOverdrunkPrep();
  burnCombatLoversLocket();

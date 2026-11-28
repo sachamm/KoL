@@ -52,6 +52,13 @@ mafia() { # mafia <gCLI command>...   The empty first line answers the login pro
 		| java -Djava.awt.headless=true -DuseCWDasROOT=true -jar "$JAR" --CLI 2>&1 )
 }
 
+mafia_file() { # Match the production --CLI command-file abort semantics.
+ local fixture="zz_smmdaily_refusal_test.txt"
+ printf '%s\n' "$@" exit > "$RUNTIME/scripts/$fixture"
+ ( cd "$RUNTIME" && printf '\n' | java -Djava.awt.headless=true -DuseCWDasROOT=true -jar "$JAR" --CLI "$fixture" 2>&1 )
+ rm -f "$RUNTIME/scripts/$fixture"
+}
+
 # --- 1. everything compiles --------------------------------------------------
 
 for entry in smmdaily.ash fr.ash; do
@@ -87,6 +94,10 @@ else fail "retrieval ASH abort did not restore settings safely"; tail -12 <<<"$o
 out="$(mafia "smmDailyGarboAbortTest craft")"
 if grep -q 'SMM_RETRIEVAL_FIXTURE_ABORT' <<<"$out" && grep -q 'SMM_CRAFT_FIXTURE_FENCED true' <<<"$out" && grep -q 'SMM_CRAFT_FIXTURE_RESTORED true' <<<"$out" && ! grep -qE 'UNSAFE_(CRAFT|BUY)_EXECUTED' <<<"$out"; then pass "real ASH abort restores all nine crafting settings before any action"
 else fail "crafting ASH abort did not restore settings safely"; tail -12 <<<"$out"; fi
+
+out="$(mafia_file 'try; smmDailyGarboAbortTest craft' 'else; ash print("SMM_DAILY_COMMAND_FAILED");' 'ash print("SMM_ABORT_FILE_CONTINUED");' 'try; ash print("SMM_SUCCESS_FIXTURE");' 'else; ash print("UNSAFE_FALSE_FAILURE_MARKER");')"
+if grep -q 'SMM_RETRIEVAL_FIXTURE_ABORT' <<<"$out" && grep -q '^SMM_DAILY_COMMAND_FAILED' <<<"$out" && grep -q '^SMM_ABORT_FILE_CONTINUED' <<<"$out" && grep -q '^SMM_SUCCESS_FIXTURE' <<<"$out" && ! grep -q 'UNSAFE_FALSE_FAILURE_MARKER' <<<"$out"; then pass "command-file hard abort records failure and continues to final audit/exit without false failure on success"
+else fail "production command-file abort protocol did not preserve final reporting"; tail -16 <<<"$out"; fi
 
 out="$(mafia "smmDailyJournalFailureTest")"
 if grep -q "could not write the journal" <<<"$out" && ! grep -qE "UNSAFE_(TASK|HOOK)_EXECUTED" <<<"$out"; then pass "journal failure stops before the task action"

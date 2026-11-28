@@ -45,6 +45,17 @@ boolean smmDailyCombatItemReady(boolean reusable, int physical, int spare) {
  return physical > 0 && (reusable || spare > 0);
 }
 
+boolean smmDailySourceUnavailable(boolean owned, int used, int limit) {
+ return !owned || (limit > 0 && used >= limit);
+}
+
+boolean smmDailyCanReconcileGarbo(string completed, string hold, boolean access, int stopAt) {
+ if (hold == "" || !access || stopAt < 0) return false;
+ matcher standard = create_matcher("^garbo(?: -([0-9]+))?$", completed);
+ if (!standard.find()) return false;
+ return standard.group(1) == "" || standard.group(1).to_int() <= stopAt;
+}
+
 int smmDailyPurchaseLimit(int requested, float average) {
 	return average > 0 ? max(0, min(requested, floor(average))) : 0;
 }
