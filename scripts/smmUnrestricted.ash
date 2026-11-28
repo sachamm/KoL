@@ -1618,7 +1618,13 @@ record MaximizerRecord {
 void grindGlitchSeasonReward() {
 	print("grindGlitchSeasonReward", "green");
 
+	burnMP();
 	automate_dressup($location[none], "exp", "default", "-equip Everfull Dart Holster");
+	// The exp outfit can raise max HP a lot, and the fight macro's "abort
+	// hppercentbelow 20" then stops round 1 (2026-11-25 and 2026-11-27, at 790
+	// HP). Heal after the outfit change, as the other free fights here do.
+	healIfRequiredWithMPRestore();
+	restore_mp(100);
 
 	advURL("/inv_eat.php?pwd&which=3&whichitem=10207", true, false);
 	assert(inCombat(), "grindGlitchSeasonReward: didn't get into combat!");
