@@ -31,6 +31,14 @@ Live outcomes and code assessments are scored separately. Offline tests establis
 | Safety and reporting | 1 | 0.6 | 0.95 |
 | **Total** | **10** | **6.0** | **8.70** |
 
+### Quality cycle 31: standalone spending books manual costs too
+
+The latest session's manual `good_night` spending reports still showed 15130 operating Meat while the later full audit booked 343317. The standalone budget refresh returned early whenever `smm.daily.active` was empty. Consequently, purchases made by direct/manual garbo could remain outside the next standalone collection-spending decision. This is a code gap, separate from whether historical request rows filled or what their average was at purchase time.
+
+Operating-spend refresh now runs for any logged-in player with an opening ledger and an available session log, including standalone `good_night`/spending. It retains conservative purchase-request booking, own/diet exclusions, incremental parsing and the maximum already booked. Missing opening/player/log coverage grants no new spending allowance. No recorded expense, actual cash, quota or historical audit flag is cleared. Eight synthetic in-memory cases cover manual context, later purchases, duplicate parsing, shared-cap arithmetic, truncation, logout, missing opening and unavailable log. They do not rely on setting native user preferences while logged out.
+
+[PR #83](https://github.com/sachamm/KoL/pull/83) merged as `d2789642d561b05aeaafa998e7fe0afd1e65d603`; its exact post-merge suite passed **1558 assertions (1266 ASH + 292 JavaScript)**, **20 refusal/abort scenarios** and **140 Windows cases**. The expanded outcome group passes 57 cases and the 637 native gate cases pass. Exact integration and capped native results follow execution. Historical over-budget/price-timing uncertainty, fresh Museum-count matches, source valuation and qualifying unattended days remain unresolved; they are not fixed by discarding evidence.
+
 ### Quality cycle 30: paid Daycare is an explicit investment
 
 [PR #81](https://github.com/sachamm/KoL/pull/81) and the registration-test correction in [PR #82](https://github.com/sachamm/KoL/pull/82) integrated as `41d2ce0717b9052d316725cd8aef450b540415b8`. The corrected exact suite passed **1551 assertions (1259 ASH + 292 JavaScript)**, **20 refusal/abort scenarios** and **140 Windows cases**. Installed source matched and all four entry points compiled.

@@ -2,6 +2,12 @@
 
 The target is 9.9 under the existing scorecard rubric. A new code assessment does not replace the demonstrated live score. Live tests require explicit account ownership and authorization; information-only logins and synthetic checks do not qualify as corrected unattended days.
 
+## Cycle 31: refresh operating costs outside the active runner
+
+The earlier manual `good_night` allocation used an operating total of 15130, while the later complete session audit booked 343317. The refresh helper had returned whenever `smm.daily.active` was empty, leaving direct/manual worker purchases out of standalone spending decisions. Refresh now requires a logged-in player, opening ledger and available session log rather than an active runner. Missing coverage withholds new allowance. Existing conservative request totals, own/diet exclusions and already-booked maxima remain; nothing historical is erased.
+
+Eight in-memory synthetic regressions exercise standalone booking, incremental/no-duplicate parsing, cap reduction, truncation and missing player/opening/log coverage. No native user preferences or live state are used as fixtures. PR83 merged as `d2789642d561b05aeaafa998e7fe0afd1e65d603`; its exact full suite passed 1558 assertions, 20 refusal/abort scenarios and 140 Windows cases. Native expanded outcomes pass 57 cases and gate tests pass 637. Exact integration/native verification follows execution. Historical fill/price timing cannot be reconstructed from a later quote, and the remaining fresh-rank, target-value and unattended-day evidence remains open.
+
 ## Cycle 30: paid Daycare requires an explicit allocation
 
 PR81/82 integrated as `41d2ce0717b9052d316725cd8aef450b540415b8`; the corrected exact suite passed 1551 assertions, 20 refusal/abort scenarios and 140 Windows cases. Native run `0bed274e9dcd4804ba6ab2221692d5c7` recognized prior standard garbo/access, skipped exhausted sources, reached close/audit and exited normally. Source stayed stable, boundaries matched, the fence was clear and login settings restored. It made no purchases and cash was unchanged.

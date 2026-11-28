@@ -121,20 +121,39 @@ int smmSpendDietPurchases() { return max(0, get_property("_smm.diet.bought").to_
 // inside good_night. Purchase requests conservatively overbook partial fills.
 int smmSpendLogOffset;
 int smmSpendLogPurchases;
+boolean smmSpendOperatingVerified;
+boolean smmSpendOperatingTestMode; // isolated fixtures; never a saved setting
+int smmSpendOperatingTestPlayer;
+boolean smmSpendOperatingTestHasLog = true;
+string smmSpendOperatingTestLog;
+string [string] smmSpendOperatingTestProperties;
+string smmSpendOperatingProperty(string key) {
+ return smmSpendOperatingTestMode ? smmSpendOperatingTestProperties[key] : get_property(key);
+}
 void smmSpendRefreshOperating() {
- if (get_property("smm.daily.active") == "") return;
- string [int] logs = session_logs(1);
+ smmSpendOperatingVerified = false;
+ int player = smmSpendOperatingTestMode ? smmSpendOperatingTestPlayer : my_id().to_int();
+ if (smmSpendOperatingProperty(kSmmSpendStartKey) == "" || player <= 0) return;
+ string [int] logs;
+ if (smmSpendOperatingTestMode) {
+  if (smmSpendOperatingTestHasLog) logs[0] = smmSpendOperatingTestLog;
+ } else logs = session_logs(1);
  if (count(logs) == 0) return;
+ smmSpendOperatingVerified = true;
  if (logs[0].length() < smmSpendLogOffset) { smmSpendLogOffset = 0; smmSpendLogPurchases = 0; }
  matcher buys = create_matcher("(?m-s)^buy ([0-9,]+) .+ for ([0-9,]+) each from .+$", logs[0].substring(smmSpendLogOffset));
  while (buys.find()) smmSpendLogPurchases += buys.group(1).to_int() * buys.group(2).to_int();
  smmSpendLogOffset = logs[0].length();
- int elsewhere = smmSpendLoggedSpent() + max(0, get_property("_smm.diet.bought").to_int());
- set_property(kSmmSpendOperatingKey, max(smmSpendOperating(), max(0, smmSpendLogPurchases - elsewhere)));
+ int elsewhere = smmSpendLoggedSpentFrom(smmSpendOperatingProperty(kSmmSpendSpentKey).to_int(),
+  smmSpendOperatingProperty(kSmmSpendLogAdjustmentKey).to_int()) + max(0, smmSpendOperatingProperty("_smm.diet.bought").to_int());
+ int booked = max(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int(), max(0, smmSpendLogPurchases - elsewhere));
+ if (smmSpendOperatingTestMode) smmSpendOperatingTestProperties[kSmmSpendOperatingKey] = booked;
+ else set_property(kSmmSpendOperatingKey, booked);
 }
 
 int smmSpendBudget() {
  smmSpendRefreshOperating();
+ if (!smmSpendOperatingVerified) return 0;
 	return min(smmSpendAllowance(smmSpendNet(), smmSpendSpent(), smmSpendOperating(), smmSpendDietPurchases(), smmSpendFraction()), my_meat());
 }
 

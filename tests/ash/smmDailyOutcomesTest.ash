@@ -1,7 +1,45 @@
 import <smmDailyGarboEvidence.ash>
 int checks; int failures;
 void check(boolean ok, string why) { checks += 1; if (!ok) { failures += 1; print("FAIL outcomes: " + why); } }
+void manualBooking() {
+ int oldOffset=smmSpendLogOffset; int oldPurchases=smmSpendLogPurchases;
+ boolean oldVerified=smmSpendOperatingVerified;
+ try {
+  smmSpendOperatingTestMode=true; smmSpendOperatingTestPlayer=123; smmSpendOperatingTestHasLog=true;
+  clear(smmSpendOperatingTestProperties);
+  smmSpendOperatingTestProperties[kSmmSpendStartKey]="1000";
+  smmSpendOperatingTestProperties[kSmmSpendSpentKey]="20";
+  smmSpendOperatingTestProperties[kSmmSpendOperatingKey]="0";
+  smmSpendOperatingTestProperties[kSmmSpendLogAdjustmentKey]="0";
+  smmSpendOperatingTestProperties["_smm.diet.bought"]="30";
+  smmSpendOperatingTestProperties["smm.daily.active"]="";
+  smmSpendLogOffset=0; smmSpendLogPurchases=0;
+  smmSpendOperatingTestLog="buy 2 seal tooth for 100 each from shop #42 on 20261127\n";
+  smmSpendRefreshOperating();
+  check(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int()==150 && smmSpendOperatingVerified,"standalone manual context books other purchases after own/diet charges");
+  smmSpendRefreshOperating();
+  check(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int()==150,"unchanged log cannot charge the purchases twice");
+  smmSpendOperatingTestLog+="buy 1 spices for 50 each from shop #43 on 20261127\n";
+  smmSpendRefreshOperating();
+  check(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int()==200,"later manual purchases reduce the next standalone allowance");
+  check(smmSpendAllowance(1000,20,smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int(),30,0.5)==250,"updated operating spend enters the actual shared-cap arithmetic");
+  smmSpendOperatingTestLog=""; smmSpendRefreshOperating();
+  check(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int()==200,"truncated log cannot release already booked commitments");
+  smmSpendOperatingTestPlayer=0; smmSpendOperatingTestLog="buy 9 spices for 100 each from shop #43 on 20261127\n";
+  smmSpendRefreshOperating();
+  check(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int()==200 && !smmSpendOperatingVerified,"logged-out context cannot book or authorize allowance");
+  smmSpendOperatingTestPlayer=123; smmSpendOperatingTestProperties[kSmmSpendStartKey]=""; smmSpendRefreshOperating();
+  check(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int()==200 && !smmSpendOperatingVerified,"missing opening ledger cannot authorize allowance");
+  smmSpendOperatingTestProperties[kSmmSpendStartKey]="1000"; smmSpendOperatingTestHasLog=false; smmSpendRefreshOperating();
+  check(smmSpendOperatingProperty(kSmmSpendOperatingKey).to_int()==200 && !smmSpendOperatingVerified,"missing session log preserves commitments but withholds allowance");
+ } finally {
+  clear(smmSpendOperatingTestProperties);
+  smmSpendOperatingTestMode=false; smmSpendOperatingTestPlayer=0; smmSpendOperatingTestHasLog=true; smmSpendOperatingTestLog="";
+  smmSpendLogOffset=oldOffset; smmSpendLogPurchases=oldPurchases; smmSpendOperatingVerified=oldVerified;
+ }
+}
 void main() {
+ manualBooking();
  check(smmDailyVerifiedRank(true,100,100,25,25,1)==1,"fresh matching first place");
  check(smmDailyVerifiedRank(true,101,100,25,25,10)==10,"fresh matching top ten");
  check(smmDailyVerifiedRank(false,101,100,25,25,1)==0,"failed refresh cannot use old row");
